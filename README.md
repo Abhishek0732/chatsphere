@@ -7,10 +7,26 @@ A real-time, WhatsApp-style chat application. Full stack, **everything runs in D
 
 ## Quick start
 
+The only requirement on your machine is **Docker** (with Docker Compose) — no Java,
+Node or MySQL install needed.
+
 ```bash
-# From this directory:
+# 1. Clone
+git clone https://github.com/Abhishek0732/chatsphere.git
+cd chatsphere
+
+# 2. Create your env file from the template
+cp .env.example .env
+#    Edit .env if you like. To share the app with others on your network, set
+#    PUBLIC_HOST to your LAN IP (e.g. 192.168.1.50) instead of "localhost".
+
+# 3. Build + start the whole stack (detached)
 docker compose up -d --build
-# or: make up
+#    or: make up
+
+# 4. Wait for the backend to become healthy (~1 min on first run)
+docker compose ps
+docker compose logs -f backend    # look for "Started ... in N seconds", then Ctrl-C
 ```
 
 First build takes a few minutes (Maven + npm run inside the containers). Then:
@@ -63,8 +79,11 @@ make rebuild       # no-cache rebuild
 
 ## Configuration
 
-All configuration is via `.env` (ports, credentials, JWT secret, TTLs). Change the
-`JWT_SECRET` before any real deployment.
+All configuration is via `.env` (ports, credentials, JWT secret, TTLs). Copy the
+committed `.env.example` template to `.env` and adjust as needed — your real `.env`
+is gitignored so secrets never get committed. Change the `JWT_SECRET` before any real
+deployment. After changing `PUBLIC_HOST`, rebuild the frontend (URLs are baked in at
+build time): `docker compose up -d --build frontend backend`.
 
 ## Notes on scope
 
