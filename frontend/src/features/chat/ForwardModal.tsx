@@ -1,7 +1,10 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Search } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
+import { cn } from '@/utils/cn';
 import { useConversations } from '@/hooks/useConversations';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { toast } from '@/store/toastStore';
@@ -15,23 +18,69 @@ interface ForwardModalProps {
 export function ForwardModal({ message, onClose }: ForwardModalProps) {
   const { data: conversations, isLoading } = useConversations();
   const send = useSendMessage();
-  const navigate = useNavigate();
+  const [term, setTerm] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  const forwardTo = (targetId: number, publicId: string) => {
-    if (!message) return;
-    send({
-      conversationId: targetId,
-      content: message.content,
-      type: message.type,
-      attachmentUrl: message.attachmentUrl,
+  // Reset the picker each time the modal is opened for a new message.
+  const open = message != null;
+  useEffect(() => {
+    if (open) {
+      setSelected(new Set());
+      setTerm('');
+    }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const list = conversations ?? [];
+    return q ? list.filter((c) => c.name.toLowerCase().includes(q)) : list;
+  }, [conversations, term]);
+
+  const toggle = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
     });
-    toast({ title: 'Message forwarded', variant: 'success' });
+  };
+
+  const handleForward = () => {
+    if (!message || selected.size === 0) return;
+    const targets = (conversations ?? []).filter((c) => selected.has(c.id));
+    targets.forEach((c) => {
+      send({
+        conversationId: c.id,
+        content: message.content,
+        type: message.type,
+        attachmentUrl: message.attachmentUrl,
+      });
+    });
+    toast({
+      title:
+        targets.length === 1
+          ? 'Message forwarded'
+          : `Message forwarded to ${targets.length} chats`,
+      variant: 'success',
+    });
     onClose();
-    navigate(`/chat/${publicId}`);
   };
 
   return (
-    <Modal open={message != null} onClose={onClose} title="Forward to">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Forward to"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleForward} disabled={selected.size === 0}>
+            {selected.size > 0 ? `Send (${selected.size})` : 'Send'}
+          </Button>
+        </>
+      }
+    >
       {isLoading ? (
         <div className="flex justify-center py-8">
           <Spinner className="h-6 w-6" />
@@ -39,24 +88,60 @@ export function ForwardModal({ message, onClose }: ForwardModalProps) {
       ) : !conversations || conversations.length === 0 ? (
         <p className="py-8 text-center text-sm text-slate-400">No conversations available.</p>
       ) : (
-        <ul className="max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
-          {conversations.map((c) => (
-            <li key={c.id}>
-              <button
-                onClick={() => forwardTo(c.id, c.publicId)}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <Avatar name={c.name} src={c.avatarUrl} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{c.name}</p>
-                  <p className="text-xs text-slate-400">
-                    {c.type === 'GROUP' ? 'Group' : 'Direct message'}
-                  </p>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              autoFocus
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search chats"
+              className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-400">No chats found.</p>
+          ) : (
+            <ul className="max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
+              {filtered.map((c) => {
+                const isSelected = selected.has(c.id);
+                return (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => toggle(c.id)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition',
+                        isSelected
+                          ? 'bg-brand-50 dark:bg-brand-500/10'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-800',
+                      )}
+                    >
+                      <Avatar name={c.name} src={c.avatarUrl} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {c.type === 'GROUP' ? 'Group' : 'Direct message'}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition',
+                          isSelected
+                            ? 'border-brand-500 bg-brand-gradient text-white'
+                            : 'border-slate-300 dark:border-slate-600',
+                        )}
+                        aria-hidden
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       )}
     </Modal>
   );

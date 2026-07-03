@@ -271,9 +271,10 @@ class SocketService {
 
     const activeId = useChatStore.getState().activeConversationId;
     const isActive = activeId === message.conversationId;
-    // Increment unread only when it's not our own message and the thread
-    // isn't currently open.
-    bumpConversation(message, { incrementUnread: !isActive });
+    const isOwn = message.senderId === authAccessors.getUserId();
+    // Increment unread only when it's not our own message (e.g. the echo of a
+    // message we sent or forwarded) and the thread isn't currently open.
+    bumpConversation(message, { incrementUnread: !isOwn && !isActive });
 
     // Ensure the conversation exists in the list; if unknown, refetch list.
     const list = queryClient.getQueryData(queryKeys.conversations) as
