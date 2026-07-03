@@ -17,12 +17,12 @@ export function Toaster() {
   const navigate = useNavigate();
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-2">
+    <div className="pointer-events-none fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:right-4 sm:w-full sm:max-w-sm">
       {toasts.map((t) => (
         <div
           key={t.id}
           className={cn(
-            'pointer-events-auto flex items-start gap-3 rounded-lg border bg-white p-3 shadow-lg animate-slide-up dark:border-slate-700 dark:bg-slate-800',
+            'pointer-events-auto flex animate-slide-down items-start gap-3 rounded-xl border border-slate-200/70 bg-white/90 p-3 shadow-soft backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-800/90',
             t.href && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/70',
           )}
           onClick={() => {

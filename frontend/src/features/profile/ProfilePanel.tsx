@@ -11,6 +11,7 @@ import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMe, useUpdateProfile } from '@/hooks/useProfile';
 import { uploadMedia } from '@/api/media';
 import { toast } from '@/store/toastStore';
+import { useImageViewer } from '@/store/imageViewerStore';
 
 const schema = z.object({
   displayName: z.string().min(2, 'Enter your name'),
@@ -24,6 +25,7 @@ export function ProfilePanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [uploading, setUploading] = useState(false);
+  const openViewer = useImageViewer((s) => s.open);
 
   const {
     register,
@@ -77,7 +79,12 @@ export function ProfilePanel() {
 
       <div className="mb-6 flex flex-col items-center gap-3">
         <div className="relative">
-          <Avatar name={me.displayName} src={avatarUrl} size="xl" />
+          <Avatar
+            name={me.displayName}
+            src={avatarUrl}
+            size="xl"
+            onClick={() => openViewer(me.displayName, avatarUrl, { circle: true })}
+          />
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}

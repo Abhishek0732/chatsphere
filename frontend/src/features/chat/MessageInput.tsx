@@ -197,7 +197,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
             signalTyping();
           }}
           onKeyDown={onKeyDown}
-          className="max-h-32 min-h-[2.5rem] flex-1 resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          className="max-h-32 min-h-[2.5rem] flex-1 resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
 
         <Button

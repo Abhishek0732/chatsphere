@@ -1,5 +1,4 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { SquarePen } from 'lucide-react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { ConversationList } from '@/features/chat/ConversationList';
 import { cn } from '@/utils/cn';
 
@@ -9,7 +8,6 @@ import { cn } from '@/utils/cn';
  */
 export function ChatShell() {
   const location = useLocation();
-  const navigate = useNavigate();
   const isThread = location.pathname.startsWith('/chat/');
 
   return (
@@ -21,16 +19,6 @@ export function ChatShell() {
           isThread ? 'hidden md:flex' : 'flex',
         )}
       >
-        <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <h1 className="text-lg font-bold text-brand-600">ChatSphere</h1>
-          <button
-            onClick={() => navigate('/contacts')}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-            aria-label="New chat"
-          >
-            <SquarePen className="h-5 w-5" />
-          </button>
-        </header>
         <div className="min-h-0 flex-1">
           <ConversationList />
         </div>

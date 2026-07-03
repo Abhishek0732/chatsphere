@@ -58,11 +58,21 @@ export function ImageViewer() {
       {/* Stop propagation so clicking the image itself doesn't close the viewer. */}
       <div className="flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
         {current.src ? (
-          <img
-            src={current.src}
-            alt={current.name}
-            className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
-          />
+          current.circle ? (
+            // Profile pictures: fixed square cropped to a circle, so every
+            // avatar looks consistent regardless of the source aspect ratio.
+            <img
+              src={current.src}
+              alt={current.name}
+              className="h-64 w-64 rounded-full object-cover shadow-2xl sm:h-80 sm:w-80"
+            />
+          ) : (
+            <img
+              src={current.src}
+              alt={current.name}
+              className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            />
+          )
         ) : (
           <div className="flex h-56 w-56 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-6xl font-semibold text-white shadow-2xl">
             {initials(current.name)}

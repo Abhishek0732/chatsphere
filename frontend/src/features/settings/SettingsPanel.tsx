@@ -10,6 +10,7 @@ import {
 import { useChatStore } from '@/store/chatStore';
 import { useLogout } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useImageViewer } from '@/store/imageViewerStore';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
 
@@ -28,6 +29,7 @@ export function SettingsPanel() {
   const setWallpaper = useThemeStore((s) => s.setWallpaper);
   const connected = useChatStore((s) => s.connected);
   const user = useAuthStore((s) => s.user);
+  const openViewer = useImageViewer((s) => s.open);
   const logout = useLogout();
 
   return (
@@ -36,7 +38,12 @@ export function SettingsPanel() {
 
       {user && (
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <Avatar name={user.displayName} src={user.avatarUrl} size="lg" />
+          <Avatar
+            name={user.displayName}
+            src={user.avatarUrl}
+            size="lg"
+            onClick={() => openViewer(user.displayName, user.avatarUrl, { circle: true })}
+          />
           <div className="min-w-0">
             <p className="truncate font-medium">{user.displayName}</p>
             <p className="truncate text-sm text-slate-400">@{user.username}</p>

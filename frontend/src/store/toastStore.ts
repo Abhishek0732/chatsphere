@@ -12,9 +12,19 @@ export interface Toast {
   duration: number;
 }
 
+/**
+ * What callers pass in. `id`, `variant`, and `duration` are all optional here
+ * (they're defaulted in `push`), while the stored {@link Toast} always has them.
+ */
+export type ToastInput = Omit<Toast, 'id' | 'variant' | 'duration'> & {
+  id?: string;
+  variant?: ToastVariant;
+  duration?: number;
+};
+
 interface ToastState {
   toasts: Toast[];
-  push: (toast: Omit<Toast, 'id'> & { id?: string; duration?: number }) => string;
+  push: (toast: ToastInput) => string;
   dismiss: (id: string) => void;
   clear: () => void;
 }
@@ -44,5 +54,4 @@ export const useToastStore = create<ToastState>()((set) => ({
 }));
 
 /** Non-hook helper for firing toasts from plain modules. */
-export const toast = (t: Omit<Toast, 'id'> & { id?: string; duration?: number }) =>
-  useToastStore.getState().push(t);
+export const toast = (t: ToastInput) => useToastStore.getState().push(t);

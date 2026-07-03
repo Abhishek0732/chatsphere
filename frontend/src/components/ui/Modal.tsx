@@ -35,13 +35,13 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-black/50 animate-fade-in"
+        className="absolute inset-0 animate-fade-in bg-black/50 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
       <div
         className={cn(
-          'relative z-10 w-full max-w-md animate-slide-up rounded-2xl bg-white shadow-xl dark:bg-slate-900',
+          'relative z-10 w-full max-w-md animate-pop-in rounded-2xl border border-slate-200/60 bg-white shadow-soft dark:border-slate-700/60 dark:bg-slate-900',
           className,
         )}
       >

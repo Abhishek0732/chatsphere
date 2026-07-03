@@ -9,7 +9,6 @@ import { formatDayDivider } from '@/utils/format';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { TypingIndicator } from './TypingIndicator';
 import { ForwardModal } from './ForwardModal';
 import { GroupInfoModal } from '@/features/groups/GroupInfoModal';
 import type { Message } from '@/types';
@@ -163,7 +162,6 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
         <div ref={bottomRef} />
       </div>
 
-      <TypingIndicator conversationId={conversationId} />
       <MessageInput conversationId={conversationId} />
 
       {conversation.type === 'GROUP' && (

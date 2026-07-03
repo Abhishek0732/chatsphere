@@ -48,10 +48,11 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
         to={`/chat/${conversation.publicId}`}
         className={({ isActive }) =>
           cn(
-            'flex items-center gap-3 px-3 py-3 transition-colors',
+            'relative flex items-center gap-3 px-3 py-3 transition-all duration-150',
+            'before:absolute before:left-0 before:top-1/2 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-500 before:transition-all before:content-[""]',
             isActive
-              ? 'bg-slate-100 dark:bg-slate-800'
-              : 'hover:bg-slate-50 dark:hover:bg-slate-800/60',
+              ? 'bg-brand-50 before:h-9 dark:bg-brand-900/20'
+              : 'before:h-0 hover:bg-slate-50 dark:hover:bg-slate-800/60',
           )
         }
       >
@@ -64,7 +65,7 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
               // Don't follow the NavLink — open the picture instead.
               e.preventDefault();
               e.stopPropagation();
-              openViewer(conversation.name, conversation.avatarUrl);
+              openViewer(conversation.name, conversation.avatarUrl, { circle: true });
             }}
           />
           {conversation.type === 'GROUP' ? (

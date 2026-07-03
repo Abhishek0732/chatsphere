@@ -112,6 +112,29 @@
 }
 
 @layer utilities {
+  /* Brand gradient — follows the per-user accent (CSS vars). */
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)));
+  }
+  .bg-brand-gradient-soft {
+    background-image: linear-gradient(135deg, rgb(var(--brand-400)), rgb(var(--brand-600)));
+  }
+  /* Gradient text using the accent. */
+  .text-brand-gradient {
+    background-image: linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Frosted glass panel. */
+  .glass {
+    background-color: rgb(255 255 255 / 0.7);
+    backdrop-filter: blur(12px);
+  }
+  .dark .glass {
+    background-color: rgb(15 23 42 / 0.6);
+  }
+
   /* Thin custom scrollbars */
   .scrollbar-thin {
     scrollbar-width: thin;

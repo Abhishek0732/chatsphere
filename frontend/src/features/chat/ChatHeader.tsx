@@ -10,8 +10,8 @@ import { formatLastSeen } from '@/utils/format';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
 
-// Stable empty reference (see TypingIndicator): a fresh `[]` from a zustand
-// selector triggers an infinite re-render loop under useSyncExternalStore.
+// Stable empty reference: a fresh `[]` from a zustand selector triggers an
+// infinite re-render loop under useSyncExternalStore.
 const NO_TYPERS: { userId: number; userName: string }[] = [];
 
 interface ChatHeaderProps {
@@ -40,7 +40,16 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
 
   const presence = useChatStore((s) => (other ? s.presence[other.id] : undefined));
   const typers = useChatStore((s) => s.typing[conversation.id] ?? NO_TYPERS);
-  const someoneTyping = typers.some((t) => t.userId !== myId);
+  const otherTypers = typers.filter((t) => t.userId !== myId);
+  const someoneTyping = otherTypers.length > 0;
+  // In groups, knowing WHO is typing matters; in a direct chat the name is
+  // already shown above, so a plain "typing…" is enough.
+  const typingLabel =
+    conversation.type === 'GROUP'
+      ? otherTypers.length === 1
+        ? `${otherTypers[0].userName} is typing…`
+        : `${otherTypers.map((t) => t.userName).join(', ')} are typing…`
+      : 'typing…';
 
   const handleClear = () => {
     setMenuOpen(false);
@@ -51,10 +60,10 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   };
 
   let subtitle: string;
-  if (conversation.type === 'GROUP') {
+  if (someoneTyping) {
+    subtitle = typingLabel;
+  } else if (conversation.type === 'GROUP') {
     subtitle = `${conversation.members.length} members`;
-  } else if (someoneTyping) {
-    subtitle = 'typing…';
   } else if (presence?.online) {
     subtitle = 'online';
   } else {
@@ -62,7 +71,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   }
 
   return (
-    <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+    <header className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
       <button
         onClick={() => navigate('/')}
         className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
@@ -76,7 +85,8 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
           name={conversation.name}
           src={conversation.avatarUrl}
           size="md"
-          onClick={() => openViewer(conversation.name, conversation.avatarUrl)}
+          className="ring-2 ring-brand-500/20 transition hover:ring-brand-500/50"
+          onClick={() => openViewer(conversation.name, conversation.avatarUrl, { circle: true })}
         />
         <button
           className="min-w-0 flex-1 text-left"

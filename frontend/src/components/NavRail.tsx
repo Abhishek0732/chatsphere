@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useAuthStore } from '@/store/authStore';
+import { useImageViewer } from '@/store/imageViewerStore';
 import { cn } from '@/utils/cn';
 
 const navItems = [
@@ -16,13 +17,20 @@ const navItems = [
 /** Desktop vertical rail + mobile bottom bar navigation. */
 export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) {
   const user = useAuthStore((s) => s.user);
+  const openViewer = useImageViewer((s) => s.open);
 
   return (
     <>
       {/* Desktop rail */}
       <nav className="hidden w-16 flex-col items-center gap-2 border-r border-slate-200 bg-white py-4 dark:border-slate-800 dark:bg-slate-900 md:flex">
         <div className="mb-2">
-          <Avatar name={user?.displayName ?? '?'} src={user?.avatarUrl} size="md" />
+          <Avatar
+            name={user?.displayName ?? '?'}
+            src={user?.avatarUrl}
+            size="md"
+            className="ring-2 ring-brand-500/40 ring-offset-2 ring-offset-white transition hover:ring-brand-500/70 dark:ring-offset-slate-900"
+            onClick={() => openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })}
+          />
         </div>
         {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -32,10 +40,10 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
             title={label}
             className={({ isActive }) =>
               cn(
-                'flex h-11 w-11 items-center justify-center rounded-xl transition',
+                'flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-150 active:scale-95',
                 isActive
-                  ? 'bg-brand-600 text-white'
-                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
+                  ? 'bg-brand-gradient text-white shadow-glow'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
               )
             }
           >

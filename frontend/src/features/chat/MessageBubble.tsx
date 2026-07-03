@@ -112,10 +112,10 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
     <div className={cn('group flex w-full', mine ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'relative max-w-[75%] rounded-2xl px-3 py-2 shadow-sm',
+          'relative max-w-[75%] animate-pop-in rounded-2xl px-3 py-2 shadow-sm',
           mine
-            ? 'rounded-br-sm bg-brand-600 text-white'
-            : 'rounded-bl-sm bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100',
+            ? 'rounded-br-md bg-brand-gradient text-white'
+            : 'rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200/70 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700/50',
         )}
       >
         {showSender && !mine && !message.deleted && (
@@ -155,11 +155,9 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
               <button
                 type="button"
                 onClick={() =>
-                  openViewer(
-                    message.content || 'Photo',
-                    message.attachmentUrl,
-                    message.content || undefined,
-                  )
+                  openViewer(message.content || 'Photo', message.attachmentUrl, {
+                    fileName: message.content || undefined,
+                  })
                 }
                 className="mb-1 block w-full"
               >
