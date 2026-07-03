@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -60,9 +62,14 @@ public class GroupService {
     public GroupDetailDto detail(Long viewerId, Long groupId) {
         Conversation c = getGroup(groupId);
         chatService.assertMember(groupId, viewerId);
-        List<Long> memberIds = chatService.memberUserIds(groupId);
-        List<UserDto> members = userRepository.findAllById(memberIds).stream()
-                .map(UserDto::from).toList();
+        List<ConversationMember> mems = memberRepository.findByConversationId(groupId);
+        Map<Long, User> userById = userRepository
+                .findAllById(mems.stream().map(ConversationMember::getUserId).toList())
+                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        List<GroupMemberDto> members = mems.stream()
+                .filter(m -> userById.containsKey(m.getUserId()))
+                .map(m -> new GroupMemberDto(UserDto.from(userById.get(m.getUserId())), m.getRole().name()))
+                .toList();
         return new GroupDetailDto(c.getId(), c.getName(), c.getAvatarUrl(), members, c.getCreatedBy());
     }
 
@@ -74,7 +81,8 @@ public class GroupService {
             c.setName(req.name());
         }
         if (req.avatarUrl() != null) {
-            c.setAvatarUrl(req.avatarUrl());
+            // Empty string clears the group picture; null leaves it unchanged.
+            c.setAvatarUrl(req.avatarUrl().isBlank() ? null : req.avatarUrl());
         }
         conversationRepository.save(c);
         return detail(userId, groupId);
@@ -90,6 +98,32 @@ public class GroupService {
             }
         }
         return detail(userId, groupId);
+    }
+
+    @Transactional
+    public GroupDetailDto setMemberRole(Long actorId, Long groupId, Long targetUserId, String roleStr) {
+        getGroup(groupId);
+        assertAdmin(groupId, actorId);
+
+        ConversationMember target = memberRepository.findByConversationIdAndUserId(groupId, targetUserId)
+                .orElseThrow(() -> ApiException.notFound("Member not found"));
+        if (target.getRole() == ConversationMember.Role.OWNER) {
+            throw ApiException.badRequest("The group owner's role cannot be changed");
+        }
+
+        ConversationMember.Role role;
+        try {
+            role = ConversationMember.Role.valueOf(roleStr);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest("Invalid role: " + roleStr);
+        }
+        if (role == ConversationMember.Role.OWNER) {
+            throw ApiException.badRequest("Cannot assign the OWNER role");
+        }
+
+        target.setRole(role);
+        memberRepository.save(target);
+        return detail(actorId, groupId);
     }
 
     @Transactional

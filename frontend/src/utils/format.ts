@@ -81,3 +81,14 @@ export function formatBytes(bytes: number): string {
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+/**
+ * Human-readable filename from an uploaded object URL. Uploaded objects are
+ * named "{uuid}-{original}", so strip the leading UUID.
+ */
+export function fileNameFromUrl(url?: string | null): string {
+  if (!url) return 'Attachment';
+  const seg = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '');
+  const m = /^[0-9a-fA-F-]{36}-(.+)$/.exec(seg);
+  return (m ? m[1] : seg) || 'Attachment';
+}

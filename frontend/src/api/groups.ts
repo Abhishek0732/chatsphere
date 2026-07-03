@@ -31,3 +31,11 @@ export async function addGroupMembers(id: number, userIds: number[]): Promise<vo
 export async function removeGroupMember(id: number, userId: number): Promise<void> {
   await api.delete(`/groups/${id}/members/${userId}`);
 }
+
+export async function setGroupMemberRole(
+  id: number,
+  userId: number,
+  role: 'ADMIN' | 'MEMBER',
+): Promise<void> {
+  await api.put(`/groups/${id}/members/${userId}/role`, { role });
+}

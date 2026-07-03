@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { useConversations } from '@/hooks/useConversations';
 import { cn } from '@/utils/cn';
+import { AddContactModal } from '@/features/contacts/AddContactModal';
 import { ConversationListItem } from './ConversationListItem';
 
 type Filter = 'all' | 'unread' | 'groups';
@@ -19,7 +19,7 @@ export function ConversationList() {
   const { data, isLoading } = useConversations();
   const [term, setTerm] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const navigate = useNavigate();
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const list = data ?? [];
@@ -47,22 +47,13 @@ export function ConversationList() {
           : 'No conversations yet. Start one from Contacts.';
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div className="space-y-3 border-b border-slate-200 p-3 dark:border-slate-800">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
-              <MessageCircle className="h-4 w-4" />
-            </div>
-            <h1 className="text-lg font-bold tracking-tight text-brand-gradient">ChatSphere</h1>
+        <div className="flex items-center gap-2 px-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+            <MessageCircle className="h-4 w-4" />
           </div>
-          <button
-            onClick={() => navigate('/contacts')}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-gradient text-white shadow-sm transition hover:shadow-glow active:scale-95"
-            aria-label="New chat"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
+          <h1 className="text-lg font-bold tracking-tight text-brand-gradient">ChatSphere</h1>
         </div>
 
         <div className="relative">
@@ -109,6 +100,17 @@ export function ConversationList() {
           </div>
         )}
       </div>
+
+      {/* Floating "new chat" button (WhatsApp-style), bottom-right of the list. */}
+      <button
+        onClick={() => setAddOpen(true)}
+        className="absolute bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-brand-gradient text-white shadow-glow transition hover:brightness-110 active:scale-95"
+        aria-label="New chat"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      <AddContactModal open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }

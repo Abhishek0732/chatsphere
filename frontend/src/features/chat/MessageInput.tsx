@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Paperclip, Reply, SendHorizonal, X } from 'lucide-react';
+import { Camera, Paperclip, Reply, SendHorizonal, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -30,6 +30,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const [uploading, setUploading] = useState(false);
   const [attachment, setAttachment] = useState<PendingAttachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const typingRef = useRef(false);
@@ -96,19 +97,19 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
     if (!text && !attachment) return;
 
     if (attachment) {
+      // One message carries the attachment + the typed text as its caption.
+      // The filename is derived from the URL at render time, so `content` is
+      // free to hold the caption for both images and files.
       send({
         conversationId,
-        content: attachment.type === 'IMAGE' ? text : text || attachment.fileName,
+        content: text,
         type: attachment.type,
         attachmentUrl: attachment.url,
         replyTo,
       });
       setAttachment(null);
-    }
-    if (text && !attachment) {
+    } else {
       send({ conversationId, content: text, type: 'TEXT', replyTo });
-    } else if (text && attachment) {
-      // text was sent as the attachment caption above; nothing else to do
     }
 
     clearDraft(conversationId);
@@ -170,35 +171,55 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       )}
 
       <div className="flex items-end gap-2">
+        {/* Hidden inputs: any-file picker + camera capture (opens the camera on mobile). */}
         <input
           ref={fileInputRef}
           type="file"
           className="hidden"
           onChange={(e) => onFilePicked(e.target.files?.[0])}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          aria-label="Attach file"
-        >
-          {uploading ? <Spinner className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
-        </Button>
-
-        <textarea
-          ref={textareaRef}
-          rows={1}
-          value={draft}
-          placeholder="Type a message"
-          onChange={(e) => {
-            setDraft(conversationId, e.target.value);
-            signalTyping();
-          }}
-          onKeyDown={onKeyDown}
-          className="max-h-32 min-h-[2.5rem] flex-1 resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => onFilePicked(e.target.files?.[0])}
         />
+
+        {/* Composer field with the attach + camera icons inside it. */}
+        <div className="flex flex-1 items-end gap-0.5 rounded-2xl border border-slate-300 bg-white px-2 py-1 shadow-sm transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={draft}
+            placeholder="Type a message"
+            onChange={(e) => {
+              setDraft(conversationId, e.target.value);
+              signalTyping();
+            }}
+            onKeyDown={onKeyDown}
+            className="max-h-32 min-h-[2rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-slate-900 focus:outline-none dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="mb-0.5 rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            aria-label="Attach file"
+          >
+            {uploading ? <Spinner className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+            className="mb-0.5 rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            aria-label="Take photo"
+          >
+            <Camera className="h-5 w-5" />
+          </button>
+        </div>
 
         <Button
           type="button"

@@ -40,7 +40,8 @@ public class UserService {
             user.setAbout(req.about());
         }
         if (req.avatarUrl() != null) {
-            user.setAvatarUrl(req.avatarUrl());
+            // Empty string is an explicit "remove my picture"; null = leave unchanged.
+            user.setAvatarUrl(req.avatarUrl().isBlank() ? null : req.avatarUrl());
         }
         return userRepository.save(user);
     }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Camera } from 'lucide-react';
+import { Camera, Trash2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -63,6 +63,15 @@ export function ProfilePanel() {
     }
   };
 
+  const onRemoveAvatar = () => {
+    setAvatarUrl(undefined);
+    updateProfile.mutate({
+      displayName: me?.displayName ?? '',
+      about: me?.about,
+      avatarUrl: '', // empty string tells the backend to clear the picture
+    });
+  };
+
   const onSubmit = (values: FormValues) => {
     updateProfile.mutate({
       displayName: values.displayName,
@@ -102,6 +111,16 @@ export function ProfilePanel() {
           />
         </div>
         <p className="text-sm text-slate-400">@{me.username}</p>
+        {avatarUrl && (
+          <button
+            type="button"
+            onClick={onRemoveAvatar}
+            disabled={uploading || updateProfile.isPending}
+            className="flex items-center gap-1.5 text-xs font-medium text-red-500 transition hover:text-red-600 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Remove photo
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

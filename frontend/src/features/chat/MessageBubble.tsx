@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, Download, MoreHorizontal, Reply, Forward, Trash2, Ban } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { formatTime } from '@/utils/format';
+import { fileNameFromUrl, formatTime } from '@/utils/format';
 import { useChatStore } from '@/store/chatStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { socketService } from '@/services/socket';
@@ -22,8 +22,8 @@ interface MessageBubbleProps {
 const MENU_W = 144; // matches w-36
 
 function previewOf(message: Message): string | null {
-  if (message.type === 'IMAGE') return '📷 Photo';
-  if (message.type === 'FILE') return `📎 ${message.content || 'Attachment'}`;
+  if (message.type === 'IMAGE') return message.content ? `📷 ${message.content}` : '📷 Photo';
+  if (message.type === 'FILE') return `📎 ${fileNameFromUrl(message.attachmentUrl)}`;
   return message.content || null;
 }
 
@@ -97,7 +97,7 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
 
   const handleDownload = () => {
     if (message.attachmentUrl) {
-      void downloadFile(message.attachmentUrl, message.content || undefined);
+      void downloadFile(message.attachmentUrl, fileNameFromUrl(message.attachmentUrl));
     }
     setMenuOpen(false);
   };
@@ -152,38 +152,52 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
             )}
 
             {message.type === 'IMAGE' && message.attachmentUrl && (
-              <button
-                type="button"
-                onClick={() =>
-                  openViewer(message.content || 'Photo', message.attachmentUrl, {
-                    fileName: message.content || undefined,
-                  })
-                }
-                className="mb-1 block w-full"
-              >
-                <img
-                  src={message.attachmentUrl}
-                  alt={message.content || 'image'}
-                  className="max-h-72 w-full cursor-pointer rounded-lg object-cover"
-                />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
+                  className="mb-1 block w-full"
+                >
+                  <img
+                    src={message.attachmentUrl}
+                    alt={message.content || 'image'}
+                    className="max-h-72 w-full cursor-pointer rounded-lg object-cover"
+                  />
+                </button>
+                {/* Caption typed alongside the image. */}
+                {message.content && (
+                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
+                    {message.content}
+                  </p>
+                )}
+              </>
             )}
 
             {message.type === 'FILE' && message.attachmentUrl && (
-              <button
-                type="button"
-                onClick={() => void downloadFile(message.attachmentUrl!, message.content || undefined)}
-                className={cn(
-                  'mb-1 flex w-full items-center gap-2 rounded-lg p-2 text-left',
-                  mine ? 'bg-brand-700/40' : 'bg-slate-100 dark:bg-slate-700',
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void downloadFile(message.attachmentUrl!, fileNameFromUrl(message.attachmentUrl))
+                  }
+                  className={cn(
+                    'mb-1 flex w-full items-center gap-2 rounded-lg p-2 text-left',
+                    mine ? 'bg-brand-700/40' : 'bg-slate-100 dark:bg-slate-700',
+                  )}
+                >
+                  <FileText className="h-6 w-6 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {fileNameFromUrl(message.attachmentUrl)}
+                  </span>
+                  <Download className="h-4 w-4 shrink-0" />
+                </button>
+                {/* Caption typed alongside the file. */}
+                {message.content && (
+                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
+                    {message.content}
+                  </p>
                 )}
-              >
-                <FileText className="h-6 w-6 shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  {message.content || 'Attachment'}
-                </span>
-                <Download className="h-4 w-4 shrink-0" />
-              </button>
+              </>
             )}
 
             {message.type === 'TEXT' && message.content && (

@@ -77,11 +77,18 @@ export interface SendRequestResult {
   status: 'PENDING' | 'ACCEPTED';
 }
 
+export type GroupRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+
+export interface GroupMember {
+  user: User;
+  role: GroupRole;
+}
+
 export interface GroupDetail {
   id: number;
   name: string;
   avatarUrl?: string;
-  members: User[];
+  members: GroupMember[];
   createdBy: number;
 }
 

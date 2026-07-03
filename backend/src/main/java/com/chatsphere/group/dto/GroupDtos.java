@@ -20,6 +20,11 @@ public final class GroupDtos {
 
     public record AddMembersRequest(@NotNull List<Long> userIds) {}
 
+    /** A group member together with their role (OWNER / ADMIN / MEMBER). */
+    public record GroupMemberDto(UserDto user, String role) {}
+
     public record GroupDetailDto(Long id, String name, String avatarUrl,
-                                 List<UserDto> members, Long createdBy) {}
+                                 List<GroupMemberDto> members, Long createdBy) {}
+
+    public record UpdateMemberRoleRequest(@NotBlank String role) {}
 }

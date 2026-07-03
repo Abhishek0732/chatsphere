@@ -5,6 +5,7 @@ import {
   createGroup,
   getGroup,
   removeGroupMember,
+  setGroupMemberRole,
   updateGroup,
   type CreateGroupPayload,
 } from '@/api/groups';
@@ -66,6 +67,21 @@ export function useRemoveGroupMember(id: number) {
     mutationFn: (userId: number) => removeGroupMember(id, userId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.group(id) });
+    },
+  });
+}
+
+export function useSetGroupMemberRole(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: number; role: 'ADMIN' | 'MEMBER' }) =>
+      setGroupMemberRole(id, userId, role),
+    onSuccess: (_data, { role }) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.group(id) });
+      toast({
+        title: role === 'ADMIN' ? 'Promoted to admin' : 'Removed as admin',
+        variant: 'success',
+      });
     },
   });
 }

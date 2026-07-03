@@ -15,9 +15,9 @@ export function lastMessagePreview(conversation: ConversationSummary): string {
   if (!m) return 'No messages yet';
   switch (m.type) {
     case 'IMAGE':
-      return '📷 Photo';
+      return m.content ? `📷 ${m.content}` : '📷 Photo';
     case 'FILE':
-      return '📎 Attachment';
+      return m.content ? `📎 ${m.content}` : '📎 Attachment';
     default:
       return m.content;
   }

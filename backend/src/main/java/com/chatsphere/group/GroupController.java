@@ -37,6 +37,12 @@ public class GroupController {
         return groupService.addMembers(SecurityUtils.currentUserId(), id, req);
     }
 
+    @PutMapping("/{id}/members/{userId}/role")
+    public GroupDetailDto setMemberRole(@PathVariable Long id, @PathVariable Long userId,
+                                        @Valid @RequestBody UpdateMemberRoleRequest req) {
+        return groupService.setMemberRole(SecurityUtils.currentUserId(), id, userId, req.role());
+    }
+
     @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable Long userId) {
         groupService.removeMember(SecurityUtils.currentUserId(), id, userId);
