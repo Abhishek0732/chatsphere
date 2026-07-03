@@ -1,0 +1,47 @@
+package com.chatsphere.user;
+
+import com.chatsphere.common.error.ApiException;
+import com.chatsphere.user.dto.UpdateProfileRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public User getById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("User not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> search(String query, Long excludeUserId) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        return userRepository.search(query.trim(), excludeUserId);
+    }
+
+    @Transactional
+    public User updateProfile(Long userId, UpdateProfileRequest req) {
+        User user = getById(userId);
+        if (req.displayName() != null && !req.displayName().isBlank()) {
+            user.setDisplayName(req.displayName());
+        }
+        if (req.about() != null) {
+            user.setAbout(req.about());
+        }
+        if (req.avatarUrl() != null) {
+            user.setAvatarUrl(req.avatarUrl());
+        }
+        return userRepository.save(user);
+    }
+}

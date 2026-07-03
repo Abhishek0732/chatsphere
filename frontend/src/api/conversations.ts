@@ -1,0 +1,40 @@
+import { api } from './client';
+import type { ConversationSummary, Message } from '@/types';
+
+export async function getConversations(): Promise<ConversationSummary[]> {
+  const { data } = await api.get<ConversationSummary[]>('/conversations');
+  return data;
+}
+
+export async function getOrCreateDirect(targetUserId: number): Promise<ConversationSummary> {
+  const { data } = await api.post<ConversationSummary>('/conversations/direct', {
+    targetUserId,
+  });
+  return data;
+}
+
+export interface GetMessagesParams {
+  conversationId: number;
+  before?: string | number;
+  limit?: number;
+}
+
+export async function getMessages({
+  conversationId,
+  before,
+  limit = 30,
+}: GetMessagesParams): Promise<Message[]> {
+  const { data } = await api.get<Message[]>(`/conversations/${conversationId}/messages`, {
+    params: { before, limit },
+  });
+  return data;
+}
+
+export async function markConversationRead(conversationId: number): Promise<void> {
+  await api.post(`/conversations/${conversationId}/read`);
+}
+
+/** Clear a conversation's messages for the current user (keeps it in the list). */
+export async function clearConversation(conversationId: number): Promise<void> {
+  await api.delete(`/conversations/${conversationId}/messages`);
+}
