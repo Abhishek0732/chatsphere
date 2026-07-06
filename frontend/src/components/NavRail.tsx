@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { MessageCircle, Users, User, Settings, Sparkles } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -8,16 +8,22 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { cn } from '@/utils/cn';
 
 const navItems = [
-  { to: '/', label: 'Chats', icon: MessageCircle, end: true },
-  { to: '/contacts', label: 'Contacts', icon: Users, end: false },
-  { to: '/profile', label: 'Profile', icon: User, end: false },
-  { to: '/settings', label: 'Settings', icon: Settings, end: false },
+  { to: '/', label: 'Chats', icon: MessageCircle },
+  { to: '/contacts', label: 'Contacts', icon: Users },
+  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 /** Desktop vertical rail + mobile bottom bar navigation. */
 export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const openViewer = useImageViewer((s) => s.open);
+  const { pathname } = useLocation();
+
+  // Keep "Chats" lit while inside a conversation, like Discord highlights the
+  // current section regardless of the exact sub-route.
+  const isNavActive = (to: string) =>
+    to === '/' ? pathname === '/' || pathname.startsWith('/chat') : pathname.startsWith(to);
 
   return (
     <>
@@ -36,24 +42,32 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
             onClick={() => openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })}
           />
         </div>
-        {navItems.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            title={label}
-            className={({ isActive }) =>
-              cn(
-                'flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-150 active:scale-95',
-                isActive
-                  ? 'bg-brand-gradient text-white shadow-glow'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
-              )
-            }
-          >
-            <Icon className="h-5 w-5" />
-          </NavLink>
-        ))}
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const active = isNavActive(to);
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              title={label}
+              className={cn(
+                // Discord-style: squircle that morphs squarer on hover/active,
+                // with an animated pill indicator on the rail's left edge.
+                'group/nav relative flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95',
+                active
+                  ? 'rounded-2xl bg-brand-gradient text-white shadow-glow'
+                  : 'rounded-[22px] text-slate-500 hover:rounded-2xl hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute -left-[14px] w-[3px] rounded-r-full bg-white transition-all duration-200',
+                  active ? 'h-6' : 'h-0 group-hover/nav:h-2.5',
+                )}
+              />
+              <Icon className="h-5 w-5" />
+            </NavLink>
+          );
+        })}
         <div className="mt-auto flex flex-col items-center gap-1">
           <NotificationBell />
           <ThemeToggle />
@@ -67,17 +81,14 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
           hideMobileBar ? 'hidden' : 'flex',
         )}
       >
-        {navItems.map(({ to, label, icon: Icon, end }) => (
+        {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
-            end={end}
-            className={({ isActive }) =>
-              cn(
-                'flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px]',
-                isActive ? 'text-brand-600' : 'text-slate-500 dark:text-slate-400',
-              )
-            }
+            className={cn(
+              'flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px]',
+              isNavActive(to) ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400',
+            )}
           >
             <Icon className="h-5 w-5" />
             {label}

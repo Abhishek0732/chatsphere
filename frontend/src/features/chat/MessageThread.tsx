@@ -189,8 +189,8 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
             return (
               <Fragment key={message.tempId ?? message.id}>
                 {showDivider && (
-                  <div className="my-3 flex justify-center">
-                    <span className="rounded-full bg-white/80 px-3 py-1 text-xs text-slate-500 shadow-sm dark:bg-slate-800/80 dark:text-slate-400">
+                  <div className="my-4 flex justify-center">
+                    <span className="rounded-full border border-white/10 bg-white/70 px-3 py-1 text-[11px] font-medium tracking-wide text-slate-500 backdrop-blur-md dark:bg-white/[0.06] dark:text-slate-300">
                       {formatDayDivider(message.createdAt)}
                     </span>
                   </div>

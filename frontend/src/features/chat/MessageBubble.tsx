@@ -22,6 +22,7 @@ import { socketService } from '@/services/socket';
 import { markMessageDeleted } from '@/services/messageCache';
 import { toast } from '@/store/toastStore';
 import { downloadFile } from '@/utils/download';
+import { copyText } from '@/utils/clipboard';
 import { mediaSrc } from '@/utils/media';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
@@ -147,9 +148,11 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
   };
 
   const handleCopy = () => {
-    if (message.content) void navigator.clipboard?.writeText(message.content).catch(() => {});
-    toast({ title: 'Copied', variant: 'default' });
     setMenuOpen(false);
+    if (!message.content) return;
+    void copyText(message.content).then((ok) =>
+      toast({ title: ok ? 'Copied to clipboard' : 'Copy failed', variant: ok ? 'success' : 'error' }),
+    );
   };
 
   const handlePin = () => {
@@ -166,10 +169,10 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
     <div className={cn('group flex w-full', mine ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'relative max-w-[75%] animate-pop-in rounded-2xl px-3 py-2 shadow-elevated',
+          'relative max-w-[75%] animate-pop-in rounded-[20px] px-3 py-2 shadow-elevated transition-transform duration-150 hover:-translate-y-px',
           mine
-            ? 'rounded-br-md bg-brand-gradient text-white'
-            : 'rounded-bl-md bg-white/90 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-white/[0.055] dark:text-slate-100 dark:ring-white/10',
+            ? 'rounded-br-[7px] bg-brand-gradient text-white'
+            : 'rounded-bl-[7px] bg-white/90 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-white/[0.055] dark:text-slate-100 dark:ring-white/10',
         )}
       >
         {showSender && !mine && !message.deleted && (
