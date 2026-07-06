@@ -22,7 +22,7 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
   return (
     <>
       {/* Desktop rail */}
-      <nav className="glass-panel hidden w-16 flex-col items-center gap-2 border-r border-white/40 py-4 dark:border-white/5 md:flex">
+      <nav className="glass-panel md-float hidden w-[68px] flex-col items-center gap-2 py-4 md:flex">
         {/* Brand mark */}
         <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
           <Sparkles className="h-5 w-5" />

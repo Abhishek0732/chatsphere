@@ -169,7 +169,7 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
           'relative max-w-[75%] animate-pop-in rounded-2xl px-3 py-2 shadow-elevated',
           mine
             ? 'rounded-br-md bg-brand-gradient text-white'
-            : 'rounded-bl-md bg-white/90 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-slate-800/90 dark:text-slate-100 dark:ring-white/10',
+            : 'rounded-bl-md bg-white/90 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-white/[0.055] dark:text-slate-100 dark:ring-white/10',
         )}
       >
         {showSender && !mine && !message.deleted && (
@@ -210,12 +210,12 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
                 <button
                   type="button"
                   onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
-                  className="mb-1 block w-full"
+                  className="-mx-2.5 -mt-1.5 mb-1.5 block w-[calc(100%+1.25rem)] overflow-hidden rounded-2xl"
                 >
                   <img
                     src={mediaSrc(message.attachmentUrl)}
                     alt={message.content || 'image'}
-                    className="max-h-72 w-full cursor-pointer rounded-lg object-cover"
+                    className="max-h-80 w-full cursor-pointer object-cover"
                   />
                 </button>
                 {/* Caption typed alongside the image. */}
@@ -254,7 +254,7 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
                   controls
                   preload="metadata"
                   playsInline
-                  className="mb-1 max-h-72 w-full rounded-lg bg-black"
+                  className="-mx-2.5 -mt-1.5 mb-1.5 block max-h-80 w-[calc(100%+1.25rem)] rounded-2xl bg-black"
                 />
                 {message.content && (
                   <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">

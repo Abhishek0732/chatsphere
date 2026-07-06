@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -22,11 +23,23 @@ export function NotificationBell({ className }: { className?: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number }>({ left: 0, bottom: 0 });
+
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setPos({ left: r.right + 12, bottom: window.innerHeight - r.bottom });
+    }
+    setOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
@@ -35,7 +48,7 @@ export function NotificationBell({ className }: { className?: string }) {
   return (
     <div ref={ref} className={cn('relative', className)}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
         aria-label="Notifications"
       >
@@ -47,8 +60,13 @@ export function NotificationBell({ className }: { className?: string }) {
         )}
       </button>
 
-      {open && (
-        <div className="absolute bottom-0 left-full z-50 ml-3 max-h-[70vh] w-80 max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl scrollbar-thin dark:border-slate-700 dark:bg-slate-900">
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{ position: 'fixed', left: pos.left, bottom: pos.bottom }}
+            className="z-[80] max-h-[70vh] w-80 max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl scrollbar-thin dark:border-slate-700 dark:bg-slate-900"
+          >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 dark:border-slate-800">
             <span className="text-sm font-semibold">Notifications</span>
             {notifications.length > 0 && (
@@ -97,8 +115,9 @@ export function NotificationBell({ className }: { className?: string }) {
               </button>
             ))
           )}
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

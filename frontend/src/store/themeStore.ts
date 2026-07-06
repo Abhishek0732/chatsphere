@@ -30,7 +30,7 @@ export const WALLPAPERS: {
   { key: 'dusk', label: 'Dusk', light: '#efe9f7', dark: '#150f1f' },
 ];
 
-const DEFAULT_ACCENT: AccentKey = 'emerald';
+const DEFAULT_ACCENT: AccentKey = 'violet';
 const DEFAULT_WALLPAPER: WallpaperKey = 'doodle';
 
 interface Prefs {

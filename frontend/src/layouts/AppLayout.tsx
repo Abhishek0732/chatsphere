@@ -17,11 +17,11 @@ export function AppLayout() {
   const isThread = location.pathname.startsWith('/chat/');
 
   return (
-    <div className="app-bg flex h-full w-full overflow-hidden">
+    <div className="app-bg flex h-full w-full overflow-hidden md:gap-3 md:p-3">
       <NavRail hideMobileBar={isThread} />
       <main
         className={cn(
-          'flex-1 overflow-hidden',
+          'min-w-0 flex-1 overflow-hidden',
           // Reserve space for the mobile bottom bar unless we're in a thread.
           isThread ? 'pb-0' : 'pb-14 md:pb-0',
         )}

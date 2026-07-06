@@ -96,6 +96,18 @@
     --brand-900: 15 23 42;
   }
 
+  /* ─── Signature two-tone gradient (per accent) ──────────────────────── */
+  :root {
+    --grad-from: #8b7cff;
+    --grad-to: #5b8def;
+  }
+  html[data-accent='emerald'] { --grad-from: #10b981; --grad-to: #06b6d4; }
+  html[data-accent='blue']    { --grad-from: #3b82f6; --grad-to: #6366f1; }
+  html[data-accent='violet']  { --grad-from: #8b7cff; --grad-to: #5b8def; }
+  html[data-accent='rose']    { --grad-from: #f43f5e; --grad-to: #ec4899; }
+  html[data-accent='amber']   { --grad-from: #f59e0b; --grad-to: #fb923c; }
+  html[data-accent='graphite']{ --grad-from: #64748b; --grad-to: #94a3b8; }
+
   html,
   body,
   #root {
@@ -103,7 +115,13 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-slate-50 text-slate-900 antialiased dark:text-slate-100;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: -0.01em;
+  }
+  html.dark body {
+    background-color: #0b0c14;
   }
 
   * {
@@ -112,16 +130,16 @@
 }
 
 @layer utilities {
-  /* Brand gradient — follows the per-user accent (CSS vars). */
+  /* Signature two-tone brand gradient (per-user accent, CSS vars). */
   .bg-brand-gradient {
-    background-image: linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)));
+    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
   }
   .bg-brand-gradient-soft {
-    background-image: linear-gradient(135deg, rgb(var(--brand-400)), rgb(var(--brand-600)));
+    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
   }
   /* Gradient text using the accent. */
   .text-brand-gradient {
-    background-image: linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)));
+    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -137,28 +155,48 @@
 
   /* Stronger frosted-glass surface for the main panels (sidebar, rail). */
   .glass-panel {
-    background-color: rgb(255 255 255 / 0.72);
-    backdrop-filter: blur(18px) saturate(1.4);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0.62));
+    backdrop-filter: blur(22px) saturate(1.5);
   }
   .dark .glass-panel {
-    background-color: rgb(15 23 42 / 0.62);
-    backdrop-filter: blur(18px) saturate(1.3);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.02));
+    backdrop-filter: blur(24px) saturate(1.4);
+  }
+
+  /* Floating panel: rounded, hairline-bordered card on the app-bg. Desktop only
+     so the mobile single-pane view stays full-bleed. */
+  @media (min-width: 768px) {
+    .md-float {
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgb(255 255 255 / 0.55);
+      box-shadow:
+        0 1px 2px rgb(15 23 42 / 0.04),
+        0 24px 60px -28px rgb(15 23 42 / 0.35);
+    }
+    .dark .md-float {
+      border-color: rgb(255 255 255 / 0.08);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.05),
+        0 28px 70px -30px rgb(0 0 0 / 0.8);
+    }
   }
 
   /* Ambient app backdrop: subtle brand-tinted glows in the corners over the
      base surface, giving the floating panels depth. Follows the accent. */
   .app-bg {
-    background-color: rgb(241 245 249);
+    background-color: rgb(238 242 249);
     background-image:
-      radial-gradient(55rem 55rem at 108% -12%, rgb(var(--brand-500) / 0.14), transparent 60%),
-      radial-gradient(48rem 48rem at -12% 112%, rgb(var(--brand-400) / 0.12), transparent 55%);
+      radial-gradient(55rem 42rem at 100% -8%, rgb(var(--brand-500) / 0.16), transparent 60%),
+      radial-gradient(48rem 40rem at -8% 108%, rgb(var(--brand-400) / 0.13), transparent 58%);
     background-attachment: fixed;
   }
   .dark .app-bg {
-    background-color: rgb(2 6 23);
+    background-color: #0b0c14;
     background-image:
-      radial-gradient(55rem 55rem at 108% -12%, rgb(var(--brand-500) / 0.18), transparent 60%),
-      radial-gradient(48rem 48rem at -12% 112%, rgb(var(--brand-700) / 0.22), transparent 55%);
+      radial-gradient(55rem 42rem at 100% -8%, rgb(var(--brand-500) / 0.20), transparent 60%),
+      radial-gradient(46rem 40rem at 4% 108%, rgb(var(--brand-700) / 0.24), transparent 58%),
+      radial-gradient(40rem 34rem at 82% 104%, rgba(255, 122, 198, 0.08), transparent 55%);
     background-attachment: fixed;
   }
 
@@ -194,8 +232,8 @@
     background-size: 20px 20px;
   }
   .dark .chat-bg {
-    background-color: var(--chat-bg-dark, #0b141a);
-    background-image: radial-gradient(var(--chat-dot-dark, rgb(255 255 255 / 0.03)) 1px, transparent 1px);
+    background-color: var(--chat-bg-dark, #0a0b12);
+    background-image: radial-gradient(var(--chat-dot-dark, rgb(255 255 255 / 0.025)) 1px, transparent 1px);
   }
 
   /* Wallpaper presets override the vars above. "doodle" = defaults. */

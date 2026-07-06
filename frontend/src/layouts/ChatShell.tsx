@@ -11,11 +11,11 @@ export function ChatShell() {
   const isThread = location.pathname.startsWith('/chat/');
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full md:gap-3">
       {/* Conversation list */}
       <aside
         className={cn(
-          'glass-panel h-full w-full flex-col border-r border-white/40 dark:border-white/5 md:flex md:w-80 lg:w-96',
+          'glass-panel md-float h-full w-full flex-col md:flex md:w-80 lg:w-96',
           isThread ? 'hidden md:flex' : 'flex',
         )}
       >
@@ -27,7 +27,7 @@ export function ChatShell() {
       {/* Thread / empty state */}
       <section
         className={cn(
-          'h-full min-w-0 flex-1',
+          'glass-panel md-float h-full min-w-0 flex-1',
           isThread ? 'flex' : 'hidden md:flex',
         )}
       >
