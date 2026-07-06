@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ChatSphere</string>
+
+    <!-- ┌──────────────────────────────────────────────────────────────┐
+         │  YOUR HOSTED URL — change this one line to point the app at   │
+         │  your site, then rebuild. Use https:// so camera / mic /      │
+         │  notifications work (a plain http LAN IP loads the UI only).  │
+         └──────────────────────────────────────────────────────────────┘ -->
+    <string name="app_url">http://192.168.15.205:5173</string>
+</resources>

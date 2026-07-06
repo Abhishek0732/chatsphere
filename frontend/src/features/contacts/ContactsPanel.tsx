@@ -15,6 +15,7 @@ import { useOpenDirect } from '@/hooks/useConversations';
 import { useChatStore } from '@/store/chatStore';
 import { AddContactModal } from './AddContactModal';
 import { CreateGroupModal } from '@/features/groups/CreateGroupModal';
+import { StatusBar } from '@/features/status/StatusBar';
 
 export function ContactsPanel() {
   const { data: contacts, isLoading } = useContacts();
@@ -45,6 +46,9 @@ export function ContactsPanel() {
       </header>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
+        {/* Status / stories row */}
+        <StatusBar />
+
         {incoming.length > 0 && (
           <section className="border-b border-slate-200 dark:border-slate-800">
             <h2 className="flex items-center gap-2 px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">

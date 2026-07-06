@@ -71,6 +71,15 @@ public class BlockService {
         return Set.copyOf(blockRepository.findActivelyBlockedIds(blockerId));
     }
 
+    /** Everyone in an active block relationship with the user, either direction
+     *  (users they block + users who block them). */
+    @Transactional(readOnly = true)
+    public Set<Long> blockRelatedUserIds(Long userId) {
+        Set<Long> ids = new java.util.HashSet<>(blockRepository.findActivelyBlockedIds(userId));
+        ids.addAll(blockRepository.findActiveBlockerIds(userId));
+        return ids;
+    }
+
     /** The users the given user is currently blocking, for display. */
     @Transactional(readOnly = true)
     public List<UserDto> listBlocked(Long actorId) {

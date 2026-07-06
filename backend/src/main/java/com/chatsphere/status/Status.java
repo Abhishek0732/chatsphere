@@ -1,0 +1,47 @@
+package com.chatsphere.status;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.Instant;
+
+@Entity
+@Table(name = "statuses")
+@Getter
+@Setter
+public class Status {
+
+    public enum Type { IMAGE, VIDEO, TEXT }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private Type type = Type.IMAGE;
+
+    @Column(name = "media_url", length = 512)
+    private String mediaUrl;
+
+    @Column(length = 700)
+    private String caption;
+
+    @Column(name = "bg_color", length = 40)
+    private String bgColor;
+
+    @Column(name = "music_url", length = 512)
+    private String musicUrl;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "expires_at", nullable = false)
+    private Instant expiresAt;
+}

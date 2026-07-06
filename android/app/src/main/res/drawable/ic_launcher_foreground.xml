@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Chat bubble, centered in the adaptive-icon safe zone. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,32
+            C41,32 30.5,40.6 30.5,51.2
+            C30.5,56 32.6,60.4 36,63.8
+            L33.4,75.5
+            L45.9,70.1
+            C48.4,71 51.1,71.5 54,71.5
+            C67,71.5 77.5,62.9 77.5,52.2
+            C77.5,41.6 67,32 54,32 Z" />
+    <path
+        android:fillColor="#6D5CFF"
+        android:pathData="M43,49 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+    <path
+        android:fillColor="#6D5CFF"
+        android:pathData="M54,49 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+    <path
+        android:fillColor="#6D5CFF"
+        android:pathData="M65,49 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+</vector>

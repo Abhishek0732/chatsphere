@@ -47,6 +47,40 @@ export interface MessageReaction {
   userIds: number[];
 }
 
+export type StatusType = 'IMAGE' | 'VIDEO' | 'TEXT';
+
+export interface StatusItem {
+  id: number;
+  type: StatusType;
+  mediaUrl?: string | null;
+  caption?: string | null;
+  bgColor?: string | null;
+  musicUrl?: string | null;
+  createdAt: string;
+  viewed: boolean;
+  viewCount: number;
+}
+
+export interface StatusUser {
+  user: User;
+  me: boolean;
+  allViewed: boolean;
+  items: StatusItem[];
+}
+
+export interface StatusViewer {
+  user: User;
+  viewedAt: string;
+}
+
+export interface CreateStatusPayload {
+  type: StatusType;
+  mediaUrl?: string;
+  caption?: string;
+  bgColor?: string;
+  musicUrl?: string;
+}
+
 export interface ReplyPreview {
   id: number;
   senderName: string;
