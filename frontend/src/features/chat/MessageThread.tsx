@@ -5,13 +5,21 @@ import { useConversation, useMarkRead } from '@/hooks/useConversations';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
+import { clearMessageNotifications } from '@/utils/notifications';
 import { formatDayDivider } from '@/utils/format';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { ForwardModal } from './ForwardModal';
+import { TypingBubble } from './TypingBubble';
 import { GroupInfoModal } from '@/features/groups/GroupInfoModal';
+import { useIsBlocked } from '@/hooks/useBlocks';
+import { otherMember } from './utils';
 import type { Message } from '@/types';
+
+// Stable empty reference so a zustand selector doesn't return a fresh [] each
+// render (which would loop under useSyncExternalStore).
+const NO_TYPERS: { userId: number; userName: string }[] = [];
 
 function sameDay(a: string, b: string): boolean {
   const da = new Date(a);
@@ -31,6 +39,20 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const { messages, isLoading, loadOlder, loadingOlder, hasMore } = useMessages(conversationId);
   const markRead = useMarkRead();
 
+  // Who (other than me) is typing in this conversation right now.
+  const other = conversation ? otherMember(conversation, myId) : undefined;
+  const blocked = useIsBlocked(other?.id);
+  const typers = useChatStore((s) => s.typing[conversationId] ?? NO_TYPERS);
+  const otherTypers = typers.filter((t) => t.userId !== myId);
+  // Hide a blocked user's typing indicator from the blocker (WhatsApp-style).
+  const someoneTyping = otherTypers.length > 0 && !blocked;
+  const typingLabel =
+    conversation?.type === 'GROUP' && otherTypers.length > 0
+      ? otherTypers.length === 1
+        ? otherTypers[0].userName
+        : `${otherTypers.map((t) => t.userName).join(', ')}`
+      : undefined;
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
@@ -43,6 +65,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   // Activate conversation + subscribe to its topics.
   useEffect(() => {
     setActive(conversationId);
+    clearMessageNotifications(conversationId);
     socketService.watchConversation(conversationId);
     return () => {
       socketService.unwatchConversation(conversationId);
@@ -66,10 +89,11 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
     if (el) el.scrollTop = el.scrollHeight;
   };
 
-  // Auto-scroll to bottom on new messages when pinned.
+  // Auto-scroll to bottom on new messages, and when the typing bubble appears,
+  // as long as the user is pinned to the bottom.
   useLayoutEffect(() => {
     if (pinnedToBottom.current) scrollToBottom();
-  }, [lastMessageId, isLoading]);
+  }, [lastMessageId, isLoading, someoneTyping]);
 
   // On first load / conversation switch, always land at the newest message.
   // A delayed pass catches late layout (e.g. images) that grows the scroll height.
@@ -159,6 +183,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
             );
           })
         )}
+        {someoneTyping && <TypingBubble label={typingLabel} />}
         <div ref={bottomRef} />
       </div>
 

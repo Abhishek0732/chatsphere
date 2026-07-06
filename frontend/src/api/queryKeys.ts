@@ -6,6 +6,7 @@ export const queryKeys = {
   contacts: ['contacts'] as const,
   contactRequests: ['contactRequests'] as const,
   contactRequestsOutgoing: ['contactRequests', 'outgoing'] as const,
+  blocked: ['blocked'] as const,
   notifications: ['notifications'] as const,
   group: (id: number) => ['group', id] as const,
   userSearch: (q: string) => ['userSearch', q] as const,

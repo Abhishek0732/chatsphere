@@ -3,6 +3,7 @@ import { Download, X } from 'lucide-react';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { downloadFile } from '@/utils/download';
 import { initials } from '@/utils/format';
+import { mediaSrc } from '@/utils/media';
 
 /**
  * Full-screen lightbox for profile pictures. Mounted once at the app root;
@@ -62,13 +63,13 @@ export function ImageViewer() {
             // Profile pictures: fixed square cropped to a circle, so every
             // avatar looks consistent regardless of the source aspect ratio.
             <img
-              src={current.src}
+              src={mediaSrc(current.src)}
               alt={current.name}
               className="h-64 w-64 rounded-full object-cover shadow-2xl sm:h-80 sm:w-80"
             />
           ) : (
             <img
-              src={current.src}
+              src={mediaSrc(current.src)}
               alt={current.name}
               className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
             />

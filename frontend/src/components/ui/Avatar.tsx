@@ -1,6 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import { cn } from '@/utils/cn';
 import { initials } from '@/utils/format';
+import { mediaSrc } from '@/utils/media';
 
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -68,7 +69,7 @@ export function Avatar({ name, src, size = 'md', className, onClick }: AvatarPro
     >
       {showImage ? (
         <img
-          src={src}
+          src={mediaSrc(src)}
           alt={name}
           className="h-full w-full object-cover"
           onError={() => setFailed(true)}

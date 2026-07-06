@@ -5,9 +5,10 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
-import { uploadMedia } from '@/api/media';
+import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { formatBytes } from '@/utils/format';
+import { mediaSrc } from '@/utils/media';
 import type { MessageType } from '@/types';
 
 const TYPING_STOP_MS = 2500;
@@ -74,6 +75,13 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
 
   const onFilePicked = async (file: File | undefined) => {
     if (!file) return;
+    const sizeError = uploadSizeError(file);
+    if (sizeError) {
+      toast({ title: sizeError, variant: 'error' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const result = await uploadMedia(file);
@@ -150,7 +158,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       {attachment && (
         <div className="mb-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800">
           {attachment.type === 'IMAGE' ? (
-            <img src={attachment.url} alt="preview" className="h-12 w-12 rounded object-cover" />
+            <img src={mediaSrc(attachment.url)} alt="preview" className="h-12 w-12 rounded object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded bg-slate-100 dark:bg-slate-700">
               <Paperclip className="h-5 w-5 text-slate-500" />

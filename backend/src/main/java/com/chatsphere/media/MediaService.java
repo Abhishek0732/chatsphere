@@ -66,7 +66,10 @@ public class MediaService {
                     "Upload failed: " + e.getMessage());
         }
 
-        String url = config.publicEndpoint() + "/" + config.bucket() + "/" + objectKey;
+        // Return a relative, same-origin URL. The frontend nginx proxies
+        // "/media/<bucket>/<object>" to MinIO, so media loads correctly over
+        // localhost, a LAN IP, or an HTTPS tunnel without a baked-in host.
+        String url = "/media/" + config.bucket() + "/" + objectKey;
         return new UploadResult(url, original, contentType, file.getSize());
     }
 }

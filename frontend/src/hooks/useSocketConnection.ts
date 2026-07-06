@@ -5,6 +5,7 @@ import { onForcedLogout, onTokenRefreshed } from '@/api/client';
 import { useAuthStore } from '@/store/authStore';
 import { queryClient } from '@/services/queryClient';
 import { toast } from '@/store/toastStore';
+import { NAVIGATE_EVENT, requestNotificationPermission } from '@/utils/notifications';
 
 /**
  * Owns the WebSocket lifecycle for the authenticated app shell:
@@ -20,6 +21,16 @@ export function useSocketConnection() {
     if (!accessToken) return;
     socketService.connect();
 
+    // Ask for desktop-notification permission once we're signed in.
+    void requestNotificationPermission();
+
+    // Clicking an OS notification asks the app to open a chat; navigate in-SPA.
+    const onNavigate = (e: Event) => {
+      const path = (e as CustomEvent<string>).detail;
+      if (typeof path === 'string') navigate(path);
+    };
+    window.addEventListener(NAVIGATE_EVENT, onNavigate);
+
     const offRefresh = onTokenRefreshed(() => {
       // New token -> STOMP CONNECT headers are stale, reconnect.
       socketService.reconnect();
@@ -34,6 +45,7 @@ export function useSocketConnection() {
     });
 
     return () => {
+      window.removeEventListener(NAVIGATE_EVENT, onNavigate);
       offRefresh();
       offLogout();
     };

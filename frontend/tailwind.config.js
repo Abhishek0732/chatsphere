@@ -45,6 +45,10 @@ export default {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-6px)' },
         },
+        'typing-dot': {
+          '0%, 60%, 100%': { transform: 'translateY(0)', opacity: '0.35' },
+          '30%': { transform: 'translateY(-4px)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.15s ease-out',
@@ -53,6 +57,7 @@ export default {
         'pop-in': 'pop-in 0.18s cubic-bezier(0.22, 1, 0.36, 1)',
         'scale-in': 'scale-in 0.15s ease-out',
         float: 'float 6s ease-in-out infinite',
+        'typing-dot': 'typing-dot 1.2s infinite ease-in-out',
       },
       boxShadow: {
         soft: '0 2px 12px -2px rgb(15 23 42 / 0.08), 0 4px 24px -4px rgb(15 23 42 / 0.06)',

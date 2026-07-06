@@ -46,6 +46,7 @@ export function useAddContact() {
         // They had already invited us → became contacts immediately.
         void qc.invalidateQueries({ queryKey: queryKeys.contacts });
         void qc.invalidateQueries({ queryKey: queryKeys.contactRequests });
+        void qc.invalidateQueries({ queryKey: queryKeys.conversations });
         toast({ title: 'Contact added', variant: 'success' });
       } else {
         toast({ title: 'Invitation sent', variant: 'success' });
@@ -67,6 +68,8 @@ export function useAcceptRequest() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.contactRequests });
       void qc.invalidateQueries({ queryKey: queryKeys.contacts });
+      // Accepting creates the direct conversation — show it in the chat list now.
+      void qc.invalidateQueries({ queryKey: queryKeys.conversations });
       toast({ title: 'Contact added', variant: 'success' });
     },
   });

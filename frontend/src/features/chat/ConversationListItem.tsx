@@ -1,26 +1,52 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Eraser, MoreVertical, Users } from 'lucide-react';
+import { Eraser, LogOut, MoreVertical, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PresenceDot } from '@/components/ui/PresenceDot';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useClearChat } from '@/hooks/useConversations';
+import { useLeaveGroup } from '@/hooks/useGroups';
+import { useIsBlocked } from '@/hooks/useBlocks';
 import { formatListTimestamp } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import type { ConversationSummary } from '@/types';
 import { lastMessagePreview, otherMember } from './utils';
 
+// Stable empty reference so the zustand selector doesn't return a fresh [].
+const NO_TYPERS: { userId: number; userName: string }[] = [];
+
 export function ConversationListItem({ conversation }: { conversation: ConversationSummary }) {
   const myId = useAuthStore((s) => s.user?.id);
   const other = otherMember(conversation, myId);
   const online = useChatStore((s) => (other ? Boolean(s.presence[other.id]?.online) : false));
+  const blocked = useIsBlocked(other?.id);
+
+  // Show a live "typing…" hint in place of the last-message preview.
+  const typers = useChatStore((s) => s.typing[conversation.id] ?? NO_TYPERS);
+  const otherTypers = typers.filter((t) => t.userId !== myId);
+  // A blocked user's typing/presence is hidden from the blocker (WhatsApp-style).
+  const someoneTyping = otherTypers.length > 0 && !blocked;
+  const typingText =
+    conversation.type === 'GROUP'
+      ? otherTypers.length === 1
+        ? `${otherTypers[0].userName} is typing…`
+        : `${otherTypers.length} people are typing…`
+      : 'typing…';
   const openViewer = useImageViewer((s) => s.open);
   const clearChat = useClearChat();
+  const leaveGroup = useLeaveGroup();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,9 +63,24 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
     e.stopPropagation();
     setMenuOpen(false);
     const label = conversation.type === 'GROUP' ? 'this group' : conversation.name;
-    if (window.confirm(`Clear all messages with ${label}? The chat stays in your list.`)) {
-      clearChat.mutate(conversation.id);
-    }
+    setConfirm({
+      title: 'Clear chat',
+      message: `Clear all messages with ${label}? The chat stays in your list.`,
+      confirmLabel: 'Clear',
+      onConfirm: () => clearChat.mutate(conversation.id),
+    });
+  };
+
+  const handleLeave = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(false);
+    setConfirm({
+      title: 'Leave group',
+      message: `Leave "${conversation.name}"? You'll stop receiving its messages.`,
+      confirmLabel: 'Leave',
+      onConfirm: () => leaveGroup.mutate(conversation.id),
+    });
   };
 
   return (
@@ -73,7 +114,9 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
               <Users className="h-3 w-3" />
             </span>
           ) : (
-            other && <PresenceDot online={online} className="absolute bottom-0 right-0" />
+            other && !blocked && (
+              <PresenceDot online={online} className="absolute bottom-0 right-0" />
+            )
           )}
         </div>
 
@@ -87,9 +130,15 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm text-slate-500 dark:text-slate-400">
-              {lastMessagePreview(conversation)}
-            </span>
+            {someoneTyping ? (
+              <span className="truncate text-sm font-medium text-brand-600 dark:text-brand-400">
+                {typingText}
+              </span>
+            ) : (
+              <span className="truncate text-sm text-slate-500 dark:text-slate-400">
+                {lastMessagePreview(conversation)}
+              </span>
+            )}
             {conversation.unreadCount > 0 && <Badge>{conversation.unreadCount}</Badge>}
           </div>
         </div>
@@ -115,12 +164,30 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
         <div className="absolute right-2 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
           <button
             onClick={handleClear}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <Eraser className="h-4 w-4" /> Clear chat
           </button>
+          {conversation.type === 'GROUP' && (
+            <button
+              onClick={handleLeave}
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <LogOut className="h-4 w-4" /> Leave group
+            </button>
+          )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirm != null}
+        title={confirm?.title ?? ''}
+        message={confirm?.message ?? ''}
+        confirmLabel={confirm?.confirmLabel}
+        danger
+        onConfirm={() => confirm?.onConfirm()}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }

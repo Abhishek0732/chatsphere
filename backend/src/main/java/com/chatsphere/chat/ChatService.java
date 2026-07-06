@@ -1,5 +1,6 @@
 package com.chatsphere.chat;
 
+import com.chatsphere.block.BlockService;
 import com.chatsphere.chat.domain.Conversation;
 import com.chatsphere.chat.domain.ConversationMember;
 import com.chatsphere.chat.domain.Message;
@@ -30,19 +31,22 @@ public class ChatService {
     private final MessageStatusRepository statusRepository;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
+    private final BlockService blockService;
 
     public ChatService(ConversationRepository conversationRepository,
                        ConversationMemberRepository memberRepository,
                        MessageRepository messageRepository,
                        MessageStatusRepository statusRepository,
                        UserRepository userRepository,
-                       PresenceService presenceService) {
+                       PresenceService presenceService,
+                       BlockService blockService) {
         this.conversationRepository = conversationRepository;
         this.memberRepository = memberRepository;
         this.messageRepository = messageRepository;
         this.statusRepository = statusRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
+        this.blockService = blockService;
     }
 
     /** Deterministic key for a 1:1 conversation regardless of who initiates. */
@@ -153,7 +157,9 @@ public class ChatService {
                     .findFirst().map(users::get).orElse(null);
             if (other != null) {
                 name = other.getDisplayName();
-                avatar = other.getAvatarUrl();
+                // Hide the other user's picture if the viewer has blocked them.
+                avatar = blockService.isBlocked(viewerId, other.getId())
+                        ? null : other.getAvatarUrl();
             }
         }
 
@@ -162,10 +168,23 @@ public class ChatService {
                 .findFirst().orElse(null);
         Long cleared = viewerMember == null ? null : viewerMember.getClearedUpToMessageId();
 
-        Message last = messageRepository.findTopByConversationIdAndDeletedFalseOrderByIdDesc(c.getId());
-        // Don't preview a message the viewer has cleared.
-        if (last != null && cleared != null && last.getId() <= cleared) {
-            last = null;
+        long clearedFloor = cleared == null ? 0L : cleared;
+        Message last;
+        if (!blockService.hasAnyBlocks(viewerId)) {
+            last = messageRepository.findTopByConversationIdAndDeletedFalseOrderByIdDesc(c.getId());
+            // Don't preview a message the viewer has cleared.
+            if (last != null && last.getId() <= clearedFloor) {
+                last = null;
+            }
+        } else {
+            // Pick the latest message NOT hidden by a block window (findPage is
+            // newest-first and already excludes cleared messages).
+            List<BlockService.BlockWindow> windows = blockService.blockWindows(viewerId);
+            last = messageRepository
+                    .findPage(c.getId(), null, clearedFloor, PageRequest.of(0, 30)).stream()
+                    .filter(m -> !BlockService.isHidden(windows, m.getSenderId(), m.getCreatedAt()))
+                    .findFirst()
+                    .orElse(null);
         }
         MessageDto lastDto = last == null ? null
                 : toMessageDto(last, users.get(last.getSenderId()), "SENT", null);
@@ -190,6 +209,15 @@ public class ChatService {
                 .orElse(0L);
         List<Message> page = messageRepository.findPage(
                 conversationId, beforeId, cleared, PageRequest.of(0, Math.min(limit, 100)));
+        // Hide messages sent while the viewer had the sender blocked. Using the
+        // block *windows* (not just current state) means messages received during
+        // a block stay hidden even after the sender is unblocked.
+        List<BlockService.BlockWindow> windows = blockService.blockWindows(userId);
+        if (!windows.isEmpty()) {
+            page = page.stream()
+                    .filter(m -> !BlockService.isHidden(windows, m.getSenderId(), m.getCreatedAt()))
+                    .toList();
+        }
         Map<Long, User> senders = loadSenders(page);
 
         // Highest message id that some OTHER member has read. My messages up to

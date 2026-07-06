@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { useConversations } from '@/hooks/useConversations';
+import { socketService } from '@/services/socket';
 import { cn } from '@/utils/cn';
 import { AddContactModal } from '@/features/contacts/AddContactModal';
 import { ConversationListItem } from './ConversationListItem';
@@ -36,6 +37,15 @@ export function ConversationList() {
       return true;
     });
   }, [data, term, filter]);
+
+  // Keep a live typing subscription open for every conversation so the sidebar
+  // shows "typing…" even for chats that aren't currently open.
+  const convIds = (data ?? []).map((c) => c.id);
+  const convIdsKey = convIds.join(',');
+  useEffect(() => {
+    socketService.syncTypingSubs(convIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convIdsKey]);
 
   const emptyText =
     term

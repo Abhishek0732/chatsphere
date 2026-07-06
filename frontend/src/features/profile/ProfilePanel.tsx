@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMe, useUpdateProfile } from '@/hooks/useProfile';
-import { uploadMedia } from '@/api/media';
+import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 
@@ -46,6 +46,12 @@ export function ProfilePanel() {
 
   const onAvatarPicked = async (file: File | undefined) => {
     if (!file) return;
+    const sizeError = uploadSizeError(file);
+    if (sizeError) {
+      toast({ title: sizeError, variant: 'error' });
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const result = await uploadMedia(file);

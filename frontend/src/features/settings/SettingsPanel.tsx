@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react';
-import { Check, LogOut, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Bell, BellOff, Check, LogOut, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import {
+  notificationPermission,
+  requestNotificationPermission,
+} from '@/utils/notifications';
 import {
   useThemeStore,
   ACCENTS,
@@ -31,6 +35,11 @@ export function SettingsPanel() {
   const user = useAuthStore((s) => s.user);
   const openViewer = useImageViewer((s) => s.open);
   const logout = useLogout();
+
+  const [notifPerm, setNotifPerm] = useState(notificationPermission());
+  const enableNotifications = async () => {
+    setNotifPerm(await requestNotificationPermission());
+  };
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-8 p-6">
@@ -133,6 +142,35 @@ export function SettingsPanel() {
               {w.label}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          Notifications
+        </h2>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            {notifPerm === 'granted' ? (
+              <Bell className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <BellOff className="h-4 w-4 text-slate-400" />
+            )}
+            <span>
+              {notifPerm === 'granted'
+                ? 'Desktop notifications are on'
+                : notifPerm === 'denied'
+                  ? 'Blocked — enable them in your browser settings'
+                  : notifPerm === 'unsupported'
+                    ? 'Not supported on this browser'
+                    : 'Get notified of new messages when the app is in the background'}
+            </span>
+          </div>
+          {notifPerm === 'default' && (
+            <Button size="sm" variant="secondary" onClick={enableNotifications}>
+              Enable
+            </Button>
+          )}
         </div>
       </section>
 

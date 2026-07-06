@@ -36,8 +36,10 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   servlet:
     multipart:
+      # 25MB usable file size; the request cap has headroom for multipart
+      # boundary/header overhead so an actual 25MB file isn't rejected.
       max-file-size: 25MB
-      max-request-size: 25MB
+      max-request-size: 30MB
 
 server:
   port: 8080

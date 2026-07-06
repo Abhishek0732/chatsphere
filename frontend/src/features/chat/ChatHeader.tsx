@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eraser, MoreVertical, Users } from 'lucide-react';
+import { ArrowLeft, Ban, Eraser, LogOut, MoreVertical, UserCheck, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useClearChat } from '@/hooks/useConversations';
+import { useLeaveGroup } from '@/hooks/useGroups';
+import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
 import { formatLastSeen } from '@/utils/format';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
@@ -25,8 +28,19 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   const other = otherMember(conversation, myId);
   const openViewer = useImageViewer((s) => s.open);
   const clearChat = useClearChat();
+  const leaveGroup = useLeaveGroup();
+  const blockUser = useBlockUser();
+  const unblockUser = useUnblockUser();
+  const isBlocked = useIsBlocked(other?.id);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    danger: boolean;
+    onConfirm: () => void;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,13 +68,46 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   const handleClear = () => {
     setMenuOpen(false);
     const label = conversation.type === 'GROUP' ? 'this group' : conversation.name;
-    if (window.confirm(`Clear all messages with ${label}? The chat stays in your list.`)) {
-      clearChat.mutate(conversation.id);
+    setConfirm({
+      title: 'Clear chat',
+      message: `Clear all messages with ${label}? The chat stays in your list.`,
+      confirmLabel: 'Clear',
+      danger: true,
+      onConfirm: () => clearChat.mutate(conversation.id),
+    });
+  };
+
+  const handleLeave = () => {
+    setMenuOpen(false);
+    setConfirm({
+      title: 'Leave group',
+      message: `Leave "${conversation.name}"? You'll stop receiving its messages.`,
+      confirmLabel: 'Leave',
+      danger: true,
+      onConfirm: () => leaveGroup.mutate(conversation.id),
+    });
+  };
+
+  const handleBlockToggle = () => {
+    setMenuOpen(false);
+    if (!other) return;
+    if (isBlocked) {
+      unblockUser.mutate(other);
+    } else {
+      setConfirm({
+        title: `Block ${other.displayName}?`,
+        message: `You'll stop receiving their messages, and their profile photo and status will be hidden.`,
+        confirmLabel: 'Block',
+        danger: true,
+        onConfirm: () => blockUser.mutate(other),
+      });
     }
   };
 
   let subtitle: string;
-  if (someoneTyping) {
+  if (conversation.type === 'DIRECT' && isBlocked) {
+    subtitle = 'Blocked';
+  } else if (someoneTyping) {
     subtitle = typingLabel;
   } else if (conversation.type === 'GROUP') {
     subtitle = `${conversation.members.length} members`;
@@ -71,7 +118,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   }
 
   return (
-    <header className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
+    <header className="relative z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
       <button
         onClick={() => navigate('/')}
         className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
@@ -124,13 +171,48 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
           <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
             <button
               onClick={handleClear}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               <Eraser className="h-4 w-4" /> Clear chat
             </button>
+            {conversation.type === 'GROUP' && (
+              <button
+                onClick={handleLeave}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <LogOut className="h-4 w-4" /> Leave group
+              </button>
+            )}
+            {conversation.type === 'DIRECT' &&
+              other &&
+              (isBlocked ? (
+                <button
+                  onClick={handleBlockToggle}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  <UserCheck className="h-4 w-4" /> Unblock
+                </button>
+              ) : (
+                <button
+                  onClick={handleBlockToggle}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <Ban className="h-4 w-4" /> Block
+                </button>
+              ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirm != null}
+        title={confirm?.title ?? ''}
+        message={confirm?.message ?? ''}
+        confirmLabel={confirm?.confirmLabel}
+        danger={confirm?.danger}
+        onConfirm={() => confirm?.onConfirm()}
+        onClose={() => setConfirm(null)}
+      />
     </header>
   );
 }

@@ -16,6 +16,7 @@ import {
   upsertMessage,
 } from './messageCache';
 import { toast } from '@/store/toastStore';
+import { clearMessageNotifications, notifyMessage } from '@/utils/notifications';
 import type {
   AppNotification,
   ChatSendPayload,
@@ -50,12 +51,33 @@ function chatKeyFor(conversationId: number): string {
   return list?.find((c) => c.id === conversationId)?.publicId ?? String(conversationId);
 }
 
+/** Short one-line preview of a message for notification bodies. */
+function messagePreview(m: Message): string {
+  if (m.type === 'IMAGE') return m.content ? `📷 ${m.content}` : '📷 Photo';
+  if (m.type === 'FILE') return m.content ? `📎 ${m.content}` : '📎 Attachment';
+  return m.content || 'New message';
+}
+
+/** Cached conversation name + type, for building notification titles. */
+function conversationMeta(id: number): { name: string; type: string } | undefined {
+  const list = queryClient.getQueryData<{ id: number; name: string; type: string }[]>(
+    queryKeys.conversations,
+  );
+  return list?.find((c) => c.id === id);
+}
+
 class SocketService {
   private client: Client | null = null;
   private presenceTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Per-conversation topic subscriptions (typing + read). */
+  /** Per-conversation topic subscriptions (typing + read) for the OPEN thread. */
   private convSubs = new Map<number, StompSubscription[]>();
+
+  /** Typing subscriptions for EVERY conversation in the list, so the sidebar
+   *  can show a live "typing…" hint even when the thread isn't open. */
+  private typingSubs = new Map<number, StompSubscription>();
+  /** Last set of conversation ids to watch typing for (replayed on reconnect). */
+  private watchedTypingIds: number[] = [];
 
   private connected = false;
 
@@ -90,6 +112,9 @@ class SocketService {
     this.stopPresencePing();
     this.convSubs.forEach((subs) => subs.forEach((s) => s.unsubscribe()));
     this.convSubs.clear();
+    this.typingSubs.forEach((sub) => sub.unsubscribe());
+    this.typingSubs.clear();
+    this.watchedTypingIds = [];
     if (this.client) {
       void this.client.deactivate();
       this.client = null;
@@ -146,6 +171,10 @@ class SocketService {
     const active = useChatStore.getState().activeConversationId;
     if (active != null) this.watchConversation(active);
 
+    // Re-open typing subscriptions for all listed conversations (subs were
+    // invalidated by the disconnect; the map was cleared).
+    if (this.watchedTypingIds.length) this.syncTypingSubs(this.watchedTypingIds);
+
     this.startPresencePing();
   }
 
@@ -156,6 +185,7 @@ class SocketService {
     // Subscriptions are invalid after a socket close; drop refs so a fresh
     // connect re-subscribes cleanly.
     this.convSubs.clear();
+    this.typingSubs.clear();
   }
 
   // -----------------------------------------------------------------------
@@ -205,6 +235,45 @@ class SocketService {
     if (subs) {
       subs.forEach((s) => s.unsubscribe());
       this.convSubs.delete(conversationId);
+    }
+  }
+
+  /**
+   * Keep a typing subscription open for every conversation in the list so the
+   * sidebar shows a live "typing…" hint. Idempotent: subscribes ids that are
+   * new and drops ones no longer present. Replayed automatically on reconnect.
+   */
+  syncTypingSubs(ids: number[]): void {
+    this.watchedTypingIds = ids;
+    const client = this.client;
+    if (!client || !this.connected) return;
+
+    const wanted = new Set(ids);
+    // Drop subscriptions for conversations that left the list.
+    for (const [id, sub] of this.typingSubs) {
+      if (!wanted.has(id)) {
+        sub.unsubscribe();
+        this.typingSubs.delete(id);
+      }
+    }
+    // Add subscriptions for new conversations.
+    for (const id of ids) {
+      if (this.typingSubs.has(id)) continue;
+      const sub = client.subscribe(
+        `/topic/conversations/${id}/typing`,
+        (frame: IMessage) => {
+          const event = parse<TypingEvent>(frame.body);
+          if (!event) return;
+          useChatStore
+            .getState()
+            .setTyping(
+              event.conversationId,
+              { userId: event.userId, userName: event.userName },
+              event.typing,
+            );
+        },
+      );
+      this.typingSubs.set(id, sub);
     }
   }
 
@@ -284,9 +353,28 @@ class SocketService {
       void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     }
 
+    // Desktop notification when someone else messages us and the app isn't in
+    // the foreground (backgrounded tab / another window). In-app toasts cover
+    // the focused case, so we only fire the OS notification when hidden.
+    // Multiple messages accumulate into one WhatsApp-style stacked notification.
+    if (!isOwn && typeof document !== 'undefined' && document.hidden) {
+      const meta = conversationMeta(message.conversationId);
+      const isGroup = meta?.type === 'GROUP';
+      const preview = messagePreview(message);
+      notifyMessage({
+        conversationId: message.conversationId,
+        // Direct: title is the sender. Group: title is the group, each line
+        // is prefixed with who sent it.
+        title: isGroup ? meta?.name || 'Group' : message.senderName || 'New message',
+        line: isGroup ? `${message.senderName}: ${preview}` : preview,
+        path: `/chat/${chatKeyFor(message.conversationId)}`,
+      });
+    }
+
     // Auto-mark read if the thread is open; the component-level effect will
     // also confirm via REST, but this keeps the socket read receipt prompt.
     if (isActive) {
+      clearMessageNotifications(message.conversationId);
       this.sendRead(message.conversationId, message.id);
     }
   }
@@ -304,6 +392,8 @@ class SocketService {
     } else if (notification.type === 'CONTACT_ACCEPTED') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.contacts });
       void queryClient.invalidateQueries({ queryKey: queryKeys.contactRequestsOutgoing });
+      // The direct conversation is created on accept — pull it into the chat list.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     }
 
     const isContact =

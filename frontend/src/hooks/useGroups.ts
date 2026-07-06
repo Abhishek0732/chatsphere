@@ -11,6 +11,8 @@ import {
 } from '@/api/groups';
 import { queryKeys } from '@/api/queryKeys';
 import { toast } from '@/store/toastStore';
+import { useAuthStore } from '@/store/authStore';
+import { useChatStore } from '@/store/chatStore';
 import type { ConversationSummary } from '@/types';
 
 export function useGroup(id: number | null) {
@@ -68,6 +70,33 @@ export function useRemoveGroupMember(id: number) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.group(id) });
     },
+  });
+}
+
+/** Leave a group I'm a member of (removes myself). */
+export function useLeaveGroup() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const myId = useAuthStore((s) => s.user?.id);
+
+  return useMutation({
+    mutationFn: (groupId: number) => {
+      if (myId == null) return Promise.reject(new Error('Not authenticated'));
+      return removeGroupMember(groupId, myId);
+    },
+    onSuccess: (_data, groupId) => {
+      // Drop it from the chat list immediately.
+      qc.setQueryData<ConversationSummary[]>(queryKeys.conversations, (prev) =>
+        (prev ?? []).filter((c) => c.id !== groupId),
+      );
+      void qc.invalidateQueries({ queryKey: queryKeys.conversations });
+      // Only navigate away if the group we left is the one currently open.
+      if (useChatStore.getState().activeConversationId === groupId) {
+        navigate('/');
+      }
+      toast({ title: 'You left the group', variant: 'default' });
+    },
+    onError: () => toast({ title: 'Could not leave group', variant: 'error' }),
   });
 }
 

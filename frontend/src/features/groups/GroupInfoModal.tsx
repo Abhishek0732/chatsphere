@@ -15,7 +15,7 @@ import {
 import { useContacts } from '@/hooks/useContacts';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
-import { uploadMedia } from '@/api/media';
+import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 
 interface GroupInfoModalProps {
@@ -61,6 +61,12 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
 
   const onAvatarPicked = async (file: File | undefined) => {
     if (!file || !group) return;
+    const sizeError = uploadSizeError(file);
+    if (sizeError) {
+      toast({ title: sizeError, variant: 'error' });
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const result = await uploadMedia(file);

@@ -8,6 +8,7 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { socketService } from '@/services/socket';
 import { markMessageDeleted } from '@/services/messageCache';
 import { downloadFile } from '@/utils/download';
+import { mediaSrc } from '@/utils/media';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
 
@@ -159,7 +160,7 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
                   className="mb-1 block w-full"
                 >
                   <img
-                    src={message.attachmentUrl}
+                    src={mediaSrc(message.attachmentUrl)}
                     alt={message.content || 'image'}
                     className="max-h-72 w-full cursor-pointer rounded-lg object-cover"
                   />

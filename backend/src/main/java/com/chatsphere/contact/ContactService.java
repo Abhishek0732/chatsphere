@@ -1,5 +1,6 @@
 package com.chatsphere.contact;
 
+import com.chatsphere.chat.ChatService;
 import com.chatsphere.common.error.ApiException;
 import com.chatsphere.contact.ContactRequest.Status;
 import com.chatsphere.contact.dto.ContactDtos.AddContactRequest;
@@ -26,17 +27,20 @@ public class ContactService {
     private final UserRepository userRepository;
     private final PresenceService presenceService;
     private final NotificationService notificationService;
+    private final ChatService chatService;
 
     public ContactService(ContactRepository contactRepository,
                           ContactRequestRepository requestRepository,
                           UserRepository userRepository,
                           PresenceService presenceService,
-                          NotificationService notificationService) {
+                          NotificationService notificationService,
+                          ChatService chatService) {
         this.contactRepository = contactRepository;
         this.requestRepository = requestRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
         this.notificationService = notificationService;
+        this.chatService = chatService;
     }
 
     @Transactional(readOnly = true)
@@ -136,6 +140,11 @@ public class ContactService {
 
         createContactIfAbsent(cr.getSenderId(), cr.getRecipientId());
         createContactIfAbsent(cr.getRecipientId(), cr.getSenderId());
+
+        // Materialise the direct conversation right away so both people see each
+        // other in their chat list the moment they become contacts, without
+        // having to open a chat first.
+        chatService.getOrCreateDirect(cr.getSenderId(), cr.getRecipientId());
 
         User accepter = userRepository.findById(cr.getRecipientId()).orElse(null);
         String accepterName = accepter != null ? accepter.getDisplayName() : "Someone";

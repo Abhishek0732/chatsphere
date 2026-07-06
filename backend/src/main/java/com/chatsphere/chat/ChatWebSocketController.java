@@ -1,5 +1,6 @@
 package com.chatsphere.chat;
 
+import com.chatsphere.block.BlockService;
 import com.chatsphere.chat.domain.Message;
 import com.chatsphere.chat.dto.ChatDtos.*;
 import com.chatsphere.common.security.UserPrincipal;
@@ -26,19 +27,22 @@ public class ChatWebSocketController {
     private final NotificationService notificationService;
     private final ChatEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final BlockService blockService;
 
     public ChatWebSocketController(ChatService chatService,
                                    ChatBroadcaster broadcaster,
                                    PresenceService presenceService,
                                    NotificationService notificationService,
                                    ChatEventPublisher eventPublisher,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   BlockService blockService) {
         this.chatService = chatService;
         this.broadcaster = broadcaster;
         this.presenceService = presenceService;
         this.notificationService = notificationService;
         this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
+        this.blockService = blockService;
     }
 
     @MessageMapping("chat.send")
@@ -48,9 +52,13 @@ public class ChatWebSocketController {
         MessageDto dto = chatService.toMessageDto(saved, cmd.tempId());
 
         List<Long> members = chatService.memberUserIds(cmd.conversationId());
-        broadcaster.sendMessageToMembers(dto, members);
+        // Don't deliver to members who have blocked the sender (they simply
+        // won't receive the message, live or via notification). The sender is
+        // always kept so their own echo still arrives.
+        List<Long> deliverable = blockService.filterDeliverable(senderId, members);
+        broadcaster.sendMessageToMembers(dto, deliverable);
         eventPublisher.publishMessage(dto);
-        notificationService.notifyNewMessage(dto, members, senderId);
+        notificationService.notifyNewMessage(dto, deliverable, senderId);
     }
 
     @MessageMapping("chat.typing")
