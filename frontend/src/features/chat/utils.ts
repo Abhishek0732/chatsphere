@@ -1,4 +1,5 @@
 import type { ConversationSummary, User } from '@/types';
+import { isAudioUrl, isVideoUrl } from '@/utils/format';
 
 /** For a DIRECT conversation, return the member that isn't the current user. */
 export function otherMember(
@@ -17,6 +18,8 @@ export function lastMessagePreview(conversation: ConversationSummary): string {
     case 'IMAGE':
       return m.content ? `📷 ${m.content}` : '📷 Photo';
     case 'FILE':
+      if (isAudioUrl(m.attachmentUrl)) return m.content ? `🎤 ${m.content}` : '🎤 Voice message';
+      if (isVideoUrl(m.attachmentUrl)) return m.content ? `🎥 ${m.content}` : '🎥 Video';
       return m.content ? `📎 ${m.content}` : '📎 Attachment';
     default:
       return m.content;

@@ -47,6 +47,11 @@ public class ChatController {
         return chatService.getMessages(SecurityUtils.currentUserId(), id, before, limit);
     }
 
+    @GetMapping("/{id}/common-groups")
+    public List<ConversationSummaryDto> commonGroups(@PathVariable Long id) {
+        return chatService.commonGroups(SecurityUtils.currentUserId(), id);
+    }
+
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);

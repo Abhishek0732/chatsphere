@@ -15,7 +15,7 @@ export function ChatShell() {
       {/* Conversation list */}
       <aside
         className={cn(
-          'h-full w-full flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex md:w-80 lg:w-96',
+          'glass-panel h-full w-full flex-col border-r border-white/40 dark:border-white/5 md:flex md:w-80 lg:w-96',
           isThread ? 'hidden md:flex' : 'flex',
         )}
       >

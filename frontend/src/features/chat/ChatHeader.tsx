@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Ban, Eraser, LogOut, MoreVertical, UserCheck, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  Bell,
+  BellOff,
+  Eraser,
+  Info,
+  LogOut,
+  MoreVertical,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ChatInfoModal } from './ChatInfoModal';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
+import { useMuteStore } from '@/store/muteStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useClearChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
@@ -32,8 +45,11 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
   const isBlocked = useIsBlocked(other?.id);
+  const isMuted = useMuteStore((s) => s.muted[conversation.id]);
+  const toggleMute = useMuteStore((s) => s.toggleMute);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [confirm, setConfirm] = useState<{
     title: string;
     message: string;
@@ -141,8 +157,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         />
         <button
           className="min-w-0 flex-1 text-left"
-          onClick={onOpenInfo}
-          disabled={!onOpenInfo}
+          onClick={() => (conversation.type === 'GROUP' ? onOpenInfo?.() : setInfoOpen(true))}
         >
           <p className="truncate font-semibold text-slate-900 dark:text-slate-100">
             {conversation.name}
@@ -172,7 +187,28 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
+          <div className="absolute right-0 top-11 z-30 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
+            {conversation.type === 'DIRECT' && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setInfoOpen(true);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Info className="h-4 w-4" /> Contact info
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                toggleMute(conversation.id);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              {isMuted ? 'Unmute' : 'Mute'}
+            </button>
             <button
               onClick={handleClear}
               className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
@@ -218,6 +254,15 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         onConfirm={() => confirm?.onConfirm()}
         onClose={() => setConfirm(null)}
       />
+
+      {conversation.type === 'DIRECT' && (
+        <ChatInfoModal
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          conversation={conversation}
+          other={other}
+        />
+      )}
     </header>
   );
 }

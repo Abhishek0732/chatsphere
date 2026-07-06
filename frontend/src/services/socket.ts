@@ -13,10 +13,12 @@ import {
   applyReadReceipt,
   bumpConversation,
   markMessageDeleted,
+  replaceMessage,
   upsertMessage,
 } from './messageCache';
 import { toast } from '@/store/toastStore';
 import { clearMessageNotifications, notifyMessage } from '@/utils/notifications';
+import { muteAccessors } from '@/store/muteStore';
 import type {
   AppNotification,
   ChatSendPayload,
@@ -159,6 +161,12 @@ class SocketService {
     client.subscribe('/user/queue/message-deleted', (frame: IMessage) => {
       const event = parse<MessageDeletedEvent>(frame.body);
       if (event) markMessageDeleted(event.conversationId, event.messageId);
+    });
+
+    // In-place message updates (edit / pin / reaction).
+    client.subscribe('/user/queue/message-updated', (frame: IMessage) => {
+      const message = parse<Message>(frame.body);
+      if (message) replaceMessage(message);
     });
 
     // Global presence topic.
@@ -314,6 +322,30 @@ class SocketService {
     return true;
   }
 
+  reactToMessage(conversationId: number, messageId: number, emoji: string): void {
+    if (!this.client || !this.connected) return;
+    this.client.publish({
+      destination: '/app/chat.react',
+      body: JSON.stringify({ conversationId, messageId, emoji }),
+    });
+  }
+
+  pinMessage(conversationId: number, messageId: number, pinned: boolean): void {
+    if (!this.client || !this.connected) return;
+    this.client.publish({
+      destination: '/app/chat.pin',
+      body: JSON.stringify({ conversationId, messageId, pinned }),
+    });
+  }
+
+  editMessage(conversationId: number, messageId: number, content: string): void {
+    if (!this.client || !this.connected) return;
+    this.client.publish({
+      destination: '/app/chat.edit',
+      body: JSON.stringify({ conversationId, messageId, content }),
+    });
+  }
+
   private ping(): void {
     if (!this.client || !this.connected) return;
     this.client.publish({ destination: '/app/presence.ping', body: '{}' });
@@ -357,7 +389,12 @@ class SocketService {
     // the foreground (backgrounded tab / another window). In-app toasts cover
     // the focused case, so we only fire the OS notification when hidden.
     // Multiple messages accumulate into one WhatsApp-style stacked notification.
-    if (!isOwn && typeof document !== 'undefined' && document.hidden) {
+    if (
+      !isOwn &&
+      typeof document !== 'undefined' &&
+      document.hidden &&
+      !muteAccessors.isMuted(message.conversationId)
+    ) {
       const meta = conversationMeta(message.conversationId);
       const isGroup = meta?.type === 'GROUP';
       const preview = messagePreview(message);

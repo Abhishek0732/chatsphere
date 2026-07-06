@@ -84,6 +84,29 @@ public class ChatWebSocketController {
                 new MessageDeletedEvent(cmd.conversationId(), cmd.messageId()), members);
     }
 
+    @MessageMapping("chat.react")
+    public void react(@Payload ReactCommand cmd, Principal principal) {
+        Message m = chatService.toggleReaction(userId(principal), cmd.messageId(), cmd.emoji());
+        broadcastUpdate(m);
+    }
+
+    @MessageMapping("chat.pin")
+    public void pin(@Payload PinCommand cmd, Principal principal) {
+        Message m = chatService.setPinned(userId(principal), cmd.messageId(), cmd.pinned());
+        broadcastUpdate(m);
+    }
+
+    @MessageMapping("chat.edit")
+    public void edit(@Payload EditCommand cmd, Principal principal) {
+        Message m = chatService.editMessage(userId(principal), cmd.messageId(), cmd.content());
+        broadcastUpdate(m);
+    }
+
+    private void broadcastUpdate(Message m) {
+        MessageDto dto = chatService.refreshedDto(m);
+        broadcaster.sendUpdateToMembers(dto, chatService.memberUserIds(m.getConversationId()));
+    }
+
     @MessageMapping("presence.ping")
     public void ping(Principal principal) {
         presenceService.heartbeat(userId(principal));

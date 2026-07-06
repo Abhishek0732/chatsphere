@@ -23,7 +23,13 @@ public final class ChatDtos {
             String status,
             String tempId,
             boolean deleted,
-            ReplyPreview replyTo) {}
+            ReplyPreview replyTo,
+            List<ReactionDto> reactions,
+            boolean pinned,
+            Instant editedAt) {}
+
+    /** An emoji and the ids of everyone who reacted with it. */
+    public record ReactionDto(String emoji, List<Long> userIds) {}
 
     /** Lightweight snapshot of the message being replied to. */
     public record ReplyPreview(Long id, String senderName, String content, String type) {}
@@ -55,6 +61,12 @@ public final class ChatDtos {
     public record ReadCommand(@NotNull Long conversationId, @NotNull Long messageId) {}
 
     public record DeleteCommand(@NotNull Long conversationId, @NotNull Long messageId) {}
+
+    public record ReactCommand(@NotNull Long conversationId, @NotNull Long messageId, String emoji) {}
+
+    public record PinCommand(@NotNull Long conversationId, @NotNull Long messageId, boolean pinned) {}
+
+    public record EditCommand(@NotNull Long conversationId, @NotNull Long messageId, String content) {}
 
     // ── WebSocket outbound events ──
     public record TypingEvent(Long conversationId, Long userId, String userName, boolean typing) {}

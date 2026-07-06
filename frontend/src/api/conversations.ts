@@ -34,6 +34,14 @@ export async function markConversationRead(conversationId: number): Promise<void
   await api.post(`/conversations/${conversationId}/read`);
 }
 
+/** Group conversations shared with the other person in a direct chat. */
+export async function getCommonGroups(conversationId: number): Promise<ConversationSummary[]> {
+  const { data } = await api.get<ConversationSummary[]>(
+    `/conversations/${conversationId}/common-groups`,
+  );
+  return data;
+}
+
 /** Clear a conversation's messages for the current user (keeps it in the list). */
 export async function clearConversation(conversationId: number): Promise<void> {
   await api.delete(`/conversations/${conversationId}/messages`);

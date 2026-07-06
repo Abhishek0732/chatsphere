@@ -31,6 +31,18 @@ export function upsertMessage(message: Message): void {
   });
 }
 
+/** Replace an existing message in place (edit / pin / reaction updates). */
+export function replaceMessage(message: Message): void {
+  queryClient.setQueryData<Message[]>(queryKeys.messages(message.conversationId), (prev) => {
+    if (!prev) return prev;
+    const idx = prev.findIndex((m) => m.id === message.id);
+    if (idx === -1) return prev;
+    const next = prev.slice();
+    next[idx] = { ...prev[idx], ...message };
+    return next;
+  });
+}
+
 /** Prepend a page of older messages (used by "load older"). */
 export function prependMessages(conversationId: number, older: Message[]): void {
   if (older.length === 0) return;

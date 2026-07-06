@@ -39,6 +39,13 @@ public class ChatBroadcaster {
         }
     }
 
+    /** Push an in-place message update (edit / pin / reaction) to members. */
+    public void sendUpdateToMembers(MessageDto message, List<Long> memberUserIds) {
+        for (User u : userRepository.findAllById(memberUserIds)) {
+            messaging.convertAndSendToUser(u.getUsername(), "/queue/message-updated", message);
+        }
+    }
+
     public void broadcastTyping(TypingEvent event) {
         messaging.convertAndSend("/topic/conversations/" + event.conversationId() + "/typing", event);
     }

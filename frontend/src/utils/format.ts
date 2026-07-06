@@ -92,3 +92,33 @@ export function fileNameFromUrl(url?: string | null): string {
   const m = /^[0-9a-fA-F-]{36}-(.+)$/.exec(seg);
   return (m ? m[1] : seg) || 'Attachment';
 }
+
+function fileSegment(url?: string | null): string {
+  if (!url) return '';
+  return url.split('/').pop()?.split('?')[0]?.toLowerCase() ?? '';
+}
+
+// Browser-playable video extensions. Others (mkv/avi/…) fall back to a file row.
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogv', 'mov', 'm4v', '3gp'];
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'oga', 'opus', 'weba'];
+
+/** Recorded voice notes are named "voice-message-*" so an audio webm/ogg isn't
+ *  mistaken for a video. */
+function isVoiceNote(name: string): boolean {
+  return name.startsWith('voice-message');
+}
+
+/** True if the attachment URL points at a video the browser can play inline. */
+export function isVideoUrl(url?: string | null): boolean {
+  const name = fileSegment(url);
+  if (!name || isVoiceNote(name)) return false;
+  return VIDEO_EXTENSIONS.includes(name.split('.').pop() ?? '');
+}
+
+/** True if the attachment URL points at an audio clip / voice message. */
+export function isAudioUrl(url?: string | null): boolean {
+  const name = fileSegment(url);
+  if (!name) return false;
+  if (isVoiceNote(name)) return true;
+  return AUDIO_EXTENSIONS.includes(name.split('.').pop() ?? '');
+}

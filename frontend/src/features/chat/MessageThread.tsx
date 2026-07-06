@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Pin } from 'lucide-react';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMessages } from '@/hooks/useMessages';
 import { useConversation, useMarkRead } from '@/hooks/useConversations';
@@ -20,6 +21,12 @@ import type { Message } from '@/types';
 // Stable empty reference so a zustand selector doesn't return a fresh [] each
 // render (which would loop under useSyncExternalStore).
 const NO_TYPERS: { userId: number; userName: string }[] = [];
+
+function pinnedPreview(m: Message): string {
+  if (m.type === 'IMAGE') return m.content ? `📷 ${m.content}` : '📷 Photo';
+  if (m.type === 'FILE') return m.content ? `📎 ${m.content}` : '📎 Attachment';
+  return m.content || '';
+}
 
 function sameDay(a: string, b: string): boolean {
   const da = new Date(a);
@@ -46,6 +53,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const otherTypers = typers.filter((t) => t.userId !== myId);
   // Hide a blocked user's typing indicator from the blocker (WhatsApp-style).
   const someoneTyping = otherTypers.length > 0 && !blocked;
+  const pinnedMessages = messages.filter((m) => m.pinned && !m.deleted);
   const typingLabel =
     conversation?.type === 'GROUP' && otherTypers.length > 0
       ? otherTypers.length === 1
@@ -137,6 +145,20 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
         conversation={conversation}
         onOpenInfo={conversation.type === 'GROUP' ? () => setGroupInfoOpen(true) : undefined}
       />
+
+      {pinnedMessages.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-white/40 bg-white/70 px-4 py-2 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/70">
+          <Pin className="h-4 w-4 shrink-0 text-brand-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-brand-600 dark:text-brand-400">
+              Pinned{pinnedMessages.length > 1 ? ` · ${pinnedMessages.length}` : ''}
+            </p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              {pinnedPreview(pinnedMessages[pinnedMessages.length - 1])}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div
         ref={scrollRef}

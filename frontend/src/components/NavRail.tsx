@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { MessageCircle, Users, User, Settings } from 'lucide-react';
+import { MessageCircle, Users, User, Settings, Sparkles } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -22,7 +22,11 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
   return (
     <>
       {/* Desktop rail */}
-      <nav className="hidden w-16 flex-col items-center gap-2 border-r border-slate-200 bg-white py-4 dark:border-slate-800 dark:bg-slate-900 md:flex">
+      <nav className="glass-panel hidden w-16 flex-col items-center gap-2 border-r border-white/40 py-4 dark:border-white/5 md:flex">
+        {/* Brand mark */}
+        <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
+          <Sparkles className="h-5 w-5" />
+        </div>
         <div className="mb-2">
           <Avatar
             name={user?.displayName ?? '?'}
@@ -59,7 +63,7 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
       {/* Mobile bottom bar */}
       <nav
         className={cn(
-          'fixed inset-x-0 bottom-0 z-30 items-center justify-around border-t border-slate-200 bg-white py-1.5 dark:border-slate-800 dark:bg-slate-900 md:hidden',
+          'glass-panel fixed inset-x-0 bottom-0 z-30 items-center justify-around border-t border-white/40 py-1.5 dark:border-white/5 md:hidden',
           hideMobileBar ? 'hidden' : 'flex',
         )}
       >

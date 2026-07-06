@@ -34,6 +34,17 @@ export interface Message {
   deleted?: boolean;
   /** Snapshot of the message this one replies to. */
   replyTo?: ReplyPreview | null;
+  /** Emoji reactions grouped by emoji. */
+  reactions?: MessageReaction[];
+  /** Pinned in the conversation. */
+  pinned?: boolean;
+  /** ISO timestamp if the message was edited; null/absent otherwise. */
+  editedAt?: string | null;
+}
+
+export interface MessageReaction {
+  emoji: string;
+  userIds: number[];
 }
 
 export interface ReplyPreview {

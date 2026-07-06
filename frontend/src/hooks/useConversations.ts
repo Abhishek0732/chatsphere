@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   clearConversation,
+  getCommonGroups,
   getConversations,
   getOrCreateDirect,
   markConversationRead,
@@ -37,6 +38,14 @@ export function useOpenDirect() {
       });
       navigate(`/chat/${conversation.publicId}`);
     },
+  });
+}
+
+export function useCommonGroups(conversationId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: ['common-groups', conversationId],
+    queryFn: () => getCommonGroups(conversationId as number),
+    enabled: enabled && conversationId != null,
   });
 }
 

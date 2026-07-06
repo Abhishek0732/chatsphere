@@ -22,6 +22,8 @@ interface ChatState {
   drafts: Record<number, string>;
   /** conversationId -> message being replied to (null = none) */
   replyTo: Record<number, ReplyPreview | null>;
+  /** conversationId -> message being edited (null = none) */
+  editing: Record<number, { id: number; content: string } | null>;
 
   connected: boolean;
 
@@ -29,6 +31,9 @@ interface ChatState {
 
   setReplyTo: (conversationId: number, target: ReplyPreview | null) => void;
   clearReplyTo: (conversationId: number) => void;
+
+  setEditing: (conversationId: number, target: { id: number; content: string } | null) => void;
+  clearEditing: (conversationId: number) => void;
 
   setTyping: (conversationId: number, user: TypingUser, typing: boolean) => void;
   clearTyping: (conversationId: number) => void;
@@ -49,6 +54,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   presence: {},
   drafts: {},
   replyTo: {},
+  editing: {},
   connected: false,
 
   setActiveConversation: (id) => set({ activeConversationId: id }),
@@ -58,6 +64,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   clearReplyTo: (conversationId) =>
     set((state) => ({ replyTo: { ...state.replyTo, [conversationId]: null } })),
+
+  setEditing: (conversationId, target) =>
+    set((state) => ({ editing: { ...state.editing, [conversationId]: target } })),
+
+  clearEditing: (conversationId) =>
+    set((state) => ({ editing: { ...state.editing, [conversationId]: null } })),
 
   setTyping: (conversationId, user, typing) =>
     set((state) => {

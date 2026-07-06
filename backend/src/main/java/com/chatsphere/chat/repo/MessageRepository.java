@@ -25,6 +25,8 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     Message findTopByConversationIdAndDeletedFalseOrderByIdDesc(Long conversationId);
 
+    List<Message> findByConversationIdAndPinnedTrueAndDeletedFalseOrderByIdDesc(Long conversationId);
+
     @Query("""
             SELECT COUNT(m) FROM Message m
             WHERE m.conversationId = :conversationId

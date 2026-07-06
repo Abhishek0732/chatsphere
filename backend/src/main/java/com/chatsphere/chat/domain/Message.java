@@ -44,4 +44,11 @@ public class Message {
 
     @Column(nullable = false)
     private boolean deleted = false;
+
+    @Column(nullable = false)
+    private boolean pinned = false;
+
+    /** Set when the message content is edited; null otherwise. */
+    @Column(name = "edited_at")
+    private Instant editedAt;
 }

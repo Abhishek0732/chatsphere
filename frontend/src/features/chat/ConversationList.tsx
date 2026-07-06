@@ -58,7 +58,7 @@ export function ConversationList() {
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="space-y-3 border-b border-slate-200 p-3 dark:border-slate-800">
+      <div className="space-y-3 border-b border-white/40 p-3 dark:border-white/5">
         <div className="flex items-center gap-2 px-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
             <MessageCircle className="h-4 w-4" />
@@ -103,7 +103,7 @@ export function ConversationList() {
         ) : filtered.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-slate-400">{emptyText}</p>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="divide-y divide-slate-200/40 dark:divide-white/5">
             {filtered.map((c) => (
               <ConversationListItem key={c.id} conversation={c} />
             ))}

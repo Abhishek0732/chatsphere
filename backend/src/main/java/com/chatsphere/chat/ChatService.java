@@ -8,6 +8,7 @@ import com.chatsphere.chat.domain.MessageStatus;
 import com.chatsphere.chat.dto.ChatDtos.*;
 import com.chatsphere.chat.repo.ConversationMemberRepository;
 import com.chatsphere.chat.repo.ConversationRepository;
+import com.chatsphere.chat.repo.MessageReactionRepository;
 import com.chatsphere.chat.repo.MessageRepository;
 import com.chatsphere.chat.repo.MessageStatusRepository;
 import com.chatsphere.common.error.ApiException;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final PresenceService presenceService;
     private final BlockService blockService;
+    private final MessageReactionRepository reactionRepository;
 
     public ChatService(ConversationRepository conversationRepository,
                        ConversationMemberRepository memberRepository,
@@ -39,7 +42,8 @@ public class ChatService {
                        MessageStatusRepository statusRepository,
                        UserRepository userRepository,
                        PresenceService presenceService,
-                       BlockService blockService) {
+                       BlockService blockService,
+                       MessageReactionRepository reactionRepository) {
         this.conversationRepository = conversationRepository;
         this.memberRepository = memberRepository;
         this.messageRepository = messageRepository;
@@ -47,6 +51,7 @@ public class ChatService {
         this.userRepository = userRepository;
         this.presenceService = presenceService;
         this.blockService = blockService;
+        this.reactionRepository = reactionRepository;
     }
 
     /** Deterministic key for a 1:1 conversation regardless of who initiates. */
@@ -305,7 +310,111 @@ public class ChatService {
         String attachmentUrl = deleted ? null : m.getAttachmentUrl();
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 content, m.getType().name(), attachmentUrl,
-                m.getCreatedAt(), status, tempId, deleted, buildReplyPreview(m.getReplyToMessageId()));
+                m.getCreatedAt(), status, tempId, deleted, buildReplyPreview(m.getReplyToMessageId()),
+                reactionsFor(m.getId()), m.isPinned(), m.getEditedAt());
+    }
+
+    /** Group a message's reactions into (emoji -> userIds). */
+    private List<ReactionDto> reactionsFor(Long messageId) {
+        Map<String, List<Long>> byEmoji = new LinkedHashMap<>();
+        for (var r : reactionRepository.findByMessageId(messageId)) {
+            byEmoji.computeIfAbsent(r.getEmoji(), k -> new ArrayList<>()).add(r.getUserId());
+        }
+        return byEmoji.entrySet().stream()
+                .map(e -> new ReactionDto(e.getKey(), e.getValue()))
+                .toList();
+    }
+
+    /** Read-tick status for a message, viewed by its sender. */
+    private String statusFor(Message m) {
+        long maxOtherRead = memberRepository.findByConversationId(m.getConversationId()).stream()
+                .filter(mem -> !Objects.equals(mem.getUserId(), m.getSenderId()))
+                .map(mem -> mem.getLastReadMessageId() == null ? 0L : mem.getLastReadMessageId())
+                .max(Long::compareTo).orElse(0L);
+        return m.getId() <= maxOtherRead ? "READ" : "SENT";
+    }
+
+    /** Toggle the current user's emoji reaction on a message; returns the message. */
+    @Transactional
+    public Message toggleReaction(Long userId, Long messageId, String emoji) {
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        assertMember(m.getConversationId(), userId);
+        reactionRepository.findByMessageIdAndUserIdAndEmoji(messageId, userId, emoji)
+                .ifPresentOrElse(reactionRepository::delete, () -> {
+                    var r = new com.chatsphere.chat.domain.MessageReaction();
+                    r.setMessageId(messageId);
+                    r.setUserId(userId);
+                    r.setEmoji(emoji);
+                    reactionRepository.save(r);
+                });
+        return m;
+    }
+
+    /** Pin or unpin a message. */
+    @Transactional
+    public Message setPinned(Long userId, Long messageId, boolean pinned) {
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        assertMember(m.getConversationId(), userId);
+        m.setPinned(pinned);
+        return messageRepository.save(m);
+    }
+
+    /** Edit the text of a message the caller sent. */
+    @Transactional
+    public Message editMessage(Long userId, Long messageId, String content) {
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        if (!Objects.equals(m.getSenderId(), userId)) {
+            throw ApiException.forbidden("You can only edit your own messages");
+        }
+        if (m.isDeleted() || m.getType() != Message.Type.TEXT) {
+            throw ApiException.badRequest("This message cannot be edited");
+        }
+        // Once the other side has read it, editing is no longer allowed.
+        if ("READ".equals(statusFor(m))) {
+            throw ApiException.badRequest("This message has already been read and can't be edited");
+        }
+        String trimmed = content == null ? "" : content.trim();
+        if (trimmed.isEmpty()) {
+            throw ApiException.badRequest("Message cannot be empty");
+        }
+        m.setContent(trimmed);
+        m.setEditedAt(Instant.now());
+        return messageRepository.save(m);
+    }
+
+    /** Rebuild the DTO for a mutated message (edit/pin/react), with correct ticks. */
+    @Transactional(readOnly = true)
+    public MessageDto refreshedDto(Message m) {
+        User sender = userRepository.findById(m.getSenderId()).orElse(null);
+        return toMessageDto(m, sender, statusFor(m), null);
+    }
+
+    /** Group conversations that the viewer and the direct counterpart share. */
+    @Transactional(readOnly = true)
+    public List<ConversationSummaryDto> commonGroups(Long viewerId, Long conversationId) {
+        assertMember(conversationId, viewerId);
+        Long other = memberRepository.findByConversationId(conversationId).stream()
+                .map(ConversationMember::getUserId)
+                .filter(id -> !Objects.equals(id, viewerId))
+                .findFirst().orElse(null);
+        if (other == null) {
+            return List.of();
+        }
+        return conversationRepository.findCommonGroups(viewerId, other).stream()
+                .map(c -> toSummary(c, viewerId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MessageDto> pinnedMessages(Long userId, Long conversationId) {
+        assertMember(conversationId, userId);
+        return messageRepository.findByConversationIdAndPinnedTrueAndDeletedFalseOrderByIdDesc(conversationId)
+                .stream().map(m -> toMessageDto(m, userRepository.findById(m.getSenderId()).orElse(null),
+                        statusFor(m), null))
+                .toList();
     }
 
     private com.chatsphere.chat.dto.ChatDtos.ReplyPreview buildReplyPreview(Long replyToId) {

@@ -20,4 +20,14 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
             ORDER BY c.updatedAt DESC
             """)
     List<Conversation> findAllForUser(@Param("userId") Long userId);
+
+    /** Group conversations that both users are members of. */
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE c.type = com.chatsphere.chat.domain.Conversation.Type.GROUP
+              AND EXISTS (SELECT 1 FROM ConversationMember a WHERE a.conversationId = c.id AND a.userId = :userA)
+              AND EXISTS (SELECT 1 FROM ConversationMember b WHERE b.conversationId = c.id AND b.userId = :userB)
+            ORDER BY c.updatedAt DESC
+            """)
+    List<Conversation> findCommonGroups(@Param("userA") Long userA, @Param("userB") Long userB);
 }
