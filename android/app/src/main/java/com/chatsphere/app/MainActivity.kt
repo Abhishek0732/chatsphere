@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = androidx.compose.material3.darkColorScheme()) {
                 Surface(color = Color(0xFF0B0C14)) {
-                    WebViewApp(url = getString(R.string.app_url))
+                    WebViewApp(url = BuildConfig.APP_URL)
                 }
             }
         }

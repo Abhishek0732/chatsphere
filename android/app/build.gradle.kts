@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The website the app loads. Override at build time with:  -Papp_url=https://...
+// (falls back to the LAN dev URL when not provided).
+val appUrl = (project.findProperty("app_url") as String?) ?: "http://192.168.15.205:5173"
+
 android {
     namespace = "com.chatsphere.app"
     compileSdk = 34
@@ -14,6 +18,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "APP_URL", "\"$appUrl\"")
     }
 
     buildTypes {
@@ -37,6 +43,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

@@ -82,50 +82,67 @@ android/
 
 ---
 
-## Step 1 — Configure your URL
+## Step 1 & 2 — Set the URL and build the APK (in one go)
 
-Open **`app/src/main/res/values/strings.xml`** and change one line:
+The website URL is **injected at build time** — you don't edit any file. The
+easiest path auto-detects your Cloudflare tunnel URL and bakes it in.
 
-```xml
-<string name="app_url">https://your-hosted-url.example</string>
-```
+### Easiest — auto-tunnel + build (recommended)
 
-> Use **https://** so camera, microphone and notifications work. A plain
-> `http://` LAN IP (e.g. `http://192.168.1.50:5173`) will load the UI, but the
-> browser blocks those hardware features on insecure origins.
-
----
-
-## Step 2 — Build the APK
-
-All commands are run from the **repo root** (the folder that contains `android/`).
+Make sure the web app is running first (`docker compose up -d` from the repo
+root), then:
 
 ```bash
-# 2a. Build the SDK + Gradle image ONCE (~5 min, downloads the Android SDK).
+./android/build-apk.sh
+```
+
+This:
+1. starts a Cloudflare quick tunnel on `http://localhost:5173`,
+2. grabs the fresh `https://…trycloudflare.com` URL automatically,
+3. builds the APK with that exact URL baked in, and
+4. keeps the tunnel running (leave the terminal open so the URL stays live).
+
+The APK lands at `android/app/build/outputs/apk/debug/app-debug.apk`, and the
+live URL is printed at the end.
+
+> On a different local port: `./android/build-apk.sh 8080`
+
+### Fixed URL (a permanent host — no tunnel)
+
+```bash
+./android/build-apk.sh https://your-stable-url.example
+```
+
+### Manual (plain Docker, full control)
+
+```bash
+# Build the SDK + Gradle image once (~5 min, downloads the Android SDK).
 docker build -t chatsphere-apk-builder android/
 
-# 2b. Compile the APK. First run downloads the Compose/AndroidX deps (~3–5 min);
-#     later runs are ~30s thanks to the cached Gradle volume.
+# Compile, passing your URL. First run pulls the Compose/AndroidX deps (~3–5 min);
+# later runs are ~30s thanks to the cached Gradle volume.
 docker run --rm \
   -v "$PWD/android":/project \
   -v chatsphere-gradle-cache:/root/.gradle \
   -w /project \
-  chatsphere-apk-builder gradle --no-daemon assembleDebug
+  chatsphere-apk-builder gradle --no-daemon assembleDebug \
+  -Papp_url="https://your-url.example"
 ```
 
-The installable APK is written to:
+> Omit `-Papp_url` to fall back to the default in `app/build.gradle.kts`
+> (`http://192.168.15.205:5173`).
+
+The installable APK is always written to:
 
 ```
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-**Rebuild after any change** (e.g. a new URL) — just re-run `2b`.
-
 **Clean build** (if something looks stale):
 
 ```bash
 docker run --rm -v "$PWD/android":/project -v chatsphere-gradle-cache:/root/.gradle \
-  -w /project chatsphere-apk-builder gradle --no-daemon clean assembleDebug
+  -w /project chatsphere-apk-builder gradle --no-daemon clean assembleDebug -Papp_url="https://your-url.example"
 ```
 
 ---
@@ -150,7 +167,7 @@ permissions — allow them for full functionality.
 
 | Want to change | File | Field |
 |---|---|---|
-| The website URL | `res/values/strings.xml` | `app_url` |
+| The website URL | *(build parameter)* | `-Papp_url=…` / default in `app/build.gradle.kts` |
 | App display name | `res/values/strings.xml` | `app_name` |
 | Package / app id | `app/build.gradle.kts` + manifest namespace | `applicationId` / `namespace` |
 | Version shown to users | `app/build.gradle.kts` | `versionName`, `versionCode` |
