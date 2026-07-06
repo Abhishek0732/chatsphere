@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Ban, Eraser, LogOut, MoreVertical, UserCheck, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -39,6 +39,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
     message: string;
     confirmLabel: string;
     danger: boolean;
+    icon: ReactNode;
     onConfirm: () => void;
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -73,6 +74,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
       message: `Clear all messages with ${label}? The chat stays in your list.`,
       confirmLabel: 'Clear',
       danger: true,
+      icon: <Eraser className="h-7 w-7" />,
       onConfirm: () => clearChat.mutate(conversation.id),
     });
   };
@@ -84,6 +86,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
       message: `Leave "${conversation.name}"? You'll stop receiving its messages.`,
       confirmLabel: 'Leave',
       danger: true,
+      icon: <LogOut className="h-7 w-7" />,
       onConfirm: () => leaveGroup.mutate(conversation.id),
     });
   };
@@ -96,9 +99,10 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
     } else {
       setConfirm({
         title: `Block ${other.displayName}?`,
-        message: `You'll stop receiving their messages, and their profile photo and status will be hidden.`,
+        message: "You won't receive their messages.",
         confirmLabel: 'Block',
         danger: true,
+        icon: <Ban className="h-7 w-7" />,
         onConfirm: () => blockUser.mutate(other),
       });
     }
@@ -210,6 +214,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         message={confirm?.message ?? ''}
         confirmLabel={confirm?.confirmLabel}
         danger={confirm?.danger}
+        icon={confirm?.icon}
         onConfirm={() => confirm?.onConfirm()}
         onClose={() => setConfirm(null)}
       />

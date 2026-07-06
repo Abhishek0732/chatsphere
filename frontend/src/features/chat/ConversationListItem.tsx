@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Eraser, LogOut, MoreVertical, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -45,6 +45,7 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
     title: string;
     message: string;
     confirmLabel: string;
+    icon: ReactNode;
     onConfirm: () => void;
   } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -67,6 +68,7 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
       title: 'Clear chat',
       message: `Clear all messages with ${label}? The chat stays in your list.`,
       confirmLabel: 'Clear',
+      icon: <Eraser className="h-7 w-7" />,
       onConfirm: () => clearChat.mutate(conversation.id),
     });
   };
@@ -79,6 +81,7 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
       title: 'Leave group',
       message: `Leave "${conversation.name}"? You'll stop receiving its messages.`,
       confirmLabel: 'Leave',
+      icon: <LogOut className="h-7 w-7" />,
       onConfirm: () => leaveGroup.mutate(conversation.id),
     });
   };
@@ -185,6 +188,7 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
         message={confirm?.message ?? ''}
         confirmLabel={confirm?.confirmLabel}
         danger
+        icon={confirm?.icon}
         onConfirm={() => confirm?.onConfirm()}
         onClose={() => setConfirm(null)}
       />

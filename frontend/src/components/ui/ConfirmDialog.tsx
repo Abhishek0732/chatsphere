@@ -1,20 +1,26 @@
+import type { ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from './Button';
+import { cn } from '@/utils/cn';
 
 export interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: string;
+  message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  /** Optional icon shown in the badge; defaults to a warning triangle. */
+  icon?: ReactNode;
   onConfirm: () => void;
   onClose: () => void;
 }
 
 /**
- * In-app confirmation dialog — a themed replacement for the native
- * window.confirm() browser popup.
+ * In-app confirmation dialog — a clean, themed replacement for window.confirm().
+ * A colored icon badge, a title, an optional one-line message, and balanced
+ * Cancel / Confirm buttons. No header or close icon.
  */
 export function ConfirmDialog({
   open,
@@ -23,21 +29,38 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   danger = false,
+  icon,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={title}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
+    <Modal open={open} onClose={onClose} className="max-w-xs">
+      <div className="flex flex-col items-center px-1 pb-1 pt-2 text-center">
+        <div
+          className={cn(
+            'mb-4 flex h-14 w-14 items-center justify-center rounded-full',
+            danger
+              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+              : 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400',
+          )}
+        >
+          {icon ?? <AlertTriangle className="h-7 w-7" />}
+        </div>
+
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+        {message && (
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            {message}
+          </p>
+        )}
+
+        <div className="mt-6 flex w-full gap-3">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>
             {cancelLabel}
           </Button>
           <Button
             variant={danger ? 'danger' : 'primary'}
+            className="flex-1"
             onClick={() => {
               onConfirm();
               onClose();
@@ -45,10 +68,8 @@ export function ConfirmDialog({
           >
             {confirmLabel}
           </Button>
-        </>
-      }
-    >
-      <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>
+        </div>
+      </div>
     </Modal>
   );
 }
