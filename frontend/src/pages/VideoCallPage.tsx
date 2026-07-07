@@ -63,7 +63,7 @@ export function VideoCallPage() {
   const [speakerView, setSpeakerView] = useState(false);
 
   return (
-    <div className="flex h-full flex-col bg-[#0b1120] text-white">
+    <div className="flex h-full flex-col bg-[#0b141a] text-white">
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3">
         <div>
@@ -112,7 +112,7 @@ export function VideoCallPage() {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-4 px-5 py-5">
+      <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-5 sm:gap-4 sm:px-5">
         <Control
           icon={micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           label="Mic"
@@ -145,8 +145,8 @@ function Tile({ p, big }: { p: (typeof PARTICIPANTS)[number]; big?: boolean }) {
   return (
     <div
       className={cn(
-        'relative flex items-center justify-center overflow-hidden rounded-panel bg-[#111827] ring-1 transition',
-        p.speaking ? 'ring-2 ring-cyan-400' : 'ring-white/10',
+        'relative flex items-center justify-center overflow-hidden rounded-panel bg-[#111b21] ring-1 transition',
+        p.speaking ? 'ring-2 ring-brand-400' : 'ring-white/10',
         big ? 'h-full w-full' : 'h-full w-full',
       )}
     >

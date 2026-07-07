@@ -14,16 +14,18 @@ export function AppLayout() {
   useMe();
 
   const location = useLocation();
-  const isThread = location.pathname.startsWith('/chat/');
+  // Thread + call screens go full-bleed on mobile (no bottom nav bar).
+  const isFullScreen =
+    location.pathname.startsWith('/chat/') || location.pathname.startsWith('/call/');
 
   return (
     <div className="app-bg flex h-full w-full overflow-hidden md:gap-3 md:p-3">
-      <NavRail hideMobileBar={isThread} />
+      <NavRail hideMobileBar={isFullScreen} />
       <main
         className={cn(
           'min-w-0 flex-1 overflow-hidden',
-          // Reserve space for the mobile bottom bar unless we're in a thread.
-          isThread ? 'pb-0' : 'pb-14 md:pb-0',
+          // Reserve space for the mobile bottom bar unless we're full-screen.
+          isFullScreen ? 'pb-0' : 'pb-14 md:pb-0',
         )}
       >
         <Outlet />

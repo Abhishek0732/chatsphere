@@ -6,6 +6,7 @@ export type Theme = 'light' | 'dark' | 'system';
 
 /** Accent color palettes (see `[data-accent]` sets in index.css). */
 export type AccentKey =
+  | 'whatsapp'
   | 'indigo'
   | 'blurple'
   | 'emerald'
@@ -22,6 +23,7 @@ export type RadiusKey = 'sharp' | 'default' | 'round';
 export type BackgroundKey = 'aurora' | 'vivid' | 'mesh' | 'minimal';
 
 export const ACCENTS: { key: AccentKey; label: string; swatch: string }[] = [
+  { key: 'whatsapp', label: 'WhatsApp', swatch: '#25d366' },
   { key: 'indigo', label: 'Indigo', swatch: '#4f46e5' },
   { key: 'blurple', label: 'Blurple', swatch: '#5865f2' },
   { key: 'violet', label: 'Violet', swatch: '#7c3aed' },
@@ -90,12 +92,12 @@ export const BACKGROUNDS: { key: BackgroundKey; label: string }[] = [
 ];
 
 const DEFAULTS = {
-  accent: 'indigo' as AccentKey,
+  accent: 'whatsapp' as AccentKey,
   wallpaper: 'doodle' as WallpaperKey,
   font: 'inter' as FontKey,
   textSize: 'md' as TextSizeKey,
   radius: 'default' as RadiusKey,
-  background: 'aurora' as BackgroundKey,
+  background: 'minimal' as BackgroundKey,
   customAccent: null as string | null,
   customWallpaper: null as string | null,
 };
@@ -282,19 +284,20 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'chatsphere-theme',
-      version: 2,
-      // Move users still on an old default accent to the current indigo default
-      // (but keep any accent they deliberately chose / any custom color).
+      version: 3,
+      // Move users still on an old default accent to the current WhatsApp-green
+      // default (but keep any accent they deliberately chose / any custom color).
       migrate: (persisted: unknown, version: number) => {
         const st = (persisted ?? {}) as {
           accent?: AccentKey;
           customAccent?: string | null;
           background?: BackgroundKey;
         };
-        const wasDefault = !st.accent || st.accent === 'violet' || st.accent === 'blurple';
-        if (version < 2 && wasDefault && !st.customAccent) {
-          st.accent = 'indigo';
-          st.background = 'aurora';
+        const oldDefaults: AccentKey[] = ['violet', 'blurple', 'indigo'];
+        const wasDefault = !st.accent || oldDefaults.includes(st.accent);
+        if (version < 3 && wasDefault && !st.customAccent) {
+          st.accent = 'whatsapp';
+          st.background = 'minimal';
         }
         return st;
       },

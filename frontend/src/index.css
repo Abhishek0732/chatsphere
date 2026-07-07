@@ -12,24 +12,36 @@
     --radius-panel: 20px;
     --radius-field: 14px;
 
-    /* Default accent = Indigo (Primary #4F46E5). Space-separated RGB channels so
+    /* Default accent = WhatsApp green. Space-separated RGB channels so
        Tailwind's `<alpha-value>` (opacity) modifiers keep working. */
-    --brand-50: 238 242 255;
-    --brand-100: 224 231 255;
-    --brand-200: 199 210 254;
-    --brand-300: 165 180 252;
-    --brand-400: 129 140 248;
-    --brand-500: 99 102 241;
-    --brand-600: 79 70 229;
-    --brand-700: 67 56 202;
-    --brand-800: 55 48 163;
-    --brand-900: 49 46 129;
+    --brand-50: 231 251 245;
+    --brand-100: 200 246 233;
+    --brand-200: 147 236 211;
+    --brand-300: 87 221 186;
+    --brand-400: 31 199 156;
+    --brand-500: 0 168 132;
+    --brand-600: 0 143 114;
+    --brand-700: 0 117 95;
+    --brand-800: 0 92 75;
+    --brand-900: 4 77 64;
   }
   html.dark {
     color-scheme: dark;
   }
 
   /* ─── Accent palettes (per-user chat theme) ─────────────────────────── */
+  html[data-accent='whatsapp'] {
+    --brand-50: 231 251 245;
+    --brand-100: 200 246 233;
+    --brand-200: 147 236 211;
+    --brand-300: 87 221 186;
+    --brand-400: 31 199 156;
+    --brand-500: 0 168 132;
+    --brand-600: 0 143 114;
+    --brand-700: 0 117 95;
+    --brand-800: 0 92 75;
+    --brand-900: 4 77 64;
+  }
   html[data-accent='emerald'] {
     --brand-50: 236 253 245;
     --brand-100: 209 250 229;
@@ -129,9 +141,10 @@
 
   /* ─── Signature two-tone gradient (per accent) ──────────────────────── */
   :root {
-    --grad-from: #4f46e5;
-    --grad-to: #06b6d4;
+    --grad-from: #25d366;
+    --grad-to: #00a884;
   }
+  html[data-accent='whatsapp'] { --grad-from: #25d366; --grad-to: #00a884; }
   html[data-accent='indigo']  { --grad-from: #4f46e5; --grad-to: #06b6d4; }
   html[data-accent='blurple'] { --grad-from: #5865f2; --grad-to: #4752c4; }
   html[data-accent='emerald'] { --grad-from: #10b981; --grad-to: #06b6d4; }
@@ -160,7 +173,7 @@
     text-rendering: optimizeLegibility;
   }
   html.dark body {
-    background-color: #0b1120;
+    background-color: #0b141a;
   }
 
   /* Linear-style optical tightening on larger text + confident headings. */
@@ -221,7 +234,7 @@
     backdrop-filter: blur(22px) saturate(1.5);
   }
   .dark .glass-panel {
-    background-color: #111827;
+    background-color: #111b21;
     background-image: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0.01));
     backdrop-filter: blur(24px) saturate(1.2);
   }
@@ -257,10 +270,10 @@
     background-attachment: fixed;
   }
   .dark .app-bg {
-    background-color: #0b1120;
+    background-color: #0b141a;
     background-image:
-      radial-gradient(58rem 46rem at 100% -12%, rgb(79 70 229 / 0.16), transparent 62%),
-      radial-gradient(52rem 44rem at 0% 112%, rgb(6 182 212 / 0.12), transparent 60%);
+      radial-gradient(58rem 46rem at 100% -12%, rgb(var(--brand-600) / 0.12), transparent 62%),
+      radial-gradient(52rem 44rem at 0% 112%, rgb(var(--brand-500) / 0.08), transparent 60%);
     background-attachment: fixed;
   }
 

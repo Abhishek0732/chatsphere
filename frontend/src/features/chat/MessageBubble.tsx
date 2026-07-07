@@ -178,8 +178,8 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
         className={cn(
           'relative max-w-[78%] animate-pop-in rounded-[20px] px-3.5 py-2.5 shadow-elevated transition-transform duration-150 hover:-translate-y-px',
           mine
-            ? 'rounded-br-[6px] bg-brand-gradient text-white shadow-[0_8px_22px_-10px_rgb(var(--brand-500)/0.7)]'
-            : 'rounded-bl-[6px] bg-white/95 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-[#1e293b] dark:text-slate-100 dark:ring-white/[0.06]',
+            ? 'rounded-br-[6px] bg-[#d9fdd3] text-slate-900 dark:bg-[#005c4b] dark:text-slate-50'
+            : 'rounded-bl-[6px] bg-white text-slate-900 ring-1 ring-slate-900/5 dark:bg-[#202c33] dark:text-slate-100 dark:ring-white/[0.06]',
         )}
       >
         {showSender && !mine && !message.deleted && (
@@ -192,7 +192,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
           <p
             className={cn(
               'flex items-center gap-1.5 text-sm italic',
-              mine ? 'text-brand-100' : 'text-slate-400',
+              mine ? 'text-slate-500 dark:text-slate-300' : 'text-slate-400',
             )}
           >
             <Ban className="h-3.5 w-3.5" /> This message was deleted
@@ -415,7 +415,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
         <div
           className={cn(
             'mt-0.5 flex items-center justify-end gap-1',
-            mine ? 'text-brand-100' : 'text-slate-400',
+            mine ? 'text-slate-500 dark:text-slate-300/80' : 'text-slate-400',
           )}
         >
           {message.editedAt && !message.deleted && (
@@ -453,7 +453,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             className="z-[60] flex flex-col gap-2"
           >
             {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
-            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#1e293b]">
+            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#202c33]">
               {QUICK_EMOJIS.map((e) => (
                 <button
                   key={e}
@@ -469,7 +469,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             {/* Actions menu. */}
             <div
               style={{ width: MENU_W }}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#1e293b]"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#202c33]"
             >
             <button
               onClick={handleReply}
