@@ -9,8 +9,10 @@ import {
   Info,
   LogOut,
   MoreVertical,
+  Phone,
   UserCheck,
   Users,
+  Video,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -138,7 +140,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   }
 
   return (
-    <header className="relative z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
+    <header className="relative z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-white/10 dark:bg-[#111827]/80">
       <button
         onClick={() => navigate('/')}
         className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
@@ -166,10 +168,26 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         </button>
       </div>
 
+      {/* Call + search actions */}
+      <button
+        onClick={() => navigate('/call/voice')}
+        className="hidden rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 sm:block"
+        aria-label="Voice call"
+      >
+        <Phone className="h-5 w-5" />
+      </button>
+      <button
+        onClick={() => navigate('/call/video')}
+        className="hidden rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 sm:block"
+        aria-label="Video call"
+      >
+        <Video className="h-5 w-5" />
+      </button>
+
       {conversation.type === 'GROUP' && (
         <button
           onClick={onOpenInfo}
-          className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
           aria-label="Group info"
         >
           <Users className="h-5 w-5" />
@@ -187,7 +205,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-11 z-30 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
+          <div className="absolute right-0 top-11 z-30 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#1e293b]">
             {conversation.type === 'DIRECT' && (
               <button
                 onClick={() => {

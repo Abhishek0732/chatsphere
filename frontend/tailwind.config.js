@@ -58,6 +58,14 @@ export default {
           '0%, 60%, 100%': { transform: 'translateY(0)', opacity: '0.35' },
           '30%': { transform: 'translateY(-4px)', opacity: '1' },
         },
+        equalize: {
+          '0%, 100%': { transform: 'scaleY(0.35)' },
+          '50%': { transform: 'scaleY(1)' },
+        },
+        'ring-pulse': {
+          '0%': { transform: 'scale(1)', opacity: '0.5' },
+          '100%': { transform: 'scale(1.8)', opacity: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.15s ease-out',
@@ -67,6 +75,8 @@ export default {
         'scale-in': 'scale-in 0.15s ease-out',
         float: 'float 6s ease-in-out infinite',
         'typing-dot': 'typing-dot 1.2s infinite ease-in-out',
+        equalize: 'equalize 0.9s ease-in-out infinite',
+        'ring-pulse': 'ring-pulse 2.4s ease-out infinite',
       },
       boxShadow: {
         soft: '0 2px 12px -2px rgb(15 23 42 / 0.08), 0 4px 24px -4px rgb(15 23 42 / 0.06)',

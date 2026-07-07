@@ -164,7 +164,7 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
       </button>
 
       {menuOpen && (
-        <div className="absolute right-2 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#16171d]">
+        <div className="absolute right-2 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#1e293b]">
           <button
             onClick={handleClear}
             className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"

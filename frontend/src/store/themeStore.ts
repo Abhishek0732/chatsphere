@@ -5,7 +5,15 @@ import { paletteFromHex, darkenForWallpaper } from '@/utils/palette';
 export type Theme = 'light' | 'dark' | 'system';
 
 /** Accent color palettes (see `[data-accent]` sets in index.css). */
-export type AccentKey = 'blurple' | 'emerald' | 'blue' | 'violet' | 'rose' | 'amber' | 'graphite';
+export type AccentKey =
+  | 'indigo'
+  | 'blurple'
+  | 'emerald'
+  | 'blue'
+  | 'violet'
+  | 'rose'
+  | 'amber'
+  | 'graphite';
 /** Chat wallpapers (see `[data-wallpaper]` sets in index.css). */
 export type WallpaperKey = 'doodle' | 'plain' | 'mint' | 'sky' | 'dusk';
 export type FontKey = 'inter' | 'system' | 'rounded' | 'serif' | 'mono';
@@ -14,6 +22,7 @@ export type RadiusKey = 'sharp' | 'default' | 'round';
 export type BackgroundKey = 'aurora' | 'vivid' | 'mesh' | 'minimal';
 
 export const ACCENTS: { key: AccentKey; label: string; swatch: string }[] = [
+  { key: 'indigo', label: 'Indigo', swatch: '#4f46e5' },
   { key: 'blurple', label: 'Blurple', swatch: '#5865f2' },
   { key: 'violet', label: 'Violet', swatch: '#7c3aed' },
   { key: 'blue', label: 'Blue', swatch: '#2563eb' },
@@ -68,8 +77,8 @@ export const TEXT_SIZES: { key: TextSizeKey; label: string; px: string }[] = [
 ];
 
 export const RADII: { key: RadiusKey; label: string; panel: string; field: string }[] = [
-  { key: 'sharp', label: 'Sharp', panel: '10px', field: '9px' },
-  { key: 'default', label: 'Default', panel: '22px', field: '13px' },
+  { key: 'sharp', label: 'Sharp', panel: '12px', field: '10px' },
+  { key: 'default', label: 'Default', panel: '20px', field: '14px' },
   { key: 'round', label: 'Round', panel: '30px', field: '18px' },
 ];
 
@@ -81,12 +90,12 @@ export const BACKGROUNDS: { key: BackgroundKey; label: string }[] = [
 ];
 
 const DEFAULTS = {
-  accent: 'blurple' as AccentKey,
+  accent: 'indigo' as AccentKey,
   wallpaper: 'doodle' as WallpaperKey,
   font: 'inter' as FontKey,
   textSize: 'md' as TextSizeKey,
   radius: 'default' as RadiusKey,
-  background: 'minimal' as BackgroundKey,
+  background: 'aurora' as BackgroundKey,
   customAccent: null as string | null,
   customWallpaper: null as string | null,
 };
@@ -273,13 +282,19 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'chatsphere-theme',
-      version: 1,
-      // v0 shipped with 'violet' as the default accent; move those users to the
-      // new Discord-blurple default (but keep any accent they deliberately set).
+      version: 2,
+      // Move users still on an old default accent to the current indigo default
+      // (but keep any accent they deliberately chose / any custom color).
       migrate: (persisted: unknown, version: number) => {
-        const st = (persisted ?? {}) as { accent?: AccentKey; customAccent?: string | null };
-        if (version < 1 && (!st.accent || st.accent === 'violet') && !st.customAccent) {
-          st.accent = 'blurple';
+        const st = (persisted ?? {}) as {
+          accent?: AccentKey;
+          customAccent?: string | null;
+          background?: BackgroundKey;
+        };
+        const wasDefault = !st.accent || st.accent === 'violet' || st.accent === 'blurple';
+        if (version < 2 && wasDefault && !st.customAccent) {
+          st.accent = 'indigo';
+          st.background = 'aurora';
         }
         return st;
       },

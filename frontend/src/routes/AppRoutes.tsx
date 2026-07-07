@@ -10,6 +10,8 @@ import { EmptyChatPage } from '@/pages/EmptyChatPage';
 import { ContactsPage } from '@/pages/ContactsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { VoiceCallPage } from '@/pages/VoiceCallPage';
+import { VideoCallPage } from '@/pages/VideoCallPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -49,6 +51,8 @@ export function AppRoutes() {
 
         {/* Full-width pages */}
         <Route path="contacts" element={<ContactsPage />} />
+        <Route path="call/voice" element={<VoiceCallPage />} />
+        <Route path="call/video" element={<VideoCallPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

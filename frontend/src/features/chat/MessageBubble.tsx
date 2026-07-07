@@ -176,10 +176,10 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
     <div className={cn('group flex w-full', mine ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'relative max-w-[75%] animate-pop-in rounded-[20px] px-3 py-2 shadow-elevated transition-transform duration-150 hover:-translate-y-px',
+          'relative max-w-[78%] animate-pop-in rounded-[20px] px-3.5 py-2.5 shadow-elevated transition-transform duration-150 hover:-translate-y-px',
           mine
-            ? 'rounded-br-[7px] bg-brand-gradient text-white'
-            : 'rounded-bl-[7px] bg-white/90 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-white/[0.055] dark:text-slate-100 dark:ring-white/10',
+            ? 'rounded-br-[6px] bg-brand-gradient text-white shadow-[0_8px_22px_-10px_rgb(var(--brand-500)/0.7)]'
+            : 'rounded-bl-[6px] bg-white/95 text-slate-900 ring-1 ring-slate-900/5 backdrop-blur-sm dark:bg-[#1e293b] dark:text-slate-100 dark:ring-white/[0.06]',
         )}
       >
         {showSender && !mine && !message.deleted && (
@@ -453,7 +453,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             className="z-[60] flex flex-col gap-2"
           >
             {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
-            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#16171d]">
+            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#1e293b]">
               {QUICK_EMOJIS.map((e) => (
                 <button
                   key={e}
@@ -469,7 +469,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             {/* Actions menu. */}
             <div
               style={{ width: MENU_W }}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#16171d]"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#1e293b]"
             >
             <button
               onClick={handleReply}

@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
       />
       <div
         className={cn(
-          'relative z-10 w-full max-w-md animate-pop-in overflow-hidden rounded-panel border border-slate-200/70 bg-white shadow-elevated dark:border-white/10 dark:bg-[#16171d]',
+          'relative z-10 w-full max-w-md animate-pop-in overflow-hidden rounded-panel border border-slate-200/70 bg-white/90 shadow-elevated backdrop-blur-2xl dark:border-white/10 dark:bg-[#1e293b]/85',
           className,
         )}
       >

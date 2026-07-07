@@ -65,7 +65,7 @@ export function NotificationBell({ className }: { className?: string }) {
           <div
             ref={panelRef}
             style={{ position: 'fixed', left: pos.left, bottom: pos.bottom }}
-            className="z-[80] max-h-[70vh] w-80 max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl scrollbar-thin dark:border-white/10 dark:bg-[#16171d]"
+            className="z-[80] max-h-[70vh] w-80 max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl scrollbar-thin dark:border-white/10 dark:bg-[#1e293b]"
           >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 dark:border-slate-800">
             <span className="text-sm font-semibold">Notifications</span>

@@ -9,21 +9,21 @@
     /* Customizable design tokens (driven by themeStore). */
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
       'Helvetica Neue', Arial, sans-serif;
-    --radius-panel: 22px;
-    --radius-field: 13px;
+    --radius-panel: 20px;
+    --radius-field: 14px;
 
-    /* Default accent = Emerald. Values are space-separated RGB channels so
+    /* Default accent = Indigo (Primary #4F46E5). Space-separated RGB channels so
        Tailwind's `<alpha-value>` (opacity) modifiers keep working. */
-    --brand-50: 236 253 245;
-    --brand-100: 209 250 229;
-    --brand-200: 167 243 208;
-    --brand-300: 110 231 183;
-    --brand-400: 52 211 153;
-    --brand-500: 16 185 129;
-    --brand-600: 5 150 105;
-    --brand-700: 4 120 87;
-    --brand-800: 6 95 70;
-    --brand-900: 6 78 59;
+    --brand-50: 238 242 255;
+    --brand-100: 224 231 255;
+    --brand-200: 199 210 254;
+    --brand-300: 165 180 252;
+    --brand-400: 129 140 248;
+    --brand-500: 99 102 241;
+    --brand-600: 79 70 229;
+    --brand-700: 67 56 202;
+    --brand-800: 55 48 163;
+    --brand-900: 49 46 129;
   }
   html.dark {
     color-scheme: dark;
@@ -53,6 +53,18 @@
     --brand-700: 29 78 216;
     --brand-800: 30 64 175;
     --brand-900: 30 58 138;
+  }
+  html[data-accent='indigo'] {
+    --brand-50: 238 242 255;
+    --brand-100: 224 231 255;
+    --brand-200: 199 210 254;
+    --brand-300: 165 180 252;
+    --brand-400: 129 140 248;
+    --brand-500: 99 102 241;
+    --brand-600: 79 70 229;
+    --brand-700: 67 56 202;
+    --brand-800: 55 48 163;
+    --brand-900: 49 46 129;
   }
   html[data-accent='blurple'] {
     --brand-50: 238 240 254;
@@ -117,9 +129,10 @@
 
   /* ─── Signature two-tone gradient (per accent) ──────────────────────── */
   :root {
-    --grad-from: #8b7cff;
-    --grad-to: #5b8def;
+    --grad-from: #4f46e5;
+    --grad-to: #06b6d4;
   }
+  html[data-accent='indigo']  { --grad-from: #4f46e5; --grad-to: #06b6d4; }
   html[data-accent='blurple'] { --grad-from: #5865f2; --grad-to: #4752c4; }
   html[data-accent='emerald'] { --grad-from: #10b981; --grad-to: #06b6d4; }
   html[data-accent='blue']    { --grad-from: #3b82f6; --grad-to: #6366f1; }
@@ -137,13 +150,28 @@
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:text-slate-100;
     font-family: var(--font-sans);
-    letter-spacing: -0.01em;
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: -0.011em;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    font-variant-ligatures: contextual;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
   html.dark body {
-    background-color: #0b0c14;
+    background-color: #0b1120;
+  }
+
+  /* Linear-style optical tightening on larger text + confident headings. */
+  h1,
+  h2,
+  h3,
+  .text-lg,
+  .text-xl,
+  .text-2xl,
+  .text-3xl {
+    letter-spacing: -0.022em;
   }
 
   * {
@@ -163,22 +191,20 @@
 }
 
 @layer utilities {
-  /* Solid single-accent fill (Discord/Twitter-style, no rainbow). A whisper of
-     top-to-bottom shading keeps depth without reading as two colors. */
+  /* Signature two-tone brand gradient (Primary → Accent, e.g. indigo → cyan). */
   .bg-brand-gradient {
-    background-color: rgb(var(--brand-600));
-    background-image: linear-gradient(180deg, rgb(var(--brand-500)), rgb(var(--brand-600)));
+    background-color: var(--grad-from);
+    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
   }
   .bg-brand-gradient-soft {
-    background-color: rgb(var(--brand-500));
-    background-image: linear-gradient(180deg, rgb(var(--brand-500)), rgb(var(--brand-600)));
+    background-image: linear-gradient(135deg, var(--grad-from) 10%, var(--grad-to) 120%);
   }
-  /* Accent text — single hue, not a multi-color gradient. */
+  /* Gradient accent text. */
   .text-brand-gradient {
-    color: rgb(var(--brand-500));
-  }
-  .dark .text-brand-gradient {
-    color: rgb(var(--brand-400));
+    background-image: linear-gradient(120deg, var(--grad-from), var(--grad-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   /* Frosted glass panel. */
   .glass {
@@ -195,8 +221,8 @@
     backdrop-filter: blur(22px) saturate(1.5);
   }
   .dark .glass-panel {
-    background-color: #15161c;
-    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0.012));
+    background-color: #111827;
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0.01));
     backdrop-filter: blur(24px) saturate(1.2);
   }
 
@@ -206,16 +232,19 @@
     .md-float {
       border-radius: var(--radius-panel);
       overflow: hidden;
-      border: 1px solid rgb(255 255 255 / 0.55);
+      border: 1px solid rgb(255 255 255 / 0.6);
       box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
         0 1px 2px rgb(15 23 42 / 0.04),
-        0 24px 60px -28px rgb(15 23 42 / 0.35);
+        0 12px 32px -14px rgb(15 23 42 / 0.16),
+        0 34px 64px -34px rgb(15 23 42 / 0.3);
     }
     .dark .md-float {
-      border-color: rgb(255 255 255 / 0.08);
+      border-color: rgb(255 255 255 / 0.07);
       box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.05),
-        0 28px 70px -30px rgb(0 0 0 / 0.8);
+        inset 0 1px 0 rgb(255 255 255 / 0.06),
+        0 12px 34px -18px rgb(0 0 0 / 0.6),
+        0 40px 80px -42px rgb(0 0 0 / 0.85);
     }
   }
 
@@ -228,10 +257,10 @@
     background-attachment: fixed;
   }
   .dark .app-bg {
-    background-color: #0b0c10;
+    background-color: #0b1120;
     background-image:
-      radial-gradient(62rem 48rem at 100% -12%, rgb(var(--brand-500) / 0.10), transparent 64%),
-      radial-gradient(52rem 44rem at 0% 112%, rgb(var(--brand-700) / 0.08), transparent 62%);
+      radial-gradient(58rem 46rem at 100% -12%, rgb(79 70 229 / 0.16), transparent 62%),
+      radial-gradient(52rem 44rem at 0% 112%, rgb(6 182 212 / 0.12), transparent 60%);
     background-attachment: fixed;
   }
 
@@ -272,11 +301,27 @@
     background-image: radial-gradient(60rem 50rem at 100% -20%, rgb(var(--brand-500) / 0.08), transparent 60%);
   }
 
-  /* Elevation used by floating cards / bubbles. */
+  /* Soft, layered elevation for floating cards / bubbles. */
   .shadow-elevated {
     box-shadow:
-      0 1px 2px rgb(15 23 42 / 0.06),
-      0 8px 24px -8px rgb(15 23 42 / 0.12);
+      0 1px 2px rgb(15 23 42 / 0.05),
+      0 6px 16px -6px rgb(15 23 42 / 0.1),
+      0 18px 40px -22px rgb(15 23 42 / 0.16);
+  }
+  .dark .shadow-elevated {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.3),
+      0 10px 30px -14px rgb(0 0 0 / 0.5);
+  }
+
+  /* Premium hover lift for interactive cards. */
+  .hover-lift {
+    transition:
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
   }
 
   /* Thin custom scrollbars */
