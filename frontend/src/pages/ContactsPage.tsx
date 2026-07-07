@@ -2,7 +2,7 @@ import { ContactsPanel } from '@/features/contacts/ContactsPanel';
 
 export function ContactsPage() {
   return (
-    <div className="h-full bg-white dark:bg-slate-900">
+    <div className="glass-panel md-float h-full overflow-hidden">
       <ContactsPanel />
     </div>
   );

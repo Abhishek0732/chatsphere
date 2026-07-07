@@ -1,5 +1,18 @@
 import { useState, type ReactNode } from 'react';
-import { Bell, BellOff, Check, LogOut, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  Bell,
+  BellOff,
+  Check,
+  ChevronRight,
+  LogOut,
+  Monitor,
+  Moon,
+  Palette,
+  Sun,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   notificationPermission,
@@ -19,10 +32,42 @@ import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
 
 const themeOptions: { value: Theme; label: string; icon: ReactNode }[] = [
-  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
-  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
-  { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
+  { value: 'light', label: 'Light', icon: <Sun className="h-5 w-5" /> },
+  { value: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" /> },
+  { value: 'system', label: 'System', icon: <Monitor className="h-5 w-5" /> },
 ];
+
+/** A premium glass section card with an icon-chip heading. */
+function Card({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon?: ReactNode;
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-elevated backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
+      {title && (
+        <div className="mb-4 flex items-center gap-2.5">
+          {icon && (
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+              {icon}
+            </span>
+          )}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
+            {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+          </div>
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
 
 export function SettingsPanel() {
   const theme = useThemeStore((s) => s.theme);
@@ -42,38 +87,53 @@ export function SettingsPanel() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-8 p-6">
-      <h1 className="text-xl font-semibold">Settings</h1>
+    <div className="mx-auto w-full max-w-xl space-y-5 p-4 sm:p-6">
+      <h1 className="px-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        Settings
+      </h1>
 
+      {/* Account card → quick link to full profile */}
       {user && (
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+        <Link
+          to="/profile"
+          className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-white/50 bg-white/70 p-4 shadow-elevated backdrop-blur-xl transition hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        >
           <Avatar
             name={user.displayName}
             src={user.avatarUrl}
             size="lg"
-            onClick={() => openViewer(user.displayName, user.avatarUrl, { circle: true })}
+            className="ring-2 ring-brand-500/30"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openViewer(user.displayName, user.avatarUrl, { circle: true });
+            }}
           />
-          <div className="min-w-0">
-            <p className="truncate font-medium">{user.displayName}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-slate-900 dark:text-slate-50">
+              {user.displayName}
+            </p>
             <p className="truncate text-sm text-slate-400">@{user.username}</p>
           </div>
-        </div>
+          <span className="flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400">
+            Edit
+            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+          </span>
+        </Link>
       )}
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-          Appearance
-        </h2>
-        <div className="grid grid-cols-3 gap-2">
+      {/* Appearance */}
+      <Card icon={<Sun className="h-4 w-4" />} title="Appearance" subtitle="Light, dark, or follow your system">
+        <div className="grid grid-cols-3 gap-2.5">
           {themeOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setTheme(opt.value)}
               className={cn(
-                'flex flex-col items-center gap-1.5 rounded-lg border p-3 text-sm transition',
+                'flex flex-col items-center gap-2 rounded-xl border p-3.5 text-sm font-medium transition',
                 theme === opt.value
-                  ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-                  : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+                  ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-500/10 dark:text-brand-300'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5',
               )}
             >
               {opt.icon}
@@ -81,19 +141,15 @@ export function SettingsPanel() {
             </button>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-400">
-          Chat theme
-        </h2>
-        <p className="mb-3 text-xs text-slate-400">
-          Your personal accent color and chat wallpaper.
-        </p>
-
-        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-          Accent color
-        </p>
+      {/* Chat theme */}
+      <Card
+        icon={<Palette className="h-4 w-4" />}
+        title="Chat theme"
+        subtitle="Your accent color and chat wallpaper"
+      >
+        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Accent color</p>
         <div className="mb-5 flex flex-wrap gap-3">
           {ACCENTS.map((a) => (
             <button
@@ -102,7 +158,7 @@ export function SettingsPanel() {
               title={a.label}
               aria-label={a.label}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-white dark:ring-offset-slate-900',
+                'flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-white hover:scale-110 dark:ring-offset-slate-900',
                 accent === a.key ? 'ring-slate-900 dark:ring-white' : 'ring-transparent',
               )}
               style={{ backgroundColor: a.swatch }}
@@ -112,9 +168,7 @@ export function SettingsPanel() {
           ))}
         </div>
 
-        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-          Wallpaper
-        </p>
+        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Wallpaper</p>
         <div className="grid grid-cols-5 gap-2">
           {WALLPAPERS.map((w) => (
             <button
@@ -122,14 +176,14 @@ export function SettingsPanel() {
               onClick={() => setWallpaper(w.key)}
               title={w.label}
               className={cn(
-                'flex flex-col items-center gap-1 rounded-lg border p-1.5 text-[11px] transition',
+                'flex flex-col items-center gap-1 rounded-xl border p-1.5 text-[11px] transition',
                 wallpaper === w.key
-                  ? 'border-brand-600 text-brand-700 dark:text-brand-300'
-                  : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+                  ? 'border-brand-500 text-brand-700 dark:text-brand-300'
+                  : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5',
               )}
             >
               <span
-                className="h-8 w-full rounded"
+                className="h-8 w-full rounded-lg"
                 style={{
                   backgroundColor: theme === 'dark' ? w.dark : w.light,
                   backgroundImage:
@@ -143,20 +197,18 @@ export function SettingsPanel() {
             </button>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-          Notifications
-        </h2>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
-          <div className="flex items-center gap-2">
+      {/* Notifications */}
+      <Card icon={<Bell className="h-4 w-4" />} title="Notifications">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2.5">
             {notifPerm === 'granted' ? (
-              <Bell className="h-4 w-4 text-emerald-500" />
+              <Bell className="h-4 w-4 shrink-0 text-emerald-500" />
             ) : (
-              <BellOff className="h-4 w-4 text-slate-400" />
+              <BellOff className="h-4 w-4 shrink-0 text-slate-400" />
             )}
-            <span>
+            <span className="text-slate-600 dark:text-slate-300">
               {notifPerm === 'granted'
                 ? 'Desktop notifications are on'
                 : notifPerm === 'denied'
@@ -172,32 +224,33 @@ export function SettingsPanel() {
             </Button>
           )}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-          Connection
-        </h2>
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+      {/* Connection */}
+      <Card icon={connected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />} title="Connection">
+        <div className="flex items-center gap-2.5 text-sm">
           {connected ? (
             <>
-              <Wifi className="h-4 w-4 text-emerald-500" />
-              <span>Realtime connected</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px] shadow-emerald-500/20" />
+              <span className="text-slate-600 dark:text-slate-300">Realtime connected</span>
             </>
           ) : (
             <>
-              <WifiOff className="h-4 w-4 text-amber-500" />
-              <span>Reconnecting…</span>
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" />
+              <span className="text-slate-600 dark:text-slate-300">Reconnecting…</span>
             </>
           )}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <Button variant="danger" onClick={() => logout.mutate()} loading={logout.isPending}>
-          <LogOut className="h-4 w-4" /> Sign out
-        </Button>
-      </section>
+      <Button
+        variant="danger"
+        onClick={() => logout.mutate()}
+        loading={logout.isPending}
+        className="w-full sm:w-auto"
+      >
+        <LogOut className="h-4 w-4" /> Sign out
+      </Button>
     </div>
   );
 }
