@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMessages } from '@/hooks/useMessages';
@@ -53,7 +53,10 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const otherTypers = typers.filter((t) => t.userId !== myId);
   // Hide a blocked user's typing indicator from the blocker (WhatsApp-style).
   const someoneTyping = otherTypers.length > 0 && !blocked;
-  const pinnedMessages = messages.filter((m) => m.pinned && !m.deleted);
+  const pinnedMessages = useMemo(
+    () => messages.filter((m) => m.pinned && !m.deleted),
+    [messages],
+  );
   const typingLabel =
     conversation?.type === 'GROUP' && otherTypers.length > 0
       ? otherTypers.length === 1

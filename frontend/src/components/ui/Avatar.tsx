@@ -71,6 +71,8 @@ export function Avatar({ name, src, size = 'md', className, onClick }: AvatarPro
         <img
           src={mediaSrc(src)}
           alt={name}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover"
           onError={() => setFailed(true)}
         />

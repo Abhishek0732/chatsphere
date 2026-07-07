@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Music2, Send, Trash2, X } from 'lucide-react';
+import { queryKeys } from '@/api/queryKeys';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
 import { mediaSrc } from '@/utils/media';
@@ -49,6 +51,15 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
   const markViewed = useMarkStatusViewed();
   const deleteStatus = useDeleteStatus();
   const replyToStatus = useReplyToStatus();
+  const qc = useQueryClient();
+
+  // Reconcile the feed with the server once, when the viewer unmounts — instead
+  // of refetching on every item advance.
+  useEffect(() => {
+    return () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.status });
+    };
+  }, [qc]);
 
   const user = users[userIndex];
   const item = user?.items[itemIndex];

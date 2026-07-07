@@ -10,6 +10,9 @@ import { ConversationListItem } from './ConversationListItem';
 
 type Filter = 'all' | 'unread' | 'groups';
 
+// Cap how many conversations keep a live "typing…" subscription open at once.
+const TYPING_SUB_LIMIT = 40;
+
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
@@ -38,12 +41,24 @@ export function ConversationList() {
     });
   }, [data, term, filter]);
 
-  // Keep a live typing subscription open for every conversation so the sidebar
-  // shows "typing…" even for chats that aren't currently open.
-  const convIds = (data ?? []).map((c) => c.id);
-  const convIdsKey = convIds.join(',');
+  // Keep a live typing subscription open only for the most-recent conversations,
+  // so the sidebar can show "typing…" without opening one STOMP subscription per
+  // chat — a user with thousands of chats would otherwise flood the broker.
+  const typingSubIds = useMemo(
+    () =>
+      [...(data ?? [])]
+        .sort(
+          (a, b) =>
+            new Date(b.lastMessage?.createdAt ?? b.updatedAt).getTime() -
+            new Date(a.lastMessage?.createdAt ?? a.updatedAt).getTime(),
+        )
+        .slice(0, TYPING_SUB_LIMIT)
+        .map((c) => c.id),
+    [data],
+  );
+  const convIdsKey = typingSubIds.join(',');
   useEffect(() => {
-    socketService.syncTypingSubs(convIds);
+    socketService.syncTypingSubs(typingSubIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convIdsKey]);
 

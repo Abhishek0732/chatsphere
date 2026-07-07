@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Eraser, LogOut, MoreVertical, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -19,7 +19,7 @@ import { lastMessagePreview, otherMember } from './utils';
 // Stable empty reference so the zustand selector doesn't return a fresh [].
 const NO_TYPERS: { userId: number; userName: string }[] = [];
 
-export function ConversationListItem({ conversation }: { conversation: ConversationSummary }) {
+function ConversationListItemInner({ conversation }: { conversation: ConversationSummary }) {
   const myId = useAuthStore((s) => s.user?.id);
   const other = otherMember(conversation, myId);
   const online = useChatStore((s) => (other ? Boolean(s.presence[other.id]?.online) : false));
@@ -195,3 +195,8 @@ export function ConversationListItem({ conversation }: { conversation: Conversat
     </div>
   );
 }
+
+// Memoized so bumping one conversation (new message) doesn't re-render every
+// row. Each row's live bits (presence, typing) come from narrow per-row store
+// selectors, so they still update independently.
+export const ConversationListItem = memo(ConversationListItemInner);

@@ -233,14 +233,11 @@ public class ChatService {
                 .max(Long::compareTo)
                 .orElse(0L);
 
+        // Build the whole page with batched reaction/reply lookups (no N+1).
+        final long readCeil = maxOtherRead;
+        List<MessageDto> dtos = assembleBatch(page, senders, m ->
+                Objects.equals(m.getSenderId(), userId) && m.getId() <= readCeil ? "READ" : "SENT");
         // return oldest-first for rendering
-        List<MessageDto> dtos = page.stream()
-                .map(m -> {
-                    String status = Objects.equals(m.getSenderId(), userId) && m.getId() <= maxOtherRead
-                            ? "READ" : "SENT";
-                    return toMessageDto(m, senders.get(m.getSenderId()), status, null);
-                })
-                .collect(Collectors.toList());
         Collections.reverse(dtos);
         return dtos;
     }
@@ -329,6 +326,14 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public MessageDto toMessageDto(Message m, User sender, String status, String tempId) {
+        // Single-message path (e.g. WebSocket echo): 1–2 small lookups are fine.
+        return assemble(m, sender, status, tempId,
+                reactionsFor(m.getId()), buildReplyPreview(m.getReplyToMessageId()));
+    }
+
+    /** Build a MessageDto from already-resolved reactions + reply preview (no queries). */
+    private MessageDto assemble(Message m, User sender, String status, String tempId,
+                                List<ReactionDto> reactions, ReplyPreview replyTo) {
         String senderName = sender != null ? sender.getDisplayName() : "Unknown";
         boolean deleted = m.isDeleted();
         String content = deleted ? null : m.getContent();
@@ -338,8 +343,62 @@ public class ChatService {
                         m.getStatusRefMediaUrl(), m.getStatusRefCaption(), m.getStatusRefBgColor());
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 content, m.getType().name(), attachmentUrl,
-                m.getCreatedAt(), status, tempId, deleted, buildReplyPreview(m.getReplyToMessageId()),
-                reactionsFor(m.getId()), m.isPinned(), m.getEditedAt(), statusRef);
+                m.getCreatedAt(), status, tempId, deleted, replyTo,
+                reactions, m.isPinned(), m.getEditedAt(), statusRef);
+    }
+
+    /**
+     * Build DTOs for a whole page of messages with a fixed, small number of
+     * queries — reactions, reply targets, and reply-target senders are each
+     * loaded in ONE batch instead of per message (avoids N+1 on the hot
+     * message-loading path).
+     */
+    @Transactional(readOnly = true)
+    public List<MessageDto> assembleBatch(List<Message> messages, Map<Long, User> senders,
+                                          java.util.function.Function<Message, String> statusFn) {
+        if (messages.isEmpty()) return new ArrayList<>();
+        List<Long> ids = messages.stream().map(Message::getId).toList();
+
+        // 1) reactions for all messages, grouped (emoji -> userIds) per message
+        Map<Long, List<ReactionDto>> reactionsByMsg = new HashMap<>();
+        Map<Long, Map<String, List<Long>>> grouped = new HashMap<>();
+        for (var r : reactionRepository.findByMessageIdIn(ids)) {
+            grouped.computeIfAbsent(r.getMessageId(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(r.getEmoji(), k -> new ArrayList<>()).add(r.getUserId());
+        }
+        grouped.forEach((mid, byEmoji) -> reactionsByMsg.put(mid, byEmoji.entrySet().stream()
+                .map(e -> new ReactionDto(e.getKey(), e.getValue())).toList()));
+
+        // 2) reply targets + their senders, batched
+        List<Long> replyIds = messages.stream().map(Message::getReplyToMessageId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, Message> targets = replyIds.isEmpty() ? Map.of()
+                : messageRepository.findAllById(replyIds).stream()
+                        .collect(Collectors.toMap(Message::getId, t -> t));
+        Set<Long> targetSenderIds = targets.values().stream()
+                .map(Message::getSenderId).collect(Collectors.toSet());
+        Map<Long, User> targetSenders = targetSenderIds.isEmpty() ? Map.of()
+                : userRepository.findAllById(targetSenderIds).stream()
+                        .collect(Collectors.toMap(User::getId, u -> u));
+
+        List<MessageDto> out = new ArrayList<>(messages.size());
+        for (Message m : messages) {
+            out.add(assemble(m, senders.get(m.getSenderId()), statusFn.apply(m), null,
+                    reactionsByMsg.getOrDefault(m.getId(), List.of()),
+                    replyPreviewFrom(m.getReplyToMessageId(), targets, targetSenders)));
+        }
+        return out;
+    }
+
+    private ReplyPreview replyPreviewFrom(Long replyToId, Map<Long, Message> targets,
+                                          Map<Long, User> senders) {
+        if (replyToId == null) return null;
+        Message target = targets.get(replyToId);
+        if (target == null) return null;
+        String name = senders.containsKey(target.getSenderId())
+                ? senders.get(target.getSenderId()).getDisplayName() : "Unknown";
+        String preview = target.isDeleted() ? null : previewText(target);
+        return new ReplyPreview(target.getId(), name, preview, target.getType().name());
     }
 
     /** Group a message's reactions into (emoji -> userIds). */

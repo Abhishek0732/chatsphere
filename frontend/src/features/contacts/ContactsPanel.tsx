@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   Check,
   CircleDashed,
@@ -28,6 +28,39 @@ import { CreateGroupModal } from '@/features/groups/CreateGroupModal';
 import { StatusBar } from '@/features/status/StatusBar';
 import { AddStatusModal } from '@/features/status/AddStatusModal';
 import { StatusPrivacyModal } from '@/features/status/StatusPrivacyModal';
+import type { Contact } from '@/types';
+
+// Memoized row that subscribes to ONLY its own user's presence, so a presence
+// change for one user re-renders just that row — not the whole contact list.
+const ContactRow = memo(function ContactRow({
+  contact,
+  onMessage,
+  onRemove,
+}: {
+  contact: Contact;
+  onMessage: (userId: number) => void;
+  onRemove: (contactId: number) => void;
+}) {
+  const online = useChatStore((s) => Boolean(s.presence[contact.user.id]?.online));
+  return (
+    <li className="flex items-center gap-3 px-4 py-3">
+      <div className="relative">
+        <Avatar name={contact.user.displayName} src={contact.user.avatarUrl} size="md" />
+        <PresenceDot online={online} className="absolute bottom-0 right-0" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{contact.user.displayName}</p>
+        <p className="truncate text-xs text-slate-400">@{contact.user.username}</p>
+      </div>
+      <Button size="icon" variant="ghost" aria-label="Message" onClick={() => onMessage(contact.user.id)}>
+        <MessageSquarePlus className="h-5 w-5" />
+      </Button>
+      <Button size="icon" variant="ghost" aria-label="Remove contact" onClick={() => onRemove(contact.id)}>
+        <Trash2 className="h-5 w-5 text-red-500" />
+      </Button>
+    </li>
+  );
+});
 
 export function ContactsPanel() {
   const { data: contacts, isLoading } = useContacts();
@@ -36,7 +69,6 @@ export function ContactsPanel() {
   const declineRequest = useDeclineRequest();
   const deleteContact = useDeleteContact();
   const openDirect = useOpenDirect();
-  const presence = useChatStore((s) => s.presence);
 
   const [addOpen, setAddOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
@@ -164,35 +196,12 @@ export function ContactsPanel() {
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {(contacts ?? []).map((c) => (
-              <li key={c.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="relative">
-                  <Avatar name={c.user.displayName} src={c.user.avatarUrl} size="md" />
-                  <PresenceDot
-                    online={Boolean(presence[c.user.id]?.online)}
-                    className="absolute bottom-0 right-0"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{c.user.displayName}</p>
-                  <p className="truncate text-xs text-slate-400">@{c.user.username}</p>
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Message"
-                  onClick={() => openDirect.mutate(c.user.id)}
-                >
-                  <MessageSquarePlus className="h-5 w-5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Remove contact"
-                  onClick={() => deleteContact.mutate(c.id)}
-                >
-                  <Trash2 className="h-5 w-5 text-red-500" />
-                </Button>
-              </li>
+              <ContactRow
+                key={c.id}
+                contact={c}
+                onMessage={openDirect.mutate}
+                onRemove={deleteContact.mutate}
+              />
             ))}
           </ul>
         )}

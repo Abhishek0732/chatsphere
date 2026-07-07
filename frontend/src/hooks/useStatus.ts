@@ -11,7 +11,7 @@ import {
 } from '@/api/status';
 import { queryKeys } from '@/api/queryKeys';
 import { toast } from '@/store/toastStore';
-import type { CreateStatusPayload, StatusPrivacy, StatusReplyPayload } from '@/types';
+import type { CreateStatusPayload, StatusPrivacy, StatusReplyPayload, StatusUser } from '@/types';
 
 export function useStatusFeed() {
   return useQuery({
@@ -85,13 +85,25 @@ export function useReplyToStatus() {
   });
 }
 
-/** Fire-and-forget view mark; refreshes the feed rings when the viewer closes. */
+/**
+ * Fire-and-forget view mark. We deliberately DON'T invalidate the feed here —
+ * marking fires on every story advance, so invalidating would trigger a full
+ * feed refetch per item (a refetch storm). Instead we flip the item's `viewed`
+ * flag in the cache locally; the ring state refreshes once when the viewer
+ * closes (see StatusViewer).
+ */
 export function useMarkStatusViewed() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => markStatusViewed(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.status });
+    onSuccess: (_data, id) => {
+      qc.setQueryData<StatusUser[]>(queryKeys.status, (prev) =>
+        prev?.map((u) => ({
+          ...u,
+          items: u.items.map((it) => (it.id === id ? { ...it, viewed: true } : it)),
+          allViewed: u.items.every((it) => it.id === id || it.viewed),
+        })),
+      );
     },
   });
 }

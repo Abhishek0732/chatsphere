@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   FileText,
@@ -18,6 +18,8 @@ import { fileNameFromUrl, formatTime, isAudioUrl, isVideoUrl } from '@/utils/for
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
+import { useMediaRevealStore } from '@/store/mediaRevealStore';
+import { MediaDownloadTile } from './MediaDownloadTile';
 import { socketService } from '@/services/socket';
 import { markMessageDeleted } from '@/services/messageCache';
 import { toast } from '@/store/toastStore';
@@ -53,11 +55,16 @@ function previewOf(message: Message): string | null {
   return message.content || null;
 }
 
-export function MessageBubble({ message, mine, showSender, onForward }: MessageBubbleProps) {
+function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBubbleProps) {
   const setReplyTo = useChatStore((s) => s.setReplyTo);
   const setEditing = useChatStore((s) => s.setEditing);
   const myId = useAuthStore((s) => s.user?.id);
   const openViewer = useImageViewer((s) => s.open);
+  const revealMedia = useMediaRevealStore((s) => s.reveal);
+  // Media I received stays hidden until I "download" it (WhatsApp-style); my own
+  // sent media is always shown. Optimistic (negative id) messages show directly.
+  const mediaRevealed = useMediaRevealStore((s) => Boolean(s.revealed[message.id]));
+  const gateMedia = !mine && message.id > 0 && !mediaRevealed;
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -230,6 +237,8 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
                     <img
                       src={mediaSrc(message.statusRef.mediaUrl)}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="h-9 w-9 shrink-0 rounded-md object-cover"
                     />
                   )
@@ -255,17 +264,27 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
 
             {message.type === 'IMAGE' && message.attachmentUrl && (
               <>
-                <button
-                  type="button"
-                  onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
-                  className="-mx-2.5 -mt-1.5 mb-1.5 block w-[calc(100%+1.25rem)] overflow-hidden rounded-2xl"
-                >
-                  <img
-                    src={mediaSrc(message.attachmentUrl)}
-                    alt={message.content || 'image'}
-                    className="max-h-80 w-full cursor-pointer object-cover"
+                {gateMedia ? (
+                  <MediaDownloadTile
+                    kind="image"
+                    mine={mine}
+                    onReveal={() => revealMedia(message.id)}
                   />
-                </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
+                    className="-mx-2.5 -mt-1.5 mb-1.5 block w-[min(75vw,18rem)] overflow-hidden rounded-2xl"
+                  >
+                    <img
+                      src={mediaSrc(message.attachmentUrl)}
+                      alt={message.content || 'image'}
+                      loading="lazy"
+                      decoding="async"
+                      className="max-h-96 w-full cursor-pointer object-cover"
+                    />
+                  </button>
+                )}
                 {/* Caption typed alongside the image. */}
                 {message.content && (
                   <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
@@ -277,13 +296,21 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
 
             {message.type === 'FILE' && message.attachmentUrl && isAudioUrl(message.attachmentUrl) && (
               <>
-                {/* Inline audio / voice-message player. */}
-                <audio
-                  src={mediaSrc(message.attachmentUrl)}
-                  controls
-                  preload="metadata"
-                  className="mb-1 w-56 max-w-full"
-                />
+                {gateMedia ? (
+                  <MediaDownloadTile
+                    kind="audio"
+                    mine={mine}
+                    onReveal={() => revealMedia(message.id)}
+                  />
+                ) : (
+                  /* Inline audio / voice-message player. */
+                  <audio
+                    src={mediaSrc(message.attachmentUrl)}
+                    controls
+                    preload="metadata"
+                    className="mb-1 w-56 max-w-full"
+                  />
+                )}
                 {message.content && (
                   <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
                     {message.content}
@@ -296,14 +323,22 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
               message.attachmentUrl &&
               isVideoUrl(message.attachmentUrl) && (
               <>
-                {/* Inline video player — play directly in the chat (WhatsApp-style). */}
-                <video
-                  src={mediaSrc(message.attachmentUrl)}
-                  controls
-                  preload="metadata"
-                  playsInline
-                  className="-mx-2.5 -mt-1.5 mb-1.5 block max-h-80 w-[calc(100%+1.25rem)] rounded-2xl bg-black"
-                />
+                {gateMedia ? (
+                  <MediaDownloadTile
+                    kind="video"
+                    mine={mine}
+                    onReveal={() => revealMedia(message.id)}
+                  />
+                ) : (
+                  /* Inline video player — play directly in the chat (WhatsApp-style). */
+                  <video
+                    src={mediaSrc(message.attachmentUrl)}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    className="-mx-2.5 -mt-1.5 mb-1.5 block max-h-96 w-[min(75vw,18rem)] rounded-2xl bg-black"
+                  />
+                )}
                 {message.content && (
                   <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
                     {message.content}
@@ -494,3 +529,8 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
     </div>
   );
 }
+
+// Memoized: in a long thread, an unrelated re-render of the list (e.g. a remote
+// typing event) must not re-render every bubble — only bubbles whose props
+// actually change. `onForward` is a stable setter from the parent.
+export const MessageBubble = memo(MessageBubbleInner);
