@@ -267,6 +267,31 @@ public class ChatService {
         return saved;
     }
 
+    /**
+     * Persist a status reply/reaction as a normal text message that carries a
+     * snapshot of the status it answers. The caller has already resolved the
+     * direct conversation and enforced block rules.
+     */
+    @Transactional
+    public Message persistStatusReply(Long senderId, Long conversationId, String content,
+                                      Long statusId, String statusType, String statusMediaUrl,
+                                      String statusCaption, String statusBgColor) {
+        assertMember(conversationId, senderId);
+        Message m = new Message();
+        m.setConversationId(conversationId);
+        m.setSenderId(senderId);
+        m.setContent(content);
+        m.setType(Message.Type.TEXT);
+        m.setStatusRefId(statusId);
+        m.setStatusRefType(statusType);
+        m.setStatusRefMediaUrl(statusMediaUrl);
+        m.setStatusRefCaption(statusCaption);
+        m.setStatusRefBgColor(statusBgColor);
+        Message saved = messageRepository.save(m);
+        conversationRepository.findById(conversationId).ifPresent(conversationRepository::save);
+        return saved;
+    }
+
     /** Soft-deletes a message. Only the original sender may delete it. */
     @Transactional
     public Message deleteMessage(Long userId, Long messageId) {
@@ -308,10 +333,13 @@ public class ChatService {
         boolean deleted = m.isDeleted();
         String content = deleted ? null : m.getContent();
         String attachmentUrl = deleted ? null : m.getAttachmentUrl();
+        StatusRef statusRef = deleted || m.getStatusRefType() == null ? null
+                : new StatusRef(m.getStatusRefId(), m.getStatusRefType(),
+                        m.getStatusRefMediaUrl(), m.getStatusRefCaption(), m.getStatusRefBgColor());
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 content, m.getType().name(), attachmentUrl,
                 m.getCreatedAt(), status, tempId, deleted, buildReplyPreview(m.getReplyToMessageId()),
-                reactionsFor(m.getId()), m.isPinned(), m.getEditedAt());
+                reactionsFor(m.getId()), m.isPinned(), m.getEditedAt(), statusRef);
     }
 
     /** Group a message's reactions into (emoji -> userIds). */

@@ -9,6 +9,7 @@ export const queryKeys = {
   blocked: ['blocked'] as const,
   status: ['status'] as const,
   statusViewers: (id: number) => ['status', 'views', id] as const,
+  statusPrivacy: ['status', 'privacy'] as const,
   notifications: ['notifications'] as const,
   group: (id: number) => ['group', id] as const,
   userSearch: (q: string) => ['userSearch', q] as const,

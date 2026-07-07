@@ -40,6 +40,17 @@ export interface Message {
   pinned?: boolean;
   /** ISO timestamp if the message was edited; null/absent otherwise. */
   editedAt?: string | null;
+  /** Snapshot of the status this message replies/reacts to, if any. */
+  statusRef?: StatusRef | null;
+}
+
+/** Quoted snapshot of a status a message answers (WhatsApp-style). */
+export interface StatusRef {
+  id: number;
+  type: StatusType;
+  mediaUrl?: string | null;
+  caption?: string | null;
+  bgColor?: string | null;
 }
 
 export interface MessageReaction {
@@ -79,6 +90,19 @@ export interface CreateStatusPayload {
   caption?: string;
   bgColor?: string;
   musicUrl?: string;
+}
+
+export interface StatusReplyPayload {
+  text?: string;
+  emoji?: string;
+}
+
+export type StatusPrivacyMode = 'ALL' | 'EXCEPT' | 'ONLY';
+
+export interface StatusPrivacy {
+  mode: StatusPrivacyMode;
+  /** Chosen user ids: excluded when EXCEPT, allowed when ONLY. */
+  userIds: number[];
 }
 
 export interface ReplyPreview {

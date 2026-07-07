@@ -17,6 +17,12 @@ public final class StatusDtos {
             String bgColor,
             String musicUrl) {}
 
+    /** Reply to a status: a free-text message, an emoji reaction, or both. */
+    public record StatusReplyRequest(String text, String emoji) {}
+
+    /** Current status-privacy setting: mode plus the chosen user ids. */
+    public record StatusPrivacyDto(String mode, List<Long> userIds) {}
+
     public record StatusItemDto(
             Long id,
             String type,

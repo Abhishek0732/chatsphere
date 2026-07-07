@@ -51,4 +51,22 @@ public class Message {
     /** Set when the message content is edited; null otherwise. */
     @Column(name = "edited_at")
     private Instant editedAt;
+
+    // ── Status reply/reaction snapshot ──
+    // Present when this message is a reply or reaction to someone's status. The
+    // snapshot lets the quoted preview render even after the status has expired.
+    @Column(name = "status_ref_id")
+    private Long statusRefId;
+
+    @Column(name = "status_ref_type", length = 10)
+    private String statusRefType;
+
+    @Column(name = "status_ref_media_url", length = 512)
+    private String statusRefMediaUrl;
+
+    @Column(name = "status_ref_caption", length = 700)
+    private String statusRefCaption;
+
+    @Column(name = "status_ref_bg_color", length = 40)
+    private String statusRefBgColor;
 }

@@ -1,5 +1,15 @@
-import { useState } from 'react';
-import { Check, MessageSquarePlus, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Check,
+  CircleDashed,
+  Lock,
+  MessageSquarePlus,
+  MoreVertical,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -16,6 +26,8 @@ import { useChatStore } from '@/store/chatStore';
 import { AddContactModal } from './AddContactModal';
 import { CreateGroupModal } from '@/features/groups/CreateGroupModal';
 import { StatusBar } from '@/features/status/StatusBar';
+import { AddStatusModal } from '@/features/status/AddStatusModal';
+import { StatusPrivacyModal } from '@/features/status/StatusPrivacyModal';
 
 export function ContactsPanel() {
   const { data: contacts, isLoading } = useContacts();
@@ -28,20 +40,68 @@ export function ContactsPanel() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const incoming = requests ?? [];
+
+  // Close the 3-dot menu when clicking outside of it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
+
+  const menuAction = (fn: () => void) => () => {
+    setMenuOpen(false);
+    fn();
+  };
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h1 className="text-lg font-semibold">Contacts</h1>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setGroupOpen(true)}>
-            <Users className="h-4 w-4" /> New group
-          </Button>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <UserPlus className="h-4 w-4" /> Add
-          </Button>
+        <h1 className="text-lg font-semibold">Updates</h1>
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Menu"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <button
+                onClick={menuAction(() => setStatusOpen(true))}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <CircleDashed className="h-4 w-4" /> Add status
+              </button>
+              <button
+                onClick={menuAction(() => setPrivacyOpen(true))}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Lock className="h-4 w-4" /> Status privacy
+              </button>
+              <button
+                onClick={menuAction(() => setAddOpen(true))}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <UserPlus className="h-4 w-4" /> Add contact
+              </button>
+              <button
+                onClick={menuAction(() => setGroupOpen(true))}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Users className="h-4 w-4" /> New group
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -88,6 +148,10 @@ export function ContactsPanel() {
             </ul>
           </section>
         )}
+
+        <h2 className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <Users className="h-3.5 w-3.5" /> Contacts
+        </h2>
 
         {isLoading ? (
           <div className="flex justify-center py-10">
@@ -136,6 +200,8 @@ export function ContactsPanel() {
 
       <AddContactModal open={addOpen} onClose={() => setAddOpen(false)} />
       <CreateGroupModal open={groupOpen} onClose={() => setGroupOpen(false)} />
+      <AddStatusModal open={statusOpen} onClose={() => setStatusOpen(false)} />
+      <StatusPrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }

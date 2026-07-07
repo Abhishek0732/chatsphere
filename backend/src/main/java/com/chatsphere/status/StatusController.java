@@ -35,10 +35,28 @@ public class StatusController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Reply to / react to a status (delivered as a chat message to the owner). */
+    @PostMapping("/{id}/reply")
+    public ResponseEntity<Void> reply(@PathVariable Long id, @RequestBody StatusReplyRequest req) {
+        statusService.reply(SecurityUtils.currentUserId(), id, req);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Who viewed my status (owner only). */
     @GetMapping("/{id}/views")
     public List<StatusViewerDto> views(@PathVariable Long id) {
         return statusService.viewers(SecurityUtils.currentUserId(), id);
+    }
+
+    /** My status-privacy setting (who can see my statuses). */
+    @GetMapping("/privacy")
+    public StatusPrivacyDto getPrivacy() {
+        return statusService.getPrivacy(SecurityUtils.currentUserId());
+    }
+
+    @PutMapping("/privacy")
+    public StatusPrivacyDto setPrivacy(@RequestBody StatusPrivacyDto req) {
+        return statusService.setPrivacy(SecurityUtils.currentUserId(), req);
     }
 
     @DeleteMapping("/{id}")

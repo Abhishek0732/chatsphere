@@ -1,9 +1,16 @@
 package com.chatsphere.status;
 
 import com.chatsphere.block.BlockService;
+import com.chatsphere.chat.ChatBroadcaster;
+import com.chatsphere.chat.ChatService;
+import com.chatsphere.chat.domain.Conversation;
+import com.chatsphere.chat.domain.Message;
+import com.chatsphere.chat.dto.ChatDtos.MessageDto;
 import com.chatsphere.chat.repo.ConversationMemberRepository;
 import com.chatsphere.common.error.ApiException;
 import com.chatsphere.contact.ContactRepository;
+import com.chatsphere.messaging.ChatEventPublisher;
+import com.chatsphere.notification.NotificationService;
 import com.chatsphere.status.dto.StatusDtos.*;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
@@ -25,19 +32,37 @@ public class StatusService {
     private final ConversationMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final BlockService blockService;
+    private final ChatService chatService;
+    private final ChatBroadcaster chatBroadcaster;
+    private final NotificationService notificationService;
+    private final ChatEventPublisher chatEventPublisher;
+    private final StatusPrivacyRepository privacyRepository;
+    private final StatusPrivacyUserRepository privacyUserRepository;
 
     public StatusService(StatusRepository statusRepository,
                          StatusViewRepository viewRepository,
                          ContactRepository contactRepository,
                          ConversationMemberRepository memberRepository,
                          UserRepository userRepository,
-                         BlockService blockService) {
+                         BlockService blockService,
+                         ChatService chatService,
+                         ChatBroadcaster chatBroadcaster,
+                         NotificationService notificationService,
+                         ChatEventPublisher chatEventPublisher,
+                         StatusPrivacyRepository privacyRepository,
+                         StatusPrivacyUserRepository privacyUserRepository) {
         this.statusRepository = statusRepository;
         this.viewRepository = viewRepository;
         this.contactRepository = contactRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.blockService = blockService;
+        this.chatService = chatService;
+        this.chatBroadcaster = chatBroadcaster;
+        this.notificationService = notificationService;
+        this.chatEventPublisher = chatEventPublisher;
+        this.privacyRepository = privacyRepository;
+        this.privacyUserRepository = privacyUserRepository;
     }
 
     @Transactional
@@ -95,10 +120,14 @@ public class StatusService {
             byUser.computeIfAbsent(s.getUserId(), k -> new ArrayList<>()).add(s);
         }
 
+        // Drop owners whose status-privacy setting excludes me.
+        Set<Long> allowedOwners = ownersVisibleTo(byUser.keySet(), me);
+
         List<StatusUserDto> result = new ArrayList<>();
         for (var e : byUser.entrySet()) {
             User u = users.get(e.getKey());
             if (u == null) continue;
+            if (!allowedOwners.contains(e.getKey())) continue;
             boolean isMe = Objects.equals(e.getKey(), me);
             List<StatusItemDto> items = new ArrayList<>();
             boolean allViewed = true;
@@ -131,12 +160,55 @@ public class StatusService {
         if (blockService.blockRelatedUserIds(me).contains(s.getUserId())) {
             throw ApiException.forbidden("You can't view this status");
         }
+        // The owner's privacy setting may hide it from me.
+        if (!canSeeStatus(s.getUserId(), me)) {
+            throw ApiException.forbidden("You can't view this status");
+        }
         if (!viewRepository.existsByStatusIdAndViewerId(statusId, me)) {
             StatusView v = new StatusView();
             v.setStatusId(statusId);
             v.setViewerId(me);
             viewRepository.save(v);
         }
+    }
+
+    /**
+     * Reply or react to a status. Delivered as a normal chat message in the 1:1
+     * conversation with the status owner, carrying a snapshot of the status so
+     * the recipient sees what it answers (WhatsApp-style).
+     */
+    @Transactional
+    public void reply(Long me, Long statusId, StatusReplyRequest req) {
+        Status s = statusRepository.findById(statusId)
+                .orElseThrow(() -> ApiException.notFound("Status not found"));
+        Long owner = s.getUserId();
+        if (Objects.equals(owner, me)) {
+            throw ApiException.badRequest("You can't reply to your own status");
+        }
+        if (blockService.blockRelatedUserIds(me).contains(owner)) {
+            throw ApiException.forbidden("You can't reply to this status");
+        }
+        if (!canSeeStatus(owner, me)) {
+            throw ApiException.forbidden("You can't reply to this status");
+        }
+        String emoji = req == null ? null : blankToNull(req.emoji());
+        String text = req == null ? null : blankToNull(req.text());
+        // An emoji-only reaction sends the emoji as the message body.
+        String content = text != null ? text : emoji;
+        if (content == null) {
+            throw ApiException.badRequest("Reply cannot be empty");
+        }
+
+        Conversation c = chatService.getOrCreateDirect(me, owner);
+        Message saved = chatService.persistStatusReply(me, c.getId(), content, s.getId(),
+                s.getType().name(), s.getMediaUrl(), s.getCaption(), s.getBgColor());
+        MessageDto dto = chatService.toMessageDto(saved, (String) null);
+
+        List<Long> members = chatService.memberUserIds(c.getId());
+        List<Long> deliverable = blockService.filterDeliverable(me, members);
+        chatBroadcaster.sendMessageToMembers(dto, deliverable);
+        chatEventPublisher.publishMessage(dto);
+        notificationService.notifyNewMessage(dto, deliverable, me);
     }
 
     @Transactional(readOnly = true)
@@ -164,6 +236,85 @@ public class StatusService {
             throw ApiException.forbidden("Not your status");
         }
         statusRepository.delete(s);
+    }
+
+    // ── Status privacy ──
+
+    @Transactional(readOnly = true)
+    public StatusPrivacyDto getPrivacy(Long me) {
+        StatusPrivacy.Mode mode = privacyRepository.findById(me)
+                .map(StatusPrivacy::getMode).orElse(StatusPrivacy.Mode.ALL);
+        List<Long> userIds = privacyUserRepository.findByOwnerId(me).stream()
+                .map(StatusPrivacyUser::getTargetUserId).toList();
+        return new StatusPrivacyDto(mode.name(), userIds);
+    }
+
+    @Transactional
+    public StatusPrivacyDto setPrivacy(Long me, StatusPrivacyDto req) {
+        StatusPrivacy.Mode mode;
+        try {
+            mode = StatusPrivacy.Mode.valueOf(req.mode() == null ? "ALL" : req.mode().toUpperCase());
+        } catch (Exception e) {
+            throw ApiException.badRequest("Invalid privacy mode");
+        }
+        StatusPrivacy setting = privacyRepository.findById(me).orElseGet(() -> {
+            StatusPrivacy p = new StatusPrivacy();
+            p.setUserId(me);
+            return p;
+        });
+        setting.setMode(mode);
+        privacyRepository.save(setting);
+
+        // Replace the chosen-user list. ALL keeps no list.
+        privacyUserRepository.deleteByOwnerId(me);
+        if (mode != StatusPrivacy.Mode.ALL && req.userIds() != null) {
+            for (Long uid : new LinkedHashSet<>(req.userIds())) {
+                if (uid == null || Objects.equals(uid, me)) continue;
+                StatusPrivacyUser spu = new StatusPrivacyUser();
+                spu.setOwnerId(me);
+                spu.setTargetUserId(uid);
+                privacyUserRepository.save(spu);
+            }
+        }
+        return getPrivacy(me);
+    }
+
+    /** Owners (from the set) whose privacy setting lets {@code viewer} see them. */
+    private Set<Long> ownersVisibleTo(Collection<Long> ownerIds, Long viewer) {
+        Map<Long, StatusPrivacy.Mode> modes = privacyRepository.findAllById(ownerIds).stream()
+                .collect(Collectors.toMap(StatusPrivacy::getUserId, StatusPrivacy::getMode));
+        Map<Long, Set<Long>> targets = new HashMap<>();
+        for (StatusPrivacyUser spu : privacyUserRepository.findByOwnerIdIn(ownerIds)) {
+            targets.computeIfAbsent(spu.getOwnerId(), k -> new HashSet<>()).add(spu.getTargetUserId());
+        }
+        Set<Long> ok = new HashSet<>();
+        for (Long owner : ownerIds) {
+            if (Objects.equals(owner, viewer) || isVisible(
+                    modes.getOrDefault(owner, StatusPrivacy.Mode.ALL),
+                    targets.getOrDefault(owner, Set.of()), viewer)) {
+                ok.add(owner);
+            }
+        }
+        return ok;
+    }
+
+    /** Whether {@code viewer} may see {@code ownerId}'s statuses. */
+    private boolean canSeeStatus(Long ownerId, Long viewer) {
+        if (Objects.equals(ownerId, viewer)) return true;
+        StatusPrivacy.Mode mode = privacyRepository.findById(ownerId)
+                .map(StatusPrivacy::getMode).orElse(StatusPrivacy.Mode.ALL);
+        if (mode == StatusPrivacy.Mode.ALL) return true;
+        Set<Long> list = privacyUserRepository.findByOwnerId(ownerId).stream()
+                .map(StatusPrivacyUser::getTargetUserId).collect(Collectors.toSet());
+        return isVisible(mode, list, viewer);
+    }
+
+    private static boolean isVisible(StatusPrivacy.Mode mode, Set<Long> chosen, Long viewer) {
+        return switch (mode) {
+            case ALL -> true;
+            case EXCEPT -> !chosen.contains(viewer);
+            case ONLY -> chosen.contains(viewer);
+        };
     }
 
     private StatusItemDto toItem(Status s, boolean viewed, long count) {

@@ -192,6 +192,51 @@ export function MessageBubble({ message, mine, showSender, onForward }: MessageB
           </p>
         ) : (
           <>
+            {message.statusRef && (
+              <div
+                className={cn(
+                  'mb-1 flex items-center gap-2 rounded-lg border-l-4 py-1 pl-2 pr-1.5 text-xs',
+                  mine
+                    ? 'border-white/70 bg-brand-700/40'
+                    : 'border-brand-400 bg-slate-100 dark:bg-slate-700',
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="block font-semibold">
+                    {mine ? 'You replied to their status' : 'Replied to your status'}
+                  </span>
+                  {message.statusRef.caption && (
+                    <span className="block truncate opacity-80">{message.statusRef.caption}</span>
+                  )}
+                </div>
+                {message.statusRef.type === 'TEXT' ? (
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md text-[9px] text-white"
+                    style={{
+                      backgroundImage: message.statusRef.bgColor ?? undefined,
+                      backgroundColor: message.statusRef.bgColor ? undefined : '#6366f1',
+                    }}
+                  >
+                    Aa
+                  </span>
+                ) : message.statusRef.mediaUrl ? (
+                  message.statusRef.type === 'VIDEO' ? (
+                    <video
+                      src={mediaSrc(message.statusRef.mediaUrl)}
+                      className="h-9 w-9 shrink-0 rounded-md object-cover"
+                      muted
+                    />
+                  ) : (
+                    <img
+                      src={mediaSrc(message.statusRef.mediaUrl)}
+                      alt=""
+                      className="h-9 w-9 shrink-0 rounded-md object-cover"
+                    />
+                  )
+                ) : null}
+              </div>
+            )}
+
             {message.replyTo && (
               <div
                 className={cn(

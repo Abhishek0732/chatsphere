@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { MessageCircle, Users, User, Settings, Sparkles } from 'lucide-react';
+import { MessageCircle, CircleDashed, User, Settings, Sparkles } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -9,7 +9,7 @@ import { cn } from '@/utils/cn';
 
 const navItems = [
   { to: '/', label: 'Chats', icon: MessageCircle },
-  { to: '/contacts', label: 'Contacts', icon: Users },
+  { to: '/contacts', label: 'Updates', icon: CircleDashed },
   { to: '/profile', label: 'Profile', icon: User },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

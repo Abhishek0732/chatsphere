@@ -26,13 +26,17 @@ public final class ChatDtos {
             ReplyPreview replyTo,
             List<ReactionDto> reactions,
             boolean pinned,
-            Instant editedAt) {}
+            Instant editedAt,
+            StatusRef statusRef) {}
 
     /** An emoji and the ids of everyone who reacted with it. */
     public record ReactionDto(String emoji, List<Long> userIds) {}
 
     /** Lightweight snapshot of the message being replied to. */
     public record ReplyPreview(Long id, String senderName, String content, String type) {}
+
+    /** Snapshot of the status a message replies/reacts to (WhatsApp-style quote). */
+    public record StatusRef(Long id, String type, String mediaUrl, String caption, String bgColor) {}
 
     public record ConversationSummaryDto(
             Long id,
