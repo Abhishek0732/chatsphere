@@ -9,17 +9,46 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>ChatSphere</title>
     <script>
-      // Apply persisted theme before first paint to avoid flash.
+      // Apply the full persisted appearance before first paint to avoid flash.
       (function () {
         try {
           var raw = localStorage.getItem('chatsphere-theme');
-          var state = raw ? JSON.parse(raw).state : {};
-          var theme = state.theme || 'system';
+          var parsed = raw ? JSON.parse(raw) : {};
+          var s = parsed.state || {};
+          var ver = parsed.version || 0;
+          var el = document.documentElement;
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var isDark = theme === 'dark' || (theme === 'system' && prefersDark);
-          if (isDark) document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-accent', state.accent || 'violet');
-          document.documentElement.setAttribute('data-wallpaper', state.wallpaper || 'doodle');
+          var theme = s.theme || 'system';
+          if (theme === 'dark' || (theme === 'system' && prefersDark)) el.classList.add('dark');
+          var acc = s.customAccent
+            ? 'custom'
+            : !s.accent || (ver < 1 && s.accent === 'violet')
+              ? 'blurple'
+              : s.accent;
+          el.setAttribute('data-accent', acc);
+          el.setAttribute('data-wallpaper', s.customWallpaper ? 'custom' : s.wallpaper || 'doodle');
+          el.setAttribute('data-bg', s.background || 'minimal');
+          var fonts = {
+            inter: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+            system: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            rounded: "ui-rounded, 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Nunito, system-ui, sans-serif",
+            serif: "ui-serif, Georgia, Cambria, 'Times New Roman', serif",
+            mono: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+          };
+          if (s.font && fonts[s.font]) el.style.setProperty('--font-sans', fonts[s.font]);
+          var sizes = { sm: '15px', md: '16px', lg: '17.5px', xl: '19px' };
+          if (s.textSize && sizes[s.textSize]) el.style.fontSize = sizes[s.textSize];
+          var radii = { sharp: ['10px', '9px'], default: ['22px', '13px'], round: ['30px', '18px'] };
+          var r = radii[s.radius || 'default'];
+          if (r) {
+            el.style.setProperty('--radius-panel', r[0]);
+            el.style.setProperty('--radius-field', r[1]);
+          }
+          if (s.customWallpaper) {
+            el.style.setProperty('--chat-bg', s.customWallpaper);
+            el.style.setProperty('--chat-dot', 'transparent');
+            el.style.setProperty('--chat-dot-dark', 'transparent');
+          }
         } catch (e) {}
       })();
     </script>

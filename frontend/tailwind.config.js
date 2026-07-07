@@ -5,18 +5,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: [
-          'Inter',
-          'ui-sans-serif',
-          'system-ui',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'sans-serif',
-        ],
+        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        // User-controllable roundness (themeStore). Use `rounded-field` on
+        // inputs/buttons and `rounded-panel` on large surfaces.
+        field: 'var(--radius-field)',
+        panel: 'var(--radius-panel)',
       },
       colors: {
         // Accent palette driven by CSS variables so each user can pick a theme

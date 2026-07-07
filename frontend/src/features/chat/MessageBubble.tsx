@@ -453,7 +453,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             className="z-[60] flex flex-col gap-2"
           >
             {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
-            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#16171d]">
               {QUICK_EMOJIS.map((e) => (
                 <button
                   key={e}
@@ -469,7 +469,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             {/* Actions menu. */}
             <div
               style={{ width: MENU_W }}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#16171d]"
             >
             <button
               onClick={handleReply}

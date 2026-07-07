@@ -5,6 +5,13 @@
 @layer base {
   :root {
     color-scheme: light;
+
+    /* Customizable design tokens (driven by themeStore). */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+    --radius-panel: 22px;
+    --radius-field: 13px;
+
     /* Default accent = Emerald. Values are space-separated RGB channels so
        Tailwind's `<alpha-value>` (opacity) modifiers keep working. */
     --brand-50: 236 253 245;
@@ -46,6 +53,18 @@
     --brand-700: 29 78 216;
     --brand-800: 30 64 175;
     --brand-900: 30 58 138;
+  }
+  html[data-accent='blurple'] {
+    --brand-50: 238 240 254;
+    --brand-100: 224 228 253;
+    --brand-200: 197 204 251;
+    --brand-300: 165 175 248;
+    --brand-400: 129 141 245;
+    --brand-500: 88 101 242;
+    --brand-600: 71 82 216;
+    --brand-700: 57 66 179;
+    --brand-800: 47 55 146;
+    --brand-900: 40 47 117;
   }
   html[data-accent='violet'] {
     --brand-50: 245 243 255;
@@ -101,6 +120,7 @@
     --grad-from: #8b7cff;
     --grad-to: #5b8def;
   }
+  html[data-accent='blurple'] { --grad-from: #5865f2; --grad-to: #4752c4; }
   html[data-accent='emerald'] { --grad-from: #10b981; --grad-to: #06b6d4; }
   html[data-accent='blue']    { --grad-from: #3b82f6; --grad-to: #6366f1; }
   html[data-accent='violet']  { --grad-from: #8b7cff; --grad-to: #5b8def; }
@@ -116,9 +136,11 @@
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:text-slate-100;
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-      'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   html.dark body {
     background-color: #0b0c14;
@@ -127,22 +149,36 @@
   * {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Crafted focus ring: only on keyboard focus, tinted to the accent. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand-500) / 0.6);
+    outline-offset: 2px;
+  }
+
+  /* Accent-tinted text selection. */
+  ::selection {
+    background-color: rgb(var(--brand-500) / 0.24);
+  }
 }
 
 @layer utilities {
-  /* Signature two-tone brand gradient (per-user accent, CSS vars). */
+  /* Solid single-accent fill (Discord/Twitter-style, no rainbow). A whisper of
+     top-to-bottom shading keeps depth without reading as two colors. */
   .bg-brand-gradient {
-    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+    background-color: rgb(var(--brand-600));
+    background-image: linear-gradient(180deg, rgb(var(--brand-500)), rgb(var(--brand-600)));
   }
   .bg-brand-gradient-soft {
-    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+    background-color: rgb(var(--brand-500));
+    background-image: linear-gradient(180deg, rgb(var(--brand-500)), rgb(var(--brand-600)));
   }
-  /* Gradient text using the accent. */
+  /* Accent text — single hue, not a multi-color gradient. */
   .text-brand-gradient {
-    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: rgb(var(--brand-500));
+  }
+  .dark .text-brand-gradient {
+    color: rgb(var(--brand-400));
   }
   /* Frosted glass panel. */
   .glass {
@@ -159,15 +195,16 @@
     backdrop-filter: blur(22px) saturate(1.5);
   }
   .dark .glass-panel {
-    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.02));
-    backdrop-filter: blur(24px) saturate(1.4);
+    background-color: #15161c;
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0.012));
+    backdrop-filter: blur(24px) saturate(1.2);
   }
 
   /* Floating panel: rounded, hairline-bordered card on the app-bg. Desktop only
      so the mobile single-pane view stays full-bleed. */
   @media (min-width: 768px) {
     .md-float {
-      border-radius: 22px;
+      border-radius: var(--radius-panel);
       overflow: hidden;
       border: 1px solid rgb(255 255 255 / 0.55);
       box-shadow:
@@ -185,19 +222,54 @@
   /* Ambient app backdrop: subtle brand-tinted glows in the corners over the
      base surface, giving the floating panels depth. Follows the accent. */
   .app-bg {
-    background-color: rgb(238 242 249);
+    background-color: rgb(240 242 246);
     background-image:
-      radial-gradient(55rem 42rem at 100% -8%, rgb(var(--brand-500) / 0.16), transparent 60%),
-      radial-gradient(48rem 40rem at -8% 108%, rgb(var(--brand-400) / 0.13), transparent 58%);
+      radial-gradient(60rem 46rem at 100% -12%, rgb(var(--brand-500) / 0.07), transparent 62%);
     background-attachment: fixed;
   }
   .dark .app-bg {
-    background-color: #0b0c14;
+    background-color: #0b0c10;
     background-image:
-      radial-gradient(55rem 42rem at 100% -8%, rgb(var(--brand-500) / 0.20), transparent 60%),
-      radial-gradient(46rem 40rem at 4% 108%, rgb(var(--brand-700) / 0.24), transparent 58%),
-      radial-gradient(40rem 34rem at 82% 104%, rgba(255, 122, 198, 0.08), transparent 55%);
+      radial-gradient(62rem 48rem at 100% -12%, rgb(var(--brand-500) / 0.10), transparent 64%),
+      radial-gradient(52rem 44rem at 0% 112%, rgb(var(--brand-700) / 0.08), transparent 62%);
     background-attachment: fixed;
+  }
+
+  /* ─── Background styles (themeStore data-bg) — Aurora is the base above. ── */
+  html[data-bg='vivid'] .app-bg {
+    background-image:
+      radial-gradient(50rem 40rem at 102% -6%, rgb(var(--brand-500) / 0.32), transparent 58%),
+      radial-gradient(46rem 38rem at -6% 104%, rgb(var(--brand-400) / 0.28), transparent 56%);
+  }
+  html[data-bg='vivid'].dark .app-bg,
+  html[data-bg='vivid'] .dark .app-bg {
+    background-image:
+      radial-gradient(52rem 42rem at 102% -6%, rgb(var(--brand-500) / 0.38), transparent 58%),
+      radial-gradient(46rem 40rem at 2% 106%, rgb(var(--brand-600) / 0.36), transparent 56%);
+  }
+
+  html[data-bg='mesh'] .app-bg {
+    background-image:
+      radial-gradient(40rem 34rem at 0% 0%, rgb(var(--brand-400) / 0.16), transparent 55%),
+      radial-gradient(38rem 32rem at 100% 0%, rgb(var(--brand-600) / 0.12), transparent 55%),
+      radial-gradient(42rem 36rem at 100% 100%, rgb(var(--brand-500) / 0.12), transparent 55%),
+      radial-gradient(40rem 34rem at 0% 100%, rgb(var(--brand-300) / 0.12), transparent 55%);
+  }
+  html[data-bg='mesh'].dark .app-bg,
+  html[data-bg='mesh'] .dark .app-bg {
+    background-image:
+      radial-gradient(40rem 34rem at 0% 0%, rgb(var(--brand-600) / 0.22), transparent 55%),
+      radial-gradient(38rem 32rem at 100% 0%, rgb(var(--brand-500) / 0.16), transparent 55%),
+      radial-gradient(42rem 36rem at 100% 100%, rgb(var(--brand-700) / 0.18), transparent 55%),
+      radial-gradient(40rem 34rem at 0% 100%, rgb(var(--brand-800) / 0.22), transparent 55%);
+  }
+
+  html[data-bg='minimal'] .app-bg {
+    background-image: radial-gradient(60rem 50rem at 100% -20%, rgb(var(--brand-500) / 0.06), transparent 60%);
+  }
+  html[data-bg='minimal'].dark .app-bg,
+  html[data-bg='minimal'] .dark .app-bg {
+    background-image: radial-gradient(60rem 50rem at 100% -20%, rgb(var(--brand-500) / 0.08), transparent 60%);
   }
 
   /* Elevation used by floating cards / bubbles. */
