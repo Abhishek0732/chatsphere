@@ -17,7 +17,7 @@ const TEXT_BGS = [
   'linear-gradient(135deg,#10b981,#06b6d4)',
   'linear-gradient(135deg,#f59e0b,#fb923c)',
   'linear-gradient(135deg,#0ea5e9,#6366f1)',
-  'linear-gradient(135deg,#111b21,#374151)',
+  'linear-gradient(135deg,#111a2b,#374151)',
 ];
 
 interface Media {

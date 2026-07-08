@@ -23,7 +23,7 @@ export type RadiusKey = 'sharp' | 'default' | 'round';
 export type BackgroundKey = 'aurora' | 'vivid' | 'mesh' | 'minimal';
 
 export const ACCENTS: { key: AccentKey; label: string; swatch: string }[] = [
-  { key: 'whatsapp', label: 'WhatsApp', swatch: '#25d366' },
+  { key: 'whatsapp', label: 'Light Blue', swatch: '#33a1f2' },
   { key: 'indigo', label: 'Indigo', swatch: '#4f46e5' },
   { key: 'blurple', label: 'Blurple', swatch: '#5865f2' },
   { key: 'violet', label: 'Violet', swatch: '#7c3aed' },
@@ -40,7 +40,7 @@ export const WALLPAPERS: {
   light: string;
   dark: string;
 }[] = [
-  { key: 'doodle', label: 'Doodle', light: '#efeae2', dark: '#0b141a' },
+  { key: 'doodle', label: 'Doodle', light: '#efeae2', dark: '#0b1220' },
   { key: 'plain', label: 'Plain', light: '#f4f2ee', dark: '#0e1a1f' },
   { key: 'mint', label: 'Mint', light: '#e6f3ec', dark: '#0a1a13' },
   { key: 'sky', label: 'Sky', light: '#e8f0fb', dark: '#0a141f' },

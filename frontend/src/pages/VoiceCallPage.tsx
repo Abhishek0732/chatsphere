@@ -51,7 +51,7 @@ export function VoiceCallPage() {
   const [speaker, setSpeaker] = useState(true);
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-between overflow-hidden bg-[#0b141a] p-8 text-white">
+    <div className="relative flex h-full flex-col items-center justify-between overflow-hidden bg-[#0b1220] p-8 text-white">
       {/* Ambient blurred backdrop */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-24 h-96 w-96 -translate-x-1/2 rounded-full bg-brand-gradient opacity-30 blur-[120px]" />

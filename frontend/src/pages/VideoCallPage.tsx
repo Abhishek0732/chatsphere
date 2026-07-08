@@ -63,7 +63,7 @@ export function VideoCallPage() {
   const [speakerView, setSpeakerView] = useState(false);
 
   return (
-    <div className="flex h-full flex-col bg-[#0b141a] text-white">
+    <div className="flex h-full flex-col bg-[#0b1220] text-white">
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3">
         <div>
@@ -145,7 +145,7 @@ function Tile({ p, big }: { p: (typeof PARTICIPANTS)[number]; big?: boolean }) {
   return (
     <div
       className={cn(
-        'relative flex items-center justify-center overflow-hidden rounded-panel bg-[#111b21] ring-1 transition',
+        'relative flex items-center justify-center overflow-hidden rounded-panel bg-[#111a2b] ring-1 transition',
         p.speaking ? 'ring-2 ring-brand-400' : 'ring-white/10',
         big ? 'h-full w-full' : 'h-full w-full',
       )}
