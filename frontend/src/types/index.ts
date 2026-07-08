@@ -67,6 +67,9 @@ export interface StatusItem {
   caption?: string | null;
   bgColor?: string | null;
   musicUrl?: string | null;
+  musicTitle?: string | null;
+  musicArtist?: string | null;
+  musicDurationMs?: number | null;
   createdAt: string;
   viewed: boolean;
   viewCount: number;
@@ -90,6 +93,9 @@ export interface CreateStatusPayload {
   caption?: string;
   bgColor?: string;
   musicUrl?: string;
+  musicTitle?: string;
+  musicArtist?: string;
+  musicDurationMs?: number;
 }
 
 export interface StatusReplyPayload {

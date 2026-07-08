@@ -8,6 +8,8 @@ import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { mediaSrc } from '@/utils/media';
 import { useCreateStatus } from '@/hooks/useStatus';
+import { MusicPicker } from './MusicPicker';
+import type { MusicSelection } from './musicLibrary';
 
 const TEXT_BGS = [
   'linear-gradient(135deg,#8b7cff,#5b8def)',
@@ -30,19 +32,17 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const [caption, setCaption] = useState('');
   const [text, setText] = useState('');
   const [bg, setBg] = useState(TEXT_BGS[0]);
-  const [musicUrl, setMusicUrl] = useState<string | null>(null);
-  const [musicName, setMusicName] = useState<string | null>(null);
+  const [music, setMusic] = useState<MusicSelection | null>(null);
+  const [musicOpen, setMusicOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const mediaInput = useRef<HTMLInputElement>(null);
-  const musicInput = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setMedia(null);
     setCaption('');
     setText('');
-    setMusicUrl(null);
-    setMusicName(null);
+    setMusic(null);
     setMode('media');
   };
 
@@ -67,33 +67,25 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     }
   };
 
-  const pickMusic = async (file?: File) => {
-    if (!file) return;
-    const err = uploadSizeError(file);
-    if (err) return toast({ title: err, variant: 'error' });
-    setUploading(true);
-    try {
-      const res = await uploadMedia(file);
-      setMusicUrl(res.url);
-      setMusicName(res.fileName);
-    } catch {
-      toast({ title: 'Upload failed', variant: 'error' });
-    } finally {
-      setUploading(false);
-      if (musicInput.current) musicInput.current.value = '';
-    }
-  };
+  const musicFields = music
+    ? {
+        musicUrl: music.url,
+        musicTitle: music.title,
+        musicArtist: music.artist,
+        musicDurationMs: music.durationMs || undefined,
+      }
+    : {};
 
   const post = () => {
     const payload =
       mode === 'text'
-        ? { type: 'TEXT' as const, caption: text.trim(), bgColor: bg, musicUrl: musicUrl ?? undefined }
+        ? { type: 'TEXT' as const, caption: text.trim(), bgColor: bg, ...musicFields }
         : media
           ? {
               type: media.type,
               mediaUrl: media.url,
               caption: caption.trim() || undefined,
-              musicUrl: musicUrl ?? undefined,
+              ...musicFields,
             }
           : null;
     if (!payload) return;
@@ -132,13 +124,6 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
           accept="image/*,video/*"
           className="hidden"
           onChange={(e) => pickMedia(e.target.files?.[0])}
-        />
-        <input
-          ref={musicInput}
-          type="file"
-          accept="audio/*"
-          className="hidden"
-          onChange={(e) => pickMusic(e.target.files?.[0])}
         />
 
         {mode === 'media' ? (
@@ -218,15 +203,19 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
         )}
 
         {/* Music */}
-        {musicUrl ? (
-          <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
-            <Music2 className="h-4 w-4 shrink-0 text-brand-500" />
-            <span className="min-w-0 flex-1 truncate">{musicName}</span>
+        {music ? (
+          <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-white">
+              <Music2 className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{music.title}</span>
+              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                {music.artist}
+              </span>
+            </span>
             <button
-              onClick={() => {
-                setMusicUrl(null);
-                setMusicName(null);
-              }}
+              onClick={() => setMusic(null)}
               className="rounded p-1 text-slate-400 hover:text-red-500"
               aria-label="Remove music"
             >
@@ -235,13 +224,15 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
           </div>
         ) : (
           <button
-            onClick={() => musicInput.current?.click()}
+            onClick={() => setMusicOpen(true)}
             disabled={uploading}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Music2 className="h-4 w-4" /> Add music
           </button>
         )}
+
+        <MusicPicker open={musicOpen} onClose={() => setMusicOpen(false)} onSelect={setMusic} />
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={close}>

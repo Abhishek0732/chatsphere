@@ -85,7 +85,14 @@ public class StatusService {
         s.setMediaUrl(blankToNull(req.mediaUrl()));
         s.setCaption(blankToNull(req.caption()));
         s.setBgColor(blankToNull(req.bgColor()));
-        s.setMusicUrl(blankToNull(req.musicUrl()));
+        String musicUrl = blankToNull(req.musicUrl());
+        s.setMusicUrl(musicUrl);
+        if (musicUrl != null) {
+            s.setMusicTitle(blankToNull(req.musicTitle()));
+            s.setMusicArtist(blankToNull(req.musicArtist()));
+            Integer dur = req.musicDurationMs();
+            s.setMusicDurationMs(dur != null && dur > 0 ? dur : null);
+        }
         s.setExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
         return toItem(statusRepository.save(s), true, 0);
     }
@@ -319,7 +326,8 @@ public class StatusService {
 
     private StatusItemDto toItem(Status s, boolean viewed, long count) {
         return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), s.getCaption(),
-                s.getBgColor(), s.getMusicUrl(), s.getCreatedAt(), viewed, count);
+                s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
+                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count);
     }
 
     private static boolean isBlank(String s) {

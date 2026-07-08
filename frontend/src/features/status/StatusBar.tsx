@@ -1,24 +1,62 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Play, Plus } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
+import { initials } from '@/utils/format';
+import { mediaSrc } from '@/utils/media';
 import { useAuthStore } from '@/store/authStore';
 import { useStatusFeed } from '@/hooks/useStatus';
 import { AddStatusModal } from './AddStatusModal';
 import { StatusViewer } from './StatusViewer';
-import type { StatusUser, User } from '@/types';
+import type { StatusItem, StatusUser, User } from '@/types';
 
 interface TileProps {
   name: string;
   user?: User | null;
-  hasItems: boolean;
+  preview?: StatusItem | null;
   unseen: boolean;
   onClick: () => void;
   addBadge?: boolean;
   onAdd?: () => void;
 }
 
-function StatusTile({ name, user, hasItems, unseen, onClick, addBadge, onAdd }: TileProps) {
+/** A tiny preview of the latest story content shown inside the ring. */
+function StatusPreview({ item }: { item: StatusItem }) {
+  if (item.type === 'IMAGE') {
+    return (
+      <img
+        src={mediaSrc(item.mediaUrl)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+  if (item.type === 'VIDEO') {
+    // Avoid a <video> element per row (heavy at scale) — a dark disc + play
+    // glyph is enough to signal "video story".
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-slate-800 text-white">
+        <Play className="h-4 w-4 fill-current" />
+      </div>
+    );
+  }
+  // TEXT
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center px-0.5 text-center"
+      style={{ backgroundImage: item.bgColor ?? undefined }}
+    >
+      <span className="line-clamp-2 text-[7px] font-semibold leading-tight text-white">
+        {item.caption}
+      </span>
+    </div>
+  );
+}
+
+function StatusTile({ name, user, preview, unseen, onClick, addBadge, onAdd }: TileProps) {
+  const hasItems = !!preview;
   return (
     <button onClick={onClick} className="flex w-[68px] shrink-0 flex-col items-center gap-1.5">
       <div className="relative">
@@ -33,9 +71,35 @@ function StatusTile({ name, user, hasItems, unseen, onClick, addBadge, onAdd }: 
           )}
         >
           <div className="rounded-full bg-white p-[2px] dark:bg-slate-900">
-            <Avatar name={user?.displayName ?? '?'} src={user?.avatarUrl} size="lg" />
+            {preview ? (
+              <div className="h-12 w-12 overflow-hidden rounded-full">
+                <StatusPreview item={preview} />
+              </div>
+            ) : (
+              <Avatar name={user?.displayName ?? '?'} src={user?.avatarUrl} size="lg" />
+            )}
           </div>
         </div>
+
+        {/* Identity badge over another person's story preview. */}
+        {preview && !addBadge && (
+          <span className="absolute -bottom-0.5 -right-0.5 h-[18px] w-[18px] overflow-hidden rounded-full ring-2 ring-white dark:ring-slate-900">
+            {user?.avatarUrl ? (
+              <img
+                src={mediaSrc(user.avatarUrl)}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-brand-500 text-[8px] font-bold text-white">
+                {initials(name)}
+              </span>
+            )}
+          </span>
+        )}
+
         {addBadge && (
           <span
             onClick={(e) => {
@@ -55,6 +119,11 @@ function StatusTile({ name, user, hasItems, unseen, onClick, addBadge, onAdd }: 
   );
 }
 
+/** The most recent (last) item is the one WhatsApp previews on the ring. */
+function latestItem(u: StatusUser): StatusItem | null {
+  return u.items.length ? u.items[u.items.length - 1] : null;
+}
+
 export function StatusBar() {
   const me = useAuthStore((s) => s.user);
   const { data: feed } = useStatusFeed();
@@ -71,7 +140,7 @@ export function StatusBar() {
         <StatusTile
           name={mine ? 'My status' : 'Add status'}
           user={me}
-          hasItems={!!mine}
+          preview={mine ? latestItem(mine) : null}
           unseen={mine ? !mine.allViewed : false}
           onClick={() => (mine ? setViewerStart(users.indexOf(mine)) : setAddOpen(true))}
           addBadge
@@ -82,7 +151,7 @@ export function StatusBar() {
             key={u.user.id}
             name={u.user.displayName}
             user={u.user}
-            hasItems
+            preview={latestItem(u)}
             unseen={!u.allViewed}
             onClick={() => setViewerStart(users.indexOf(u))}
           />

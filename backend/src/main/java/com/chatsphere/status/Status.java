@@ -38,6 +38,15 @@ public class Status {
     @Column(name = "music_url", length = 512)
     private String musicUrl;
 
+    @Column(name = "music_title", length = 200)
+    private String musicTitle;
+
+    @Column(name = "music_artist", length = 200)
+    private String musicArtist;
+
+    @Column(name = "music_duration_ms")
+    private Integer musicDurationMs;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

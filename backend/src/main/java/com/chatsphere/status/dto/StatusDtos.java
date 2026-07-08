@@ -15,7 +15,10 @@ public final class StatusDtos {
             String mediaUrl,
             String caption,
             String bgColor,
-            String musicUrl) {}
+            String musicUrl,
+            String musicTitle,
+            String musicArtist,
+            Integer musicDurationMs) {}
 
     /** Reply to a status: a free-text message, an emoji reaction, or both. */
     public record StatusReplyRequest(String text, String emoji) {}
@@ -30,6 +33,9 @@ public final class StatusDtos {
             String caption,
             String bgColor,
             String musicUrl,
+            String musicTitle,
+            String musicArtist,
+            Integer musicDurationMs,
             Instant createdAt,
             boolean viewed,
             long viewCount) {}

@@ -97,7 +97,12 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
     if (!item) return;
     setProgress(0);
     progressRef.current = 0;
-    musicDurRef.current = null; // re-resolved from this item's audio metadata
+    // Prefer the duration stored with the status (library/device track) so the
+    // timeline is right from frame one; fall back to the audio metadata below.
+    musicDurRef.current =
+      item.musicUrl && item.musicDurationMs
+        ? Math.min(item.musicDurationMs, MUSIC_CAP_MS)
+        : null;
     if (!user.me && !item.viewed) markViewed.mutate(item.id);
     if (item.type === 'VIDEO') return; // video drives its own progress
 
@@ -267,6 +272,15 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
       <div className="px-4 pb-6 pt-3">
         {item.type !== 'TEXT' && item.caption && (
           <p className="mb-3 text-center text-sm text-white">{item.caption}</p>
+        )}
+        {item.musicUrl && item.musicTitle && (
+          <div className="mx-auto mb-3 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">
+            <Music2 className="h-3.5 w-3.5 shrink-0 animate-pulse" />
+            <span className="truncate">
+              <span className="font-medium">{item.musicTitle}</span>
+              {item.musicArtist && <span className="text-white/70"> · {item.musicArtist}</span>}
+            </span>
+          </div>
         )}
         {user.me ? (
           <button
