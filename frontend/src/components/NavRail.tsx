@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { MessageCircle, CircleDashed, User, Settings, Sparkles } from 'lucide-react';
+import { MessageCircle, CircleDashed, User, Settings } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
+import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useAuthStore } from '@/store/authStore';
@@ -30,9 +31,7 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
       {/* Desktop rail */}
       <nav className="glass-panel md-float hidden w-[68px] flex-col items-center gap-2 py-4 md:flex">
         {/* Brand mark */}
-        <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
-          <Sparkles className="h-5 w-5" />
-        </div>
+        <Logo className="mb-1 h-9 w-9 shadow-glow" />
         <div className="mb-2">
           <Avatar
             name={user?.displayName ?? '?'}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MessageCircle, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
+import { Logo } from '@/components/ui/Logo';
 import { Spinner } from '@/components/ui/Spinner';
 import { useConversations } from '@/hooks/useConversations';
 import { socketService } from '@/services/socket';
@@ -75,9 +76,7 @@ export function ConversationList() {
     <div className="relative flex h-full flex-col">
       <div className="space-y-3 border-b border-white/40 p-3 dark:border-white/5">
         <div className="flex items-center gap-2 px-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
-            <MessageCircle className="h-4 w-4" />
-          </div>
+          <Logo className="h-8 w-8 shadow-sm" />
           <h1 className="text-lg font-bold tracking-tight text-brand-gradient">ChatSphere</h1>
         </div>
 

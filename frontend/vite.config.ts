@@ -15,8 +15,8 @@ export default defineConfig({
         name: 'ChatSphere',
         short_name: 'ChatSphere',
         description: 'A WhatsApp-style real-time chat application',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#00a884',
+        background_color: '#0b141a',
         display: 'standalone',
         start_url: '/',
         icons: [
