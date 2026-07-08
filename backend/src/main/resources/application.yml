@@ -6,6 +6,12 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:chatsphere}
     password: ${SPRING_DATASOURCE_PASSWORD:chatsphere_pw}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Default is 10 — a hard concurrency ceiling. Size to the DB's capacity;
+      # override per instance via env when scaling horizontally.
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: 5
+      connection-timeout: 10000
   jpa:
     hibernate:
       ddl-auto: none
@@ -14,6 +20,12 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.MySQLDialect
+        # Collapse multi-row insert/update loops (group members, notifications,
+        # status privacy) into batched round-trips.
+        jdbc:
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -40,6 +52,11 @@ spring:
       # boundary/header overhead so an actual 25MB file isn't rejected.
       max-file-size: 25MB
       max-request-size: 30MB
+      # Keep uploads up to this size in memory instead of spilling them to a temp
+      # file on disk (the Spring default threshold is 0B = always disk). Client
+      # photos are compressed to well under this, so the common path avoids the
+      # extra disk write+read entirely; only large videos spill.
+      file-size-threshold: 4MB
 
 server:
   port: 8080
