@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Camera, Mic, Paperclip, Pencil, Reply, SendHorizonal, Trash2, X } from 'lucide-react';
+import { Camera, Mic, Paperclip, Pencil, Reply, SendHorizonal, Smile, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -9,6 +9,8 @@ import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { isVideoUrl } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
+import { cn } from '@/utils/cn';
+import { EmojiPicker } from './EmojiPicker';
 import type { MessageType } from '@/types';
 
 const TYPING_STOP_MS = 2500;
@@ -39,6 +41,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
 
   const [uploading, setUploading] = useState(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -161,6 +164,23 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
     }
   };
 
+  // Insert an emoji at the caret (or the end), keeping focus + caret position.
+  const insertEmoji = (emoji: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    setDraft(conversationId, next);
+    signalTyping();
+    requestAnimationFrame(() => {
+      if (el) {
+        el.focus();
+        const pos = start + emoji.length;
+        el.setSelectionRange(pos, pos);
+      }
+    });
+  };
+
   const handleSend = () => {
     const text = draft.trim();
 
@@ -278,7 +298,12 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   };
 
   return (
-    <div className="border-t border-white/40 bg-white/70 p-3 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/70">
+    <div className="relative border-t border-white/40 bg-white/70 p-3 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/70">
+      {emojiOpen && !recording && (
+        <div className="absolute bottom-full left-3 z-50 mb-2">
+          <EmojiPicker onSelect={insertEmoji} onClose={() => setEmojiOpen(false)} />
+        </div>
+      )}
       {editing && (
         <div className="mb-2 flex items-center gap-2 rounded-lg border-l-4 border-brand-500 bg-white px-3 py-2 dark:bg-slate-800">
           <Pencil className="h-4 w-4 shrink-0 text-brand-500" />
@@ -390,6 +415,18 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
         ) : (
           // Composer field with the attach + camera icons inside it.
           <div className="flex flex-1 items-end gap-0.5 rounded-2xl border border-slate-300 bg-white px-2 py-1 shadow-sm transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800">
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setEmojiOpen((o) => !o)}
+              className={cn(
+                'mb-0.5 rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200',
+                emojiOpen && 'bg-slate-100 text-brand-500 dark:bg-slate-700',
+              )}
+              aria-label="Emoji"
+            >
+              <Smile className="h-5 w-5" />
+            </button>
             <textarea
               ref={textareaRef}
               rows={1}
