@@ -249,3 +249,107 @@ export interface PresenceEvent {
   online: boolean;
   lastSeen?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Calls (voice signaling — Phase 1: no media yet)
+// ---------------------------------------------------------------------------
+
+export type CallType = 'VOICE' | 'VIDEO';
+
+/**
+ * Server -> client call signal. One flat shape discriminated by `type`, mirroring
+ * the backend CallSignal. `type` ∈ INCOMING_CALL, CALL_RINGING, CALL_ACCEPTED,
+ * CALL_DECLINED, CALL_CANCELLED, CALL_ENDED, CALL_MISSED, CALL_BUSY,
+ * CALL_UNAVAILABLE, CALL_TAKEN, CALL_FAILED.
+ */
+export interface CallSignal {
+  type: string;
+  callId: string | null;
+  callType: CallType;
+  callerId: number;
+  callerName?: string;
+  callerAvatarUrl?: string;
+  calleeId: number;
+  calleeName?: string;
+  calleeAvatarUrl?: string;
+  conversationId?: number | null;
+  durationSeconds?: number | null;
+  reason?: string | null;
+  at: string;
+}
+
+/** Outbound invite command (client generates callId so it can cancel instantly). */
+export interface CallInvitePayload {
+  callId: string;
+  calleeId: number;
+  type: CallType;
+  conversationId?: number | null;
+}
+
+/** The current on-screen call, framed from this user's perspective. */
+export type CallPhase = 'incoming' | 'outgoing' | 'active' | 'ended';
+
+export interface ActiveCall {
+  callId: string;
+  type: CallType;
+  phase: CallPhase;
+  peer: { id: number; name: string; avatarUrl?: string };
+  outgoing: boolean;
+  /** epoch ms the call went active — drives the on-screen timer */
+  answeredAt?: number;
+  /** short human label shown on the ended screen (e.g. "No answer") */
+  endedLabel?: string;
+  durationSeconds?: number;
+  /** live connection quality of the local leg: excellent | good | poor | lost */
+  quality?: string;
+}
+
+/** A WebRTC ICE server as returned by the backend token endpoint. */
+export interface IceServer {
+  urls: string[];
+  username?: string | null;
+  credential?: string | null;
+}
+
+/** GET /api/calls/{id}/token — everything needed to join the media room. */
+export interface CallTokenDto {
+  url: string;
+  token: string;
+  room: string;
+  identity: string;
+  iceServers: IceServer[];
+}
+
+/** GET /api/calls row. */
+export interface CallHistoryItem {
+  callId: string;
+  type: CallType;
+  status: string;
+  endReason?: string | null;
+  counterpartId: number;
+  counterpartName?: string;
+  counterpartAvatarUrl?: string;
+  outgoing: boolean;
+  conversationId?: number | null;
+  createdAt: string;
+  answeredAt?: string | null;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+}
+
+/** GET /api/calls/active (204 -> null). */
+export interface ActiveCallDto {
+  callId: string;
+  type: CallType;
+  status: string;
+  callerId: number;
+  callerName?: string;
+  callerAvatarUrl?: string;
+  calleeId: number;
+  calleeName?: string;
+  calleeAvatarUrl?: string;
+  outgoing: boolean;
+  conversationId?: number | null;
+  createdAt: string;
+  answeredAt?: string | null;
+}

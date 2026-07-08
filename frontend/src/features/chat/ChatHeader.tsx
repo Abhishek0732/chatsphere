@@ -25,6 +25,7 @@ import { useClearChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
 import { formatLastSeen } from '@/utils/format';
+import { socketService } from '@/services/socket';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
 
@@ -170,8 +171,22 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
 
       {/* Call actions — available on mobile and desktop */}
       <button
-        onClick={() => navigate('/call/voice')}
-        className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+        onClick={() => {
+          // 1:1 voice calls only for now (group calls are a later phase).
+          if (other) {
+            socketService.startCall(
+              {
+                id: other.id,
+                name: other.displayName ?? conversation.name,
+                avatarUrl: other.avatarUrl ?? conversation.avatarUrl,
+              },
+              'VOICE',
+              conversation.id,
+            );
+          }
+        }}
+        disabled={!other}
+        className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-white/10"
         aria-label="Voice call"
       >
         <Phone className="h-5 w-5" />

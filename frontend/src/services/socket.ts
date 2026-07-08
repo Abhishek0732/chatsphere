@@ -19,8 +19,12 @@ import {
 import { toast } from '@/store/toastStore';
 import { clearMessageNotifications, notifyMessage } from '@/utils/notifications';
 import { muteAccessors } from '@/store/muteStore';
+import { useCallStore } from '@/store/callStore';
 import type {
   AppNotification,
+  CallInvitePayload,
+  CallSignal,
+  CallType,
   ChatSendPayload,
   Message,
   MessageDeletedEvent,
@@ -173,6 +177,12 @@ class SocketService {
     client.subscribe('/topic/presence', (frame: IMessage) => {
       const event = parse<PresenceEvent>(frame.body);
       if (event) useChatStore.getState().setPresence(event);
+    });
+
+    // Personal call-signaling queue.
+    client.subscribe('/user/queue/call', (frame: IMessage) => {
+      const signal = parse<CallSignal>(frame.body);
+      if (signal) this.onCallSignal(signal);
     });
 
     // Re-subscribe to whatever conversation is active.
@@ -344,6 +354,120 @@ class SocketService {
       destination: '/app/chat.edit',
       body: JSON.stringify({ conversationId, messageId, content }),
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // Call signaling (Phase 1: no media — proves invite -> ring -> accept -> end)
+  // -----------------------------------------------------------------------
+
+  /** Place an outgoing call. Generates the id up front so cancel works instantly. */
+  startCall(
+    peer: { id: number; name: string; avatarUrl?: string },
+    type: CallType = 'VOICE',
+    conversationId?: number,
+  ): void {
+    if (!this.client || !this.connected) {
+      toast({ title: 'Not connected — try again in a moment', variant: 'error' });
+      return;
+    }
+    const callId = crypto.randomUUID();
+    useCallStore.getState().setCall({ callId, type, phase: 'outgoing', outgoing: true, peer });
+    const payload: CallInvitePayload = { callId, calleeId: peer.id, type, conversationId };
+    this.client.publish({ destination: '/app/call.invite', body: JSON.stringify(payload) });
+  }
+
+  answerCall(): void {
+    const call = useCallStore.getState().call;
+    if (!call || !this.client || !this.connected) return;
+    this.client.publish({ destination: '/app/call.accept', body: JSON.stringify({ callId: call.callId }) });
+  }
+
+  declineCall(): void {
+    const call = useCallStore.getState().call;
+    if (call && this.client && this.connected) {
+      this.client.publish({ destination: '/app/call.decline', body: JSON.stringify({ callId: call.callId }) });
+    }
+    useCallStore.getState().clear();
+  }
+
+  /** Cancel (while ringing) or hang up (while active). Server echo confirms. */
+  hangUp(): void {
+    const call = useCallStore.getState().call;
+    if (!call) return;
+    if (this.client && this.connected) {
+      const destination = call.phase === 'outgoing' ? '/app/call.cancel' : '/app/call.end';
+      this.client.publish({ destination, body: JSON.stringify({ callId: call.callId }) });
+    }
+    // Optimistically show the ended screen; the CALL_ENDED echo is idempotent.
+    useCallStore.getState().patchCall({
+      phase: 'ended',
+      endedLabel: call.phase === 'outgoing' ? 'Call cancelled' : 'Call ended',
+    });
+  }
+
+  private onCallSignal(signal: CallSignal): void {
+    const store = useCallStore.getState();
+    const current = store.call;
+
+    switch (signal.type) {
+      case 'INCOMING_CALL':
+        // Already busy locally — ignore (the server also guards with a busy-lock).
+        if (current && current.phase !== 'ended') return;
+        if (!signal.callId) return;
+        store.setCall({
+          callId: signal.callId,
+          type: signal.callType,
+          phase: 'incoming',
+          outgoing: false,
+          peer: {
+            id: signal.callerId,
+            name: signal.callerName ?? 'Unknown',
+            avatarUrl: signal.callerAvatarUrl,
+          },
+        });
+        break;
+      case 'CALL_RINGING':
+        if (current?.outgoing) {
+          store.patchCall({ callId: signal.callId ?? current.callId, phase: 'outgoing' });
+        }
+        break;
+      case 'CALL_ACCEPTED':
+        if (current) store.patchCall({ phase: 'active', answeredAt: Date.now() });
+        break;
+      case 'CALL_DECLINED':
+        this.endCall('Call declined');
+        break;
+      case 'CALL_CANCELLED':
+        this.endCall('Call cancelled');
+        break;
+      case 'CALL_ENDED':
+        this.endCall('Call ended', signal.durationSeconds ?? undefined);
+        break;
+      case 'CALL_MISSED':
+        this.endCall(current?.outgoing ? 'No answer' : 'Missed call');
+        break;
+      case 'CALL_BUSY':
+        this.endCall('Busy');
+        break;
+      case 'CALL_UNAVAILABLE':
+        this.endCall(signal.reason === 'offline' ? 'Unavailable' : 'Unavailable');
+        break;
+      case 'CALL_TAKEN':
+        // Answered on another device.
+        store.clear();
+        break;
+      case 'CALL_FAILED':
+        this.endCall('Call failed');
+        break;
+      default:
+        break;
+    }
+  }
+
+  private endCall(label: string, durationSeconds?: number): void {
+    const store = useCallStore.getState();
+    if (!store.call) return;
+    store.patchCall({ phase: 'ended', endedLabel: label, durationSeconds });
   }
 
   private ping(): void {

@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { NavRail } from '@/components/NavRail';
 import { ImageViewer } from '@/components/ui/ImageViewer';
+import { CallManager } from '@/features/call/CallManager';
 import { useSocketConnection } from '@/hooks/useSocketConnection';
 import { useMe } from '@/hooks/useProfile';
 import { cn } from '@/utils/cn';
@@ -31,6 +32,7 @@ export function AppLayout() {
         <Outlet />
       </main>
       <ImageViewer />
+      <CallManager />
     </div>
   );
 }
