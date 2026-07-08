@@ -36,7 +36,7 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-elevated backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-elevated dark:border-white/10 dark:bg-[#111a2b]">
       <div className="mb-4 flex items-center gap-2.5">
         {icon && (
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">

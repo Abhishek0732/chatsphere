@@ -21,7 +21,7 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-elevated backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-elevated dark:border-white/10 dark:bg-[#111a2b]">
       <div className="mb-4 flex items-center gap-2.5">
         {icon && (
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
@@ -56,7 +56,7 @@ export function SettingsPanel() {
       {user && (
         <Link
           to="/profile"
-          className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-white/50 bg-white/70 p-4 shadow-elevated backdrop-blur-xl transition hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+          className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-elevated transition hover:border-brand-300 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-brand-500/40"
         >
           <Avatar
             name={user.displayName}
@@ -90,7 +90,7 @@ export function SettingsPanel() {
         <div className="flex items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2.5">
             {notifPerm === 'granted' ? (
-              <Bell className="h-4 w-4 shrink-0 text-emerald-500" />
+              <Bell className="h-4 w-4 shrink-0 text-brand-500" />
             ) : (
               <BellOff className="h-4 w-4 shrink-0 text-slate-400" />
             )}
@@ -117,7 +117,7 @@ export function SettingsPanel() {
         <div className="flex items-center gap-2.5 text-sm">
           {connected ? (
             <>
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px] shadow-emerald-500/20" />
+              <span className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_0_3px] shadow-brand-500/20" />
               <span className="text-slate-600 dark:text-slate-300">Realtime connected</span>
             </>
           ) : (

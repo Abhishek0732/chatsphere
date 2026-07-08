@@ -95,20 +95,22 @@ export function ProfilePanel() {
   if (isLoading || !me) return <FullPageSpinner />;
 
   return (
-    <div className="mx-auto w-full max-w-2xl p-4 sm:p-6">
-      {/* Hero card */}
-      <div className="overflow-hidden rounded-3xl border border-white/50 bg-white/80 shadow-elevated backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
-        {/* Gradient cover with soft glow blobs */}
-        <div className="relative h-32 bg-brand-gradient sm:h-36">
+    <div className="mx-auto w-full max-w-2xl space-y-5 p-4 sm:p-6">
+      <h1 className="px-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        Profile
+      </h1>
+
+      {/* Identity hero */}
+      <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-elevated dark:border-white/10 dark:bg-[#111a2b]">
+        <div className="relative h-28 bg-brand-gradient sm:h-32">
           <div className="pointer-events-none absolute -left-8 -top-10 h-40 w-40 rounded-full bg-white/25 blur-3xl" />
-          <div className="pointer-events-none absolute -right-6 top-2 h-32 w-32 rounded-full bg-black/10 blur-2xl" />
+          <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
         </div>
 
-        {/* Avatar + identity */}
         <div className="px-5 pb-6 sm:px-8">
           <div className="-mt-14 flex flex-col items-center text-center">
             <div className="relative">
-              <div className="rounded-full bg-white p-1 shadow-lg dark:bg-slate-900">
+              <div className="rounded-full bg-white p-1 shadow-lg dark:bg-[#111a2b]">
                 <Avatar
                   name={me.displayName}
                   src={avatarUrl}
@@ -120,7 +122,7 @@ export function ProfilePanel() {
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-brand-gradient text-white shadow-md ring-2 ring-white transition hover:brightness-110 disabled:opacity-60 dark:ring-slate-900"
+                className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-brand-gradient text-white shadow-md ring-2 ring-white transition hover:brightness-110 disabled:opacity-60 dark:ring-[#111a2b]"
                 aria-label="Change photo"
               >
                 {uploading ? (
@@ -138,16 +140,16 @@ export function ProfilePanel() {
               />
             </div>
 
-            <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
               {nameValue || me.displayName}
-            </h1>
+            </h2>
             <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
               <AtSign className="h-3.5 w-3.5" />
               {me.username}
             </p>
 
-            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Active now
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+              <span className="h-2 w-2 rounded-full bg-brand-500" /> Active now
             </span>
 
             {avatarUrl && (
@@ -161,67 +163,85 @@ export function ProfilePanel() {
               </button>
             )}
           </div>
-
-          <div className="my-6 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
-
-          {/* Editable details */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <UserRound className="h-4 w-4 text-brand-500" /> Display name
-              </label>
-              <Input
-                placeholder="Your name"
-                error={errors.displayName?.message}
-                {...register('displayName')}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 flex items-center justify-between text-sm font-medium text-slate-700 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <Pencil className="h-4 w-4 text-brand-500" /> About
-                </span>
-                <span
-                  className={
-                    aboutValue.length > ABOUT_MAX
-                      ? 'text-xs font-normal text-red-500'
-                      : 'text-xs font-normal text-slate-400'
-                  }
-                >
-                  {aboutValue.length}/{ABOUT_MAX}
-                </span>
-              </label>
-              <Textarea
-                rows={3}
-                placeholder="Tell people a little about yourself"
-                error={errors.about?.message}
-                {...register('about')}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <Mail className="h-4 w-4 text-brand-500" /> Email
-              </label>
-              <div className="relative">
-                <Input value={me.email} disabled readOnly className="pr-9" />
-                <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </div>
-              <p className="mt-1 text-xs text-slate-400">Your email can’t be changed.</p>
-            </div>
-
-            <Button
-              type="submit"
-              loading={updateProfile.isPending}
-              disabled={!isDirty}
-              className="w-full sm:w-auto"
-            >
-              <Check className="h-4 w-4" /> Save changes
-            </Button>
-          </form>
         </div>
-      </div>
+      </section>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* Public profile */}
+        <section className="space-y-5 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-elevated dark:border-white/10 dark:bg-[#111a2b] sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+              <UserRound className="h-4 w-4" />
+            </span>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Public profile
+            </h3>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Display name
+            </label>
+            <Input
+              placeholder="Your name"
+              error={errors.displayName?.message}
+              {...register('displayName')}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 flex items-center justify-between text-sm font-medium text-slate-700 dark:text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <Pencil className="h-4 w-4 text-brand-500" /> About
+              </span>
+              <span
+                className={
+                  aboutValue.length > ABOUT_MAX
+                    ? 'text-xs font-normal text-red-500'
+                    : 'text-xs font-normal text-slate-400'
+                }
+              >
+                {aboutValue.length}/{ABOUT_MAX}
+              </span>
+            </label>
+            <Textarea
+              rows={3}
+              placeholder="Tell people a little about yourself"
+              error={errors.about?.message}
+              {...register('about')}
+            />
+          </div>
+        </section>
+
+        {/* Account */}
+        <section className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-elevated dark:border-white/10 dark:bg-[#111a2b] sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+              <Mail className="h-4 w-4" />
+            </span>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Account</h3>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Email
+            </label>
+            <div className="relative">
+              <Input value={me.email} disabled readOnly className="pr-9" />
+              <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>
+            <p className="mt-1 text-xs text-slate-400">Your email can’t be changed.</p>
+          </div>
+        </section>
+
+        <Button
+          type="submit"
+          loading={updateProfile.isPending}
+          disabled={!isDirty}
+          className="w-full sm:w-auto"
+        >
+          <Check className="h-4 w-4" /> Save changes
+        </Button>
+      </form>
     </div>
   );
 }
