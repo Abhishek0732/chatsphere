@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
 import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
-import { formatBytes, isVideoUrl } from '@/utils/format';
+import { isVideoUrl } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
 import type { MessageType } from '@/types';
 
@@ -38,7 +38,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const clearEditing = useChatStore((s) => s.clearEditing);
 
   const [uploading, setUploading] = useState(false);
-  const [attachment, setAttachment] = useState<PendingAttachment | null>(null);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -125,30 +125,39 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
     }
   };
 
-  const onFilePicked = async (file: File | undefined) => {
-    if (!file) return;
-    const sizeError = uploadSizeError(file);
-    if (sizeError) {
-      toast({ title: sizeError, variant: 'error' });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
+  const resetFileInputs = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
+  // Handles one OR many picked files. Each is compressed/uploaded (in parallel)
+  // and added to the pending list; they send as separate messages.
+  const onFilesPicked = async (files: FileList | null) => {
+    const list = files ? Array.from(files) : [];
+    if (list.length === 0) return;
+    const tooBig = list.find((f) => uploadSizeError(f));
+    if (tooBig) {
+      toast({ title: `${tooBig.name}: File too large`, variant: 'error' });
+      resetFileInputs();
       return;
     }
     setUploading(true);
     try {
-      const result = await uploadMedia(file);
-      const type: MessageType = result.contentType.startsWith('image/') ? 'IMAGE' : 'FILE';
-      setAttachment({
-        url: result.url,
-        fileName: result.fileName,
-        type,
-        size: result.size,
-      });
+      const uploaded = await Promise.all(
+        list.map(async (file) => {
+          const result = await uploadMedia(file);
+          const type: MessageType = result.contentType.startsWith('image/') ? 'IMAGE' : 'FILE';
+          return { url: result.url, fileName: result.fileName, type, size: result.size };
+        }),
+      );
+      setAttachments((prev) => [...prev, ...uploaded]);
+      // Focus the composer so pressing Enter sends right after picking media.
+      textareaRef.current?.focus();
     } catch {
       toast({ title: 'Upload failed', variant: 'error' });
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      resetFileInputs();
     }
   };
 
@@ -164,20 +173,21 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       return;
     }
 
-    if (!text && !attachment) return;
+    if (!text && attachments.length === 0) return;
 
-    if (attachment) {
-      // One message carries the attachment + the typed text as its caption.
-      // The filename is derived from the URL at render time, so `content` is
-      // free to hold the caption for both images and files.
-      send({
-        conversationId,
-        content: text,
-        type: attachment.type,
-        attachmentUrl: attachment.url,
-        replyTo,
+    if (attachments.length > 0) {
+      // Each attachment sends as its own message. The typed text rides along as
+      // the caption of the first one; the reply-target attaches to the first too.
+      attachments.forEach((att, i) => {
+        send({
+          conversationId,
+          content: i === 0 ? text : '',
+          type: att.type,
+          attachmentUrl: att.url,
+          replyTo: i === 0 ? replyTo : null,
+        });
       });
-      setAttachment(null);
+      setAttachments([]);
     } else {
       send({ conversationId, content: text, type: 'TEXT', replyTo });
     }
@@ -305,33 +315,40 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           </button>
         </div>
       )}
-      {attachment && (
-        <div className="mb-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800">
-          {attachment.type === 'IMAGE' ? (
-            <img src={mediaSrc(attachment.url)} alt="preview" className="h-12 w-12 rounded object-cover" />
-          ) : isVideoUrl(attachment.url) ? (
-            <video
-              src={mediaSrc(attachment.url)}
-              muted
-              preload="metadata"
-              className="h-12 w-12 rounded bg-black object-cover"
-            />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded bg-slate-100 dark:bg-slate-700">
-              <Paperclip className="h-5 w-5 text-slate-500" />
+      {attachments.length > 0 && (
+        <div className="mb-2 flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+          {attachments.map((att, i) => (
+            <div key={att.url} className="group relative shrink-0">
+              {att.type === 'IMAGE' ? (
+                <img
+                  src={mediaSrc(att.url)}
+                  alt="preview"
+                  className="h-16 w-16 rounded-lg object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+                />
+              ) : isVideoUrl(att.url) ? (
+                <video
+                  src={mediaSrc(att.url)}
+                  muted
+                  preload="metadata"
+                  className="h-16 w-16 rounded-lg bg-black object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-700">
+                  <Paperclip className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="w-full truncate text-center text-[9px] text-slate-500 dark:text-slate-300">
+                    {att.fileName}
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/90 text-white shadow ring-1 ring-white/40 transition hover:bg-red-500"
+                aria-label="Remove attachment"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{attachment.fileName}</p>
-            <p className="text-xs text-slate-400">{formatBytes(attachment.size)}</p>
-          </div>
-          <button
-            onClick={() => setAttachment(null)}
-            className="rounded p-1 text-slate-400 hover:text-red-500"
-            aria-label="Remove attachment"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          ))}
         </div>
       )}
 
@@ -340,8 +357,9 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           className="hidden"
-          onChange={(e) => onFilePicked(e.target.files?.[0])}
+          onChange={(e) => onFilesPicked(e.target.files)}
         />
         <input
           ref={cameraInputRef}
@@ -349,7 +367,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={(e) => onFilePicked(e.target.files?.[0])}
+          onChange={(e) => onFilesPicked(e.target.files)}
         />
 
         {recording ? (
@@ -417,7 +435,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           >
             <SendHorizonal className="h-5 w-5" />
           </Button>
-        ) : draft.trim() || attachment || editing ? (
+        ) : draft.trim() || attachments.length > 0 || editing ? (
           <Button
             type="button"
             size="icon"
