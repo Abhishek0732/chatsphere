@@ -52,7 +52,7 @@ export function MediaDownloadTile({ kind, mine, onReveal }: Props) {
       type="button"
       onClick={onReveal}
       aria-label={`Download ${LABEL[kind]}`}
-      className="relative -mx-2.5 -mt-1.5 mb-1.5 flex aspect-[4/3] w-[min(75vw,18rem)] items-center justify-center overflow-hidden rounded-2xl"
+      className="relative -mx-2.5 -mt-1.5 mb-1.5 flex aspect-[4/3] w-[calc(min(75vw,18rem)_+_1.25rem)] max-w-[calc(100%_+_1.25rem)] items-center justify-center overflow-hidden rounded-2xl"
     >
       {/* Frosted, content-free backdrop — no real bytes loaded. */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-300/70 to-slate-400/60 backdrop-blur-xl dark:from-slate-700/70 dark:to-slate-800/70" />

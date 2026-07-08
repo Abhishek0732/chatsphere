@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   FileText,
   Download,
-  MoreHorizontal,
+  ChevronDown,
   Reply,
   Forward,
   Trash2,
@@ -274,7 +274,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
                   <button
                     type="button"
                     onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
-                    className="-mx-2.5 -mt-1.5 mb-1.5 block w-[min(75vw,18rem)] overflow-hidden rounded-2xl"
+                    className="-mx-2.5 -mt-1.5 mb-1.5 block w-[calc(min(75vw,18rem)_+_1.25rem)] max-w-[calc(100%_+_1.25rem)] overflow-hidden rounded-2xl"
                   >
                     <img
                       src={mediaSrc(message.attachmentUrl)}
@@ -336,7 +336,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
                     controls
                     preload="metadata"
                     playsInline
-                    className="-mx-2.5 -mt-1.5 mb-1.5 block max-h-96 w-[min(75vw,18rem)] rounded-2xl bg-black"
+                    className="-mx-2.5 -mt-1.5 mb-1.5 block max-h-96 w-[calc(min(75vw,18rem)_+_1.25rem)] max-w-[calc(100%_+_1.25rem)] rounded-2xl bg-black"
                   />
                 )}
                 {message.content && (
@@ -438,7 +438,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             )}
             aria-label="Message actions"
           >
-            <MoreHorizontal className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         )}
       </div>
