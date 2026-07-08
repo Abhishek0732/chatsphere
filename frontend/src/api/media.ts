@@ -1,4 +1,5 @@
 import { api } from './client';
+import { compressImage } from '@/utils/imageCompress';
 import type { MediaUploadResult } from '@/types';
 
 /** Max upload size, kept in sync with the backend multipart limit and the
@@ -19,8 +20,12 @@ export async function uploadMedia(
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<MediaUploadResult> {
+  // Near-lossless downscale/re-encode for large photos — smaller body = faster
+  // upload. Non-photos and small images pass through unchanged.
+  const toSend = await compressImage(file);
+
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', toSend);
 
   const { data } = await api.post<MediaUploadResult>('/media/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
