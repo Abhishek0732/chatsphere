@@ -34,6 +34,11 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+  task:
+    scheduling:
+      # Ring-timeout timers + the missed-call sweeper share this pool.
+      pool:
+        size: 4
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -88,6 +93,19 @@ chatsphere:
       messages: chatsphere.messages
       presence: chatsphere.presence
       notifications: chatsphere.notifications
+  media:
+    livekit:
+      # ws/wss URL the BROWSER uses to reach the SFU (public host, not the container).
+      url: ${LIVEKIT_URL:ws://localhost:7880}
+      api-key: ${LIVEKIT_API_KEY:chatsphere}
+      # Must be >= 32 chars (HS256). Overridden via env; never commit the real one.
+      api-secret: ${LIVEKIT_API_SECRET:dev-livekit-secret-change-me-0123456789}
+      token-ttl-seconds: ${LIVEKIT_TOKEN_TTL:3600}
+    turn:
+      enabled: ${TURN_ENABLED:true}
+      host: ${COTURN_HOST:localhost}
+      secret: ${COTURN_SECRET:dev-turn-secret-change-me}
+      ttl-seconds: ${TURN_TTL:600}
 
 logging:
   level:
