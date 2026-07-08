@@ -26,36 +26,33 @@ export function ConversationList() {
   const [filter, setFilter] = useState<Filter>('all');
   const [addOpen, setAddOpen] = useState(false);
 
-  const filtered = useMemo(() => {
+  // Sort once (most-recent first); both the filtered view and the typing-sub
+  // list derive from this instead of each re-sorting the whole array.
+  const sorted = useMemo(() => {
     const list = data ?? [];
-    const q = term.trim().toLowerCase();
-    const sorted = [...list].sort(
+    return [...list].sort(
       (a, b) =>
         new Date(b.lastMessage?.createdAt ?? b.updatedAt).getTime() -
         new Date(a.lastMessage?.createdAt ?? a.updatedAt).getTime(),
     );
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const q = term.trim().toLowerCase();
     return sorted.filter((c) => {
       if (filter === 'unread' && c.unreadCount === 0) return false;
       if (filter === 'groups' && c.type !== 'GROUP') return false;
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data, term, filter]);
+  }, [sorted, term, filter]);
 
   // Keep a live typing subscription open only for the most-recent conversations,
   // so the sidebar can show "typing…" without opening one STOMP subscription per
   // chat — a user with thousands of chats would otherwise flood the broker.
   const typingSubIds = useMemo(
-    () =>
-      [...(data ?? [])]
-        .sort(
-          (a, b) =>
-            new Date(b.lastMessage?.createdAt ?? b.updatedAt).getTime() -
-            new Date(a.lastMessage?.createdAt ?? a.updatedAt).getTime(),
-        )
-        .slice(0, TYPING_SUB_LIMIT)
-        .map((c) => c.id),
-    [data],
+    () => sorted.slice(0, TYPING_SUB_LIMIT).map((c) => c.id),
+    [sorted],
   );
   const convIdsKey = typingSubIds.join(',');
   useEffect(() => {

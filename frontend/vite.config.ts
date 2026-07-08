@@ -55,5 +55,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split big, stable vendor libs into their own long-cacheable chunks so
+        // the app chunk stays small and a code change doesn't bust the vendor cache.
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          query: ['@tanstack/react-query'],
+          realtime: ['@stomp/stompjs', 'sockjs-client'],
+        },
+      },
+    },
   },
 });
