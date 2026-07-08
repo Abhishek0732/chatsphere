@@ -1,0 +1,18 @@
+# LiveKit SFU config (non-secret). API keys are injected via the LIVEKIT_KEYS env
+# var in docker-compose (sourced from .env), so no secret lives in this file.
+#
+# Runs with host networking: signaling on 7880, TCP fallback on 7881, and all
+# WebRTC media multiplexed over a single UDP port (7882). Host networking is
+# LiveKit's recommended Docker mode because media needs real UDP to the host.
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  # Same-host / LAN dev: advertise the machine's own IPs rather than STUNing for
+  # a public one. For a cloud deployment set use_external_ip: true instead.
+  use_external_ip: false
+
+logging:
+  level: info
+  json: false
