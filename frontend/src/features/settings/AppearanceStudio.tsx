@@ -36,16 +36,16 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-elevated dark:border-white/10 dark:bg-[#111a2b]">
+    <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
       <div className="mb-4 flex items-center gap-2.5">
         {icon && (
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
             {icon}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+          <h2 className="text-sm font-semibold text-on-surface">{title}</h2>
+          {subtitle && <p className="text-xs text-on-surface-variant">{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -64,16 +64,16 @@ function Segmented<T extends string>({
   options: { value: T; label: string; icon?: ReactNode }[];
 }) {
   return (
-    <div className="flex gap-1.5 rounded-field bg-slate-100 p-1 dark:bg-white/5">
+    <div className="flex gap-1.5 rounded-xl bg-white/5 p-1">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'flex flex-1 items-center justify-center gap-1.5 rounded-[calc(var(--radius-field)_-_4px)] px-2 py-1.5 text-sm font-medium transition',
+            'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium transition',
             value === o.value
-              ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white'
-              : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
+              ? 'bg-white/10 text-on-surface shadow-sm'
+              : 'text-on-surface-variant hover:text-on-surface',
           )}
         >
           {o.icon}
@@ -92,27 +92,27 @@ export function AppearanceStudio() {
   return (
     <div className="space-y-5">
       {/* Live preview */}
-      <div className="app-bg overflow-hidden rounded-2xl border border-white/50 p-4 shadow-elevated dark:border-white/10">
-        <div className="rounded-panel border border-white/60 bg-white/70 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-surface-container-low p-4">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold text-white">
+            <span className="message-gradient-sent flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-on-primary">
               CS
             </span>
-            <div className="text-sm font-semibold text-brand-gradient">Preview</div>
+            <div className="text-sm font-semibold text-primary">Preview</div>
           </div>
           <div className="space-y-2">
-            <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-slate-100 px-3 py-2 text-sm text-slate-800 dark:bg-white/10 dark:text-slate-100">
+            <div className="glass-panel max-w-[80%] rounded-2xl rounded-bl-none px-3 py-2 text-sm text-on-surface">
               How’s the new look? 👀
             </div>
-            <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-md bg-brand-gradient px-3 py-2 text-sm text-white shadow-sm">
+            <div className="message-gradient-sent ml-auto max-w-[80%] rounded-2xl rounded-br-none px-3 py-2 text-sm text-on-primary shadow-sm">
               Crafted, fast and totally mine. 🔥
             </div>
           </div>
           <div className="mt-3 flex items-center gap-2">
-            <div className="flex-1 rounded-field border border-slate-200 bg-white px-3 py-2 text-sm text-slate-400 dark:border-white/10 dark:bg-white/5">
+            <div className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-on-surface-variant">
               Message…
             </div>
-            <button className="rounded-field bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm">
+            <button className="message-gradient-sent rounded-full px-4 py-2 text-sm font-medium text-on-primary shadow-sm">
               Send
             </button>
           </div>
@@ -144,8 +144,8 @@ export function AppearanceStudio() {
                 title={a.label}
                 aria-label={a.label}
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-white hover:scale-110 dark:ring-offset-slate-900',
-                  active ? 'ring-slate-900 dark:ring-white' : 'ring-transparent',
+                  'flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-surface hover:scale-110',
+                  active ? 'ring-primary' : 'ring-transparent',
                 )}
                 style={{ backgroundColor: a.swatch }}
               >
@@ -159,8 +159,8 @@ export function AppearanceStudio() {
             onClick={() => accentPickerRef.current?.click()}
             title="Custom color"
             className={cn(
-              'relative flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-white hover:scale-110 dark:ring-offset-slate-900',
-              s.customAccent ? 'ring-slate-900 dark:ring-white' : 'ring-transparent',
+              'relative flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 transition ring-offset-surface hover:scale-110',
+              s.customAccent ? 'ring-primary' : 'ring-transparent',
             )}
             style={{
               background: s.customAccent
@@ -191,17 +191,17 @@ export function AppearanceStudio() {
               className={cn(
                 'flex flex-col items-center gap-1 rounded-xl border p-3 transition',
                 s.font === f.key
-                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
-                  : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5',
+                  ? 'border-primary bg-primary/10'
+                  : 'border-white/10 hover:bg-white/5',
               )}
             >
               <span
-                className="text-xl font-semibold text-slate-800 dark:text-slate-100"
+                className="text-xl font-semibold text-on-surface"
                 style={{ fontFamily: f.stack }}
               >
                 Ag
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">{f.label}</span>
+              <span className="text-[11px] text-on-surface-variant">{f.label}</span>
             </button>
           ))}
         </div>
@@ -234,8 +234,8 @@ export function AppearanceStudio() {
               className={cn(
                 'flex flex-col items-center gap-1.5 rounded-xl border p-2 text-[11px] transition',
                 s.background === b.key
-                  ? 'border-brand-500 text-brand-700 dark:text-brand-300'
-                  : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5',
+                  ? 'border-primary text-primary'
+                  : 'border-white/10 text-on-surface-variant hover:bg-white/5',
               )}
             >
               <span
@@ -271,8 +271,8 @@ export function AppearanceStudio() {
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-xl border p-1.5 text-[11px] transition',
                   active
-                    ? 'border-brand-500 text-brand-700 dark:text-brand-300'
-                    : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5',
+                    ? 'border-primary text-primary'
+                    : 'border-white/10 text-on-surface-variant hover:bg-white/5',
                 )}
               >
                 <span
@@ -298,8 +298,8 @@ export function AppearanceStudio() {
             className={cn(
               'relative flex flex-col items-center gap-1 rounded-xl border p-1.5 text-[11px] transition',
               s.customWallpaper
-                ? 'border-brand-500 text-brand-700 dark:text-brand-300'
-                : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5',
+                ? 'border-primary text-primary'
+                : 'border-white/10 text-on-surface-variant hover:bg-white/5',
             )}
           >
             <span
@@ -327,7 +327,7 @@ export function AppearanceStudio() {
 
       <button
         onClick={s.resetAppearance}
-        className="flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        className="flex items-center gap-2 text-sm font-medium text-on-surface-variant transition hover:text-on-surface"
       >
         <RotateCcw className="h-4 w-4" /> Reset appearance to defaults
       </button>

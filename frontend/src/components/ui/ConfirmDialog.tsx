@@ -39,19 +39,15 @@ export function ConfirmDialog({
         <div
           className={cn(
             'mb-4 flex h-14 w-14 items-center justify-center rounded-full',
-            danger
-              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-              : 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400',
+            danger ? 'bg-error/15 text-error' : 'bg-primary/15 text-primary',
           )}
         >
           {icon ?? <AlertTriangle className="h-7 w-7" />}
         </div>
 
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+        <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
         {message && (
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            {message}
-          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-on-surface-variant">{message}</p>
         )}
 
         <div className="mt-6 flex w-full gap-3">

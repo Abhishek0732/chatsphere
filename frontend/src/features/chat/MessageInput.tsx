@@ -298,7 +298,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   };
 
   return (
-    <div className="relative border-t border-white/40 bg-white/70 p-3 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/70">
+    <div className="relative border-t border-white/5 bg-surface p-3">
       {emojiOpen && !recording && (
         <div className="absolute bottom-full left-3 z-50 mb-2">
           <EmojiPicker onSelect={insertEmoji} onClose={() => setEmojiOpen(false)} />
@@ -414,7 +414,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           </div>
         ) : (
           // Composer field with the attach + camera icons inside it.
-          <div className="flex flex-1 items-end gap-0.5 rounded-2xl border border-slate-300 bg-white px-2 py-1 shadow-sm transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800">
+          <div className="glass-panel flex flex-1 items-end gap-0.5 rounded-full px-2 py-1 transition-all focus-within:ring-1 focus-within:ring-primary/50">
             <button
               type="button"
               onMouseDown={(e) => e.stopPropagation()}
@@ -437,7 +437,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
                 signalTyping();
               }}
               onKeyDown={onKeyDown}
-              className="min-h-[2rem] flex-1 resize-none overflow-y-hidden bg-transparent px-2 py-1.5 text-sm text-slate-900 focus:outline-none dark:text-slate-100"
+              className="min-h-[2rem] flex-1 resize-none overflow-y-hidden bg-transparent px-2 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
             />
             <button
               type="button"
@@ -473,15 +473,14 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
             <SendHorizonal className="h-5 w-5" />
           </Button>
         ) : draft.trim() || attachments.length > 0 || editing ? (
-          <Button
+          <button
             type="button"
-            size="icon"
             onClick={handleSend}
             aria-label="Send"
-            className="rounded-full"
+            className="message-gradient-sent flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-primary shadow-lg transition active:scale-90"
           >
             <SendHorizonal className="h-5 w-5" />
-          </Button>
+          </button>
         ) : (
           <Button
             type="button"

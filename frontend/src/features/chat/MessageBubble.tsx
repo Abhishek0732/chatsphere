@@ -28,6 +28,7 @@ import { copyText } from '@/utils/clipboard';
 import { mediaSrc } from '@/utils/media';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
+import { Avatar } from '@/components/ui/Avatar';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -36,6 +37,10 @@ interface MessageBubbleProps {
   mine: boolean;
   /** Show sender name (group chats, incoming only). */
   showSender: boolean;
+  /** Render the sender's avatar beside this (incoming) bubble. */
+  showAvatar?: boolean;
+  /** Sender's avatar URL (resolved from the conversation members). */
+  avatarUrl?: string;
   onForward: (message: Message) => void;
 }
 
@@ -56,7 +61,14 @@ function previewOf(message: Message): string | null {
   return message.content || null;
 }
 
-function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBubbleProps) {
+function MessageBubbleInner({
+  message,
+  mine,
+  showSender,
+  showAvatar,
+  avatarUrl,
+  onForward,
+}: MessageBubbleProps) {
   const setReplyTo = useChatStore((s) => s.setReplyTo);
   const setEditing = useChatStore((s) => s.setEditing);
   const myId = useAuthStore((s) => s.user?.id);
@@ -199,19 +211,29 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
   };
 
   return (
-    <div className={cn('group flex w-full', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('group flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+      {!mine &&
+        (showAvatar ? (
+          <Avatar
+            name={message.senderName}
+            src={avatarUrl}
+            size="sm"
+            className="mb-5 h-8 w-8 shrink-0"
+          />
+        ) : (
+          <div className="w-8 shrink-0" />
+        ))}
+      <div className={cn('flex max-w-[85%] flex-col gap-0.5', mine ? 'items-end' : 'items-start')}>
       <div
         className={cn(
-          'relative max-w-[78%] animate-pop-in rounded-[20px] px-3.5 py-2.5 shadow-elevated transition-transform duration-150 hover:-translate-y-px',
+          'relative animate-pop-in rounded-2xl px-3.5 py-2 shadow-lg transition-transform duration-150',
           mine
-            ? 'rounded-br-[6px] bg-[#d6ebff] text-slate-900 dark:bg-[#164e7a] dark:text-slate-50'
-            : 'rounded-bl-[6px] bg-white text-slate-900 ring-1 ring-slate-900/5 dark:bg-[#17233c] dark:text-slate-100 dark:ring-white/[0.06]',
+            ? 'message-gradient-sent rounded-br-none font-medium text-on-primary'
+            : 'glass-panel rounded-bl-none text-on-surface',
         )}
       >
         {showSender && !mine && !message.deleted && (
-          <p className="mb-0.5 text-xs font-semibold text-brand-600 dark:text-brand-400">
-            {message.senderName}
-          </p>
+          <p className="mb-0.5 text-xs font-semibold text-primary">{message.senderName}</p>
         )}
 
         {message.deleted ? (
@@ -438,19 +460,6 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
           </div>
         )}
 
-        <div
-          className={cn(
-            'mt-0.5 flex items-center justify-end gap-1',
-            mine ? 'text-slate-500 dark:text-slate-300/80' : 'text-slate-400',
-          )}
-        >
-          {message.editedAt && !message.deleted && (
-            <span className="text-[10px] italic opacity-80">edited</span>
-          )}
-          <span className="text-[10px]">{formatTime(message.createdAt)}</span>
-          {mine && !message.deleted && <MessageStatusTicks message={message} />}
-        </div>
-
         {/* Actions trigger (revealed on hover). Sits on the inner edge of the bubble. */}
         {canAct && (
           <button
@@ -458,7 +467,7 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
             className={cn(
               'absolute -top-1 flex h-6 w-6 items-center justify-center rounded-full opacity-0 shadow transition group-hover:opacity-100',
-              'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300',
+              'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest',
               mine ? 'left-1' : 'right-1',
               menuOpen && 'opacity-100',
             )}
@@ -467,6 +476,21 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
             <ChevronDown className="h-4 w-4" />
           </button>
         )}
+      </div>
+
+      {/* Timestamp + status below the bubble, WhatsApp/reference-style. */}
+      <div
+        className={cn(
+          'flex items-center gap-1 px-1 text-on-surface-variant',
+          mine ? 'justify-end' : 'justify-start',
+        )}
+      >
+        {message.editedAt && !message.deleted && (
+          <span className="text-[10px] italic opacity-80">edited</span>
+        )}
+        <span className="text-[10px]">{formatTime(message.createdAt)}</span>
+        {mine && !message.deleted && <MessageStatusTicks message={message} />}
+      </div>
       </div>
 
       {/* Menu is portaled + fixed-positioned so it always renders fully inside

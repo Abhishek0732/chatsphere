@@ -1,101 +1,96 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { MessageCircle, CircleDashed, Phone, Settings } from 'lucide-react';
+import { MessageSquareText, Users, Phone, Settings } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { Logo } from '@/components/ui/Logo';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { NotificationBell } from '@/components/NotificationBell';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { cn } from '@/utils/cn';
 
-const navItems = [
-  { to: '/', label: 'Chats', icon: MessageCircle },
-  { to: '/contacts', label: 'Updates', icon: CircleDashed },
+const mainItems = [
+  { to: '/', label: 'Chats', icon: MessageSquareText },
+  { to: '/contacts', label: 'Updates', icon: Users },
   { to: '/calls', label: 'Calls', icon: Phone },
-  { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
-/** Desktop vertical rail + mobile bottom bar navigation. */
+/** Desktop labeled nav drawer (profile + tabs) + mobile bottom bar. */
 export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const openViewer = useImageViewer((s) => s.open);
   const { pathname } = useLocation();
 
-  // Keep "Chats" lit while inside a conversation, like Discord highlights the
-  // current section regardless of the exact sub-route.
   const isNavActive = (to: string) =>
     to === '/' ? pathname === '/' || pathname.startsWith('/chat') : pathname.startsWith(to);
 
+  const itemClass = (active: boolean) =>
+    cn(
+      'flex items-center gap-4 rounded-xl p-3 transition-all duration-300 hover:translate-x-1',
+      active
+        ? 'bg-primary-container text-on-primary-container'
+        : 'text-on-surface-variant hover:bg-surface-variant/30',
+    );
+
   return (
     <>
-      {/* Desktop rail */}
-      <nav className="glass-panel md-float hidden w-[68px] flex-col items-center gap-2 py-4 md:flex">
-        {/* Brand mark */}
-        <Logo className="mb-1 h-9 w-9 shadow-glow" />
-        <div className="mb-2">
-          {/* Your own photo — never protected against yourself. */}
-          <Avatar
-            name={user?.displayName ?? '?'}
-            src={user?.avatarUrl}
-            size="md"
-            className="ring-2 ring-brand-500/40 ring-offset-2 ring-offset-white transition hover:ring-brand-500/70 dark:ring-offset-slate-900"
-            onClick={() =>
-              openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })
-            }
-          />
-        </div>
-        {navItems.map(({ to, label, icon: Icon }) => {
-          const active = isNavActive(to);
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              title={label}
-              className={cn(
-                // Discord-style: squircle that morphs squarer on hover/active,
-                // with an animated pill indicator on the rail's left edge.
-                'group/nav relative flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95',
-                active
-                  ? 'rounded-2xl bg-brand-gradient text-white shadow-glow'
-                  : 'rounded-[22px] text-slate-500 hover:rounded-2xl hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100',
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute -left-[14px] w-[3px] rounded-r-full bg-white transition-all duration-200',
-                  active ? 'h-6' : 'h-0 group-hover/nav:h-2.5',
-                )}
-              />
-              <Icon className="h-5 w-5" />
+      {/* Desktop drawer */}
+      <nav className="hidden h-full w-20 shrink-0 flex-col gap-2 border-r border-white/10 bg-surface/70 p-3 backdrop-blur-xl md:flex lg:w-72">
+        {/* Profile header */}
+        <button
+          type="button"
+          onClick={() => openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })}
+          className="flex items-center gap-3 rounded-xl px-1 py-3 text-left"
+        >
+          <div className="relative h-12 w-12 shrink-0">
+            <Avatar name={user?.displayName ?? '?'} src={user?.avatarUrl} size="lg" className="h-12 w-12" />
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-surface bg-green-400" />
+          </div>
+          <div className="hidden min-w-0 flex-col lg:flex">
+            <span className="truncate text-lg font-semibold leading-tight text-primary">
+              {user?.displayName ?? 'You'}
+            </span>
+            <span className="text-sm text-on-surface-variant">Online</span>
+          </div>
+        </button>
+
+        {/* Tabs */}
+        <div className="mt-4 flex flex-1 flex-col gap-1">
+          {mainItems.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} title={label} className={itemClass(isNavActive(to))}>
+              <Icon className="h-6 w-6 shrink-0" strokeWidth={isNavActive(to) ? 2.4 : 2} />
+              <span className="hidden text-base lg:block">{label}</span>
             </NavLink>
-          );
-        })}
-        <div className="mt-auto flex flex-col items-center gap-1">
-          <NotificationBell />
-          <ThemeToggle />
+          ))}
+
+          <NavLink to="/settings" title="Settings" className={cn(itemClass(isNavActive('/settings')), 'mt-auto')}>
+            <Settings className="h-6 w-6 shrink-0" strokeWidth={isNavActive('/settings') ? 2.4 : 2} />
+            <span className="hidden text-base lg:block">Settings</span>
+          </NavLink>
         </div>
       </nav>
 
       {/* Mobile bottom bar */}
       <nav
         className={cn(
-          'glass-panel fixed inset-x-0 bottom-0 z-30 items-center justify-around border-t border-white/40 py-1.5 dark:border-white/5 md:hidden',
+          'fixed inset-x-0 bottom-0 z-30 items-center justify-around border-t border-white/10 bg-surface/80 py-1.5 backdrop-blur-xl md:hidden',
           hideMobileBar ? 'hidden' : 'flex',
         )}
       >
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={cn(
-              'flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px]',
-              isNavActive(to) ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400',
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </NavLink>
-        ))}
+        {[...mainItems, { to: '/settings', label: 'Settings', icon: Settings }].map(
+          ({ to, label, icon: Icon }) => {
+            const active = isNavActive(to);
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={cn(
+                  'flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px]',
+                  active ? 'text-primary' : 'text-on-surface-variant',
+                )}
+              >
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                {label}
+              </NavLink>
+            );
+          },
+        )}
       </nav>
     </>
   );

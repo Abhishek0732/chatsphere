@@ -2,9 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Auth-screen mesh background — light default, dark override. */
+  .bg-gradient-mesh {
+    background:
+      radial-gradient(circle at 0% 0%, #cdd9ff 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, #d5e2ff 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, #faf8ff 0%, #eef1ff 100%);
+  }
+  html.dark .bg-gradient-mesh {
+    background:
+      radial-gradient(circle at 0% 0%, #002e6a 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, #004395 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, #101415 0%, #0b0f10 100%);
+  }
+  /* Solid-glass card — light default, dark override. */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  html.dark .glass-card {
+    background: rgba(25, 28, 30, 0.4);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  .glow-button {
+    box-shadow: 0 0 20px rgba(77, 142, 255, 0.35);
+  }
+  /* Sent-message + primary-action gradient. Light = strong blue (white text),
+     dark = periwinkle (navy text) — pairs with the `on-primary` token. */
+  .message-gradient-sent {
+    background: linear-gradient(135deg, #0052ff 0%, #003ec7 100%);
+  }
+  html.dark .message-gradient-sent {
+    background: linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%);
+  }
+  /* Thin design-system scrollbar. */
+  .cs-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .cs-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .cs-scroll::-webkit-scrollbar-thumb {
+    background: rgba(173, 198, 255, 0.12);
+    border-radius: 10px;
+  }
+  .cs-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(173, 198, 255, 0.3);
+  }
+}
+
 @layer base {
   :root {
     color-scheme: light;
+
+    /* ── ChatSphere design tokens — LIGHT (Lumina Precision).
+       Space-separated RGB channels so Tailwind `<alpha-value>` works. ── */
+    --c-surface: 250 248 255;
+    --c-surface-dim: 210 217 244;
+    --c-surface-bright: 250 248 255;
+    --c-surface-container-lowest: 255 255 255;
+    --c-surface-container-low: 242 243 255;
+    --c-surface-container: 234 237 255;
+    --c-surface-container-high: 226 231 255;
+    --c-surface-container-highest: 218 226 253;
+    --c-surface-variant: 218 226 253;
+    --c-on-surface: 19 27 46;
+    --c-on-surface-variant: 67 70 86;
+    --c-primary: 0 62 199;
+    --c-primary-container: 0 82 255;
+    --c-on-primary: 255 255 255;
+    --c-on-primary-container: 223 227 255;
+    --c-secondary: 80 95 118;
+    --c-secondary-container: 208 225 251;
+    --c-on-secondary: 255 255 255;
+    --c-on-secondary-container: 84 100 122;
+    --c-tertiary: 80 95 118;
+    --c-outline: 115 118 136;
+    --c-outline-variant: 195 197 217;
+    --c-error: 186 26 26;
+    --c-error-container: 255 218 214;
+    --c-on-error-container: 147 0 10;
 
     /* Customizable design tokens (driven by themeStore). */
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
@@ -27,6 +108,33 @@
   }
   html.dark {
     color-scheme: dark;
+
+    /* ── ChatSphere design tokens — DARK (Lumina Glass), the default look. ── */
+    --c-surface: 16 20 21;
+    --c-surface-dim: 16 20 21;
+    --c-surface-bright: 54 58 59;
+    --c-surface-container-lowest: 11 15 16;
+    --c-surface-container-low: 25 28 30;
+    --c-surface-container: 29 32 34;
+    --c-surface-container-high: 39 42 44;
+    --c-surface-container-highest: 50 53 55;
+    --c-surface-variant: 50 53 55;
+    --c-on-surface: 224 227 229;
+    --c-on-surface-variant: 194 198 214;
+    --c-primary: 173 198 255;
+    --c-primary-container: 77 142 255;
+    --c-on-primary: 0 46 106;
+    --c-on-primary-container: 0 40 93;
+    --c-secondary: 164 201 255;
+    --c-secondary-container: 2 103 184;
+    --c-on-secondary: 0 49 93;
+    --c-on-secondary-container: 214 229 255;
+    --c-tertiary: 190 198 224;
+    --c-outline: 140 144 159;
+    --c-outline-variant: 66 71 84;
+    --c-error: 255 180 171;
+    --c-error-container: 147 0 10;
+    --c-on-error-container: 255 218 214;
   }
 
   /* ─── Accent palettes (per-user chat theme) ─────────────────────────── */
@@ -234,9 +342,10 @@
     backdrop-filter: blur(22px) saturate(1.5);
   }
   .dark .glass-panel {
-    background-color: #111a2b;
-    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0.01));
-    backdrop-filter: blur(24px) saturate(1.2);
+    background-color: rgba(16, 20, 21, 0.7);
+    background-image: none;
+    backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   /* Floating panel: rounded, hairline-bordered card on the app-bg. Desktop only
@@ -253,11 +362,9 @@
         0 34px 64px -34px rgb(15 23 42 / 0.3);
     }
     .dark .md-float {
-      border-color: rgb(255 255 255 / 0.07);
-      box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.06),
-        0 12px 34px -18px rgb(0 0 0 / 0.6),
-        0 40px 80px -42px rgb(0 0 0 / 0.85);
+      border-radius: 0;
+      border-color: rgb(255 255 255 / 0.06);
+      box-shadow: none;
     }
   }
 
@@ -270,11 +377,8 @@
     background-attachment: fixed;
   }
   .dark .app-bg {
-    background-color: #0b1220;
-    background-image:
-      radial-gradient(58rem 46rem at 100% -12%, rgb(var(--brand-600) / 0.12), transparent 62%),
-      radial-gradient(52rem 44rem at 0% 112%, rgb(var(--brand-500) / 0.08), transparent 60%);
-    background-attachment: fixed;
+    background-color: #101415;
+    background-image: none;
   }
 
   /* ─── Background styles (themeStore data-bg) — Aurora is the base above. ── */

@@ -41,16 +41,16 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
       />
       <div
         className={cn(
-          'relative z-10 w-full max-w-md animate-pop-in overflow-hidden rounded-panel border border-slate-200/70 bg-white/90 shadow-elevated backdrop-blur-2xl dark:border-white/10 dark:bg-[#17233c]/85',
+          'relative z-10 w-full max-w-md animate-pop-in overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-on-surface shadow-2xl backdrop-blur-2xl',
           className,
         )}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-white/10">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{title}</h2>
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-slate-200"
+              className="rounded-lg p-1.5 text-on-surface-variant transition hover:bg-white/10 hover:text-on-surface"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -59,9 +59,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
         )}
         <div className="px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3 dark:border-white/10">
-            {footer}
-          </div>
+          <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-3">{footer}</div>
         )}
       </div>
     </div>,

@@ -26,6 +26,7 @@ import { useClearChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
 import { formatLastSeen } from '@/utils/format';
+import { cn } from '@/utils/cn';
 import { exportChat } from '@/api/conversations';
 import { downloadText } from '@/utils/download';
 import { formatChatExport } from '@/utils/chatExport';
@@ -41,9 +42,11 @@ const NO_TYPERS: { userId: number; userName: string }[] = [];
 interface ChatHeaderProps {
   conversation: ConversationSummary;
   onOpenInfo?: () => void;
+  onToggleInfo?: () => void;
+  infoActive?: boolean;
 }
 
-export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
+export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive }: ChatHeaderProps) {
   const navigate = useNavigate();
   const myId = useAuthStore((s) => s.user?.id);
   const other = otherMember(conversation, myId);
@@ -162,7 +165,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
   }
 
   return (
-    <header className="relative z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-white/10 dark:bg-[#111a2b]/80">
+    <header className="glass-panel relative z-30 flex items-center gap-3 border-x-0 border-t-0 px-3 py-3">
       <button
         onClick={() => navigate('/')}
         className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
@@ -187,12 +190,23 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
         />
         <button
           className="min-w-0 flex-1 text-left"
-          onClick={() => (conversation.type === 'GROUP' ? onOpenInfo?.() : setInfoOpen(true))}
+          onClick={() =>
+            conversation.type === 'GROUP'
+              ? onOpenInfo?.()
+              : onToggleInfo
+                ? onToggleInfo()
+                : setInfoOpen(true)
+          }
         >
-          <p className="truncate font-semibold text-slate-900 dark:text-slate-100">
-            {conversation.name}
+          <p className="truncate font-semibold text-on-surface">{conversation.name}</p>
+          <p
+            className={cn(
+              'truncate text-xs',
+              subtitle === 'online' ? 'font-medium text-primary/80' : 'text-on-surface-variant',
+            )}
+          >
+            {subtitle}
           </p>
-          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
         </button>
       </div>
 
@@ -213,23 +227,38 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
           }
         }}
         disabled={!other}
-        className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-white/10"
+        className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary disabled:opacity-40 dark:hover:bg-white/10"
         aria-label="Voice call"
       >
         <Phone className="h-5 w-5" />
       </button>
       <button
         onClick={() => navigate('/call/video')}
-        className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+        className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary dark:hover:bg-white/10"
         aria-label="Video call"
       >
         <Video className="h-5 w-5" />
       </button>
 
+      {conversation.type === 'DIRECT' && onToggleInfo && (
+        <button
+          onClick={onToggleInfo}
+          className={cn(
+            'rounded-lg p-2 transition',
+            infoActive
+              ? 'bg-primary/10 text-primary'
+              : 'text-on-surface-variant hover:bg-white/5 hover:text-primary',
+          )}
+          aria-label="Contact info"
+        >
+          <Info className="h-5 w-5" />
+        </button>
+      )}
+
       {conversation.type === 'GROUP' && (
         <button
           onClick={onOpenInfo}
-          className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+          className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary dark:hover:bg-white/10"
           aria-label="Group info"
         >
           <Users className="h-5 w-5" />
@@ -240,7 +269,7 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
       <div ref={menuRef} className="relative">
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary dark:hover:bg-slate-800"
           aria-label="Chat options"
         >
           <MoreVertical className="h-5 w-5" />

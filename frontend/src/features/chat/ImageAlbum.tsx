@@ -1,0 +1,127 @@
+import { mediaSrc } from '@/utils/media';
+import { cn } from '@/utils/cn';
+import { formatTime } from '@/utils/format';
+import { useImageViewer } from '@/store/imageViewerStore';
+import { useMediaRevealStore } from '@/store/mediaRevealStore';
+import { MessageStatusTicks } from './MessageStatusTicks';
+import { Avatar } from '@/components/ui/Avatar';
+import type { Message } from '@/types';
+
+const MAX_TILES = 4;
+
+/**
+ * A WhatsApp-style photo album: images sent together render as one grid bubble
+ * (2 side-by-side, 3 as a hero + pair, 4+ as a 2×2 with a "+N" overlay on the
+ * last tile) rather than one message per image. Tapping a tile opens it in the
+ * viewer. Incoming media still respects the tap-to-reveal gate — as one unit.
+ */
+export function ImageAlbum({
+  messages,
+  mine,
+  showSender,
+  showAvatar,
+  avatarUrl,
+}: {
+  messages: Message[];
+  mine: boolean;
+  showSender: boolean;
+  showAvatar?: boolean;
+  avatarUrl?: string;
+}) {
+  const openViewer = useImageViewer((s) => s.open);
+  const revealed = useMediaRevealStore((s) => s.revealed);
+  const reveal = useMediaRevealStore((s) => s.reveal);
+
+  const count = messages.length;
+  const shown = messages.slice(0, MAX_TILES);
+  const extra = count - MAX_TILES;
+  const last = messages[count - 1];
+  const caption = [...messages].reverse().find((m) => m.content?.trim())?.content ?? '';
+
+  const gated = !mine && messages.some((m) => m.id > 0 && !revealed[m.id]);
+  const revealAll = () => messages.forEach((m) => m.id > 0 && reveal(m.id));
+
+  const tile = (m: Message, i: number, className: string) => (
+    <button
+      key={m.tempId ?? m.id}
+      type="button"
+      onClick={() => (gated ? revealAll() : openViewer(m.content || 'Photo', m.attachmentUrl))}
+      className={cn('relative overflow-hidden bg-slate-200 dark:bg-slate-700', className)}
+    >
+      <img
+        src={mediaSrc(m.attachmentUrl)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
+      />
+      {!gated && i === MAX_TILES - 1 && extra > 0 && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
+          +{extra}
+        </span>
+      )}
+    </button>
+  );
+
+  return (
+    <div className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+      {!mine &&
+        (showAvatar ? (
+          <Avatar name={last.senderName} src={avatarUrl} size="sm" className="mb-1 h-8 w-8 shrink-0" />
+        ) : (
+          <div className="w-8 shrink-0" />
+        ))}
+      <div
+        className={cn(
+          'relative w-[min(75vw,18rem)] animate-pop-in overflow-hidden rounded-[20px] shadow-elevated',
+          mine
+            ? 'rounded-br-[6px] bg-[#d6ebff] dark:bg-[#164e7a]'
+            : 'rounded-bl-[6px] bg-white ring-1 ring-slate-900/5 dark:bg-[#17233c] dark:ring-white/[0.06]',
+        )}
+      >
+        {showSender && !mine && (
+          <p className="px-3 pt-2 text-xs font-semibold text-brand-600 dark:text-brand-400">
+            {last.senderName}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-0.5 p-0.5">
+          {count === 3 ? (
+            <>
+              {tile(shown[0], 0, 'col-span-2 h-36')}
+              {tile(shown[1], 1, 'h-28')}
+              {tile(shown[2], 2, 'h-28')}
+            </>
+          ) : (
+            shown.map((m, i) => tile(m, i, 'aspect-square'))
+          )}
+        </div>
+
+        {gated && (
+          <button
+            type="button"
+            onClick={revealAll}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm"
+          >
+            View {count} photos
+          </button>
+        )}
+
+        <div className="flex items-end gap-2 px-3 pb-1.5 pt-1 text-slate-900 dark:text-slate-100">
+          {caption && (
+            <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{caption}</p>
+          )}
+          <span
+            className={cn(
+              'ml-auto flex shrink-0 items-center gap-1 text-[10px]',
+              mine ? 'text-slate-500 dark:text-slate-300/80' : 'text-slate-400',
+            )}
+          >
+            {formatTime(last.createdAt)}
+            {mine && !last.deleted && <MessageStatusTicks message={last} />}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

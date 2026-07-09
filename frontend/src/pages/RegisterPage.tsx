@@ -1,25 +1,33 @@
-import { Logo } from '@/components/ui/Logo';
+import { Cloud } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { RegisterForm } from '@/features/auth/RegisterForm';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function RegisterPage() {
   return (
-    <div className="app-bg relative flex min-h-full items-center justify-center p-4">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
-
-      <div className="relative w-full max-w-sm animate-scale-in rounded-panel border border-white/50 bg-white/80 p-8 shadow-elevated backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="mb-7 flex flex-col items-center gap-3 text-center">
-          <Logo className="h-14 w-14 shadow-lg" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Create account</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Join <span className="font-semibold text-brand-gradient">ChatSphere</span>
-            </p>
+    <div className="flex min-h-full items-center justify-center overflow-y-auto bg-surface p-6 text-on-surface">
+      <div className="w-full max-w-sm py-8">
+        <header className="mb-8 flex flex-col items-center text-center">
+          <div className="glow-button mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-container">
+            <Cloud className="h-9 w-9 text-on-primary-container" fill="currentColor" strokeWidth={1.5} />
           </div>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">ChatSphere</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">Connect beyond boundaries</p>
+        </header>
+
+        <div className="glass-card flex flex-col gap-6 rounded-3xl p-6">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-on-surface">Create your account</h2>
+            <p className="text-sm text-on-surface-variant">Start connecting in seconds</p>
+          </div>
+          <RegisterForm />
         </div>
-        <RegisterForm />
+
+        <p className="mt-8 text-center text-sm text-on-surface-variant">
+          Already have an account?
+          <Link to="/login" className="ml-1.5 font-semibold text-primary hover:underline">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );

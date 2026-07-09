@@ -20,7 +20,7 @@ export function AppLayout() {
     location.pathname.startsWith('/chat/') || location.pathname.startsWith('/call/');
 
   return (
-    <div className="app-bg flex h-full w-full overflow-hidden md:gap-3 md:p-3">
+    <div className="flex h-full w-full overflow-hidden bg-surface text-on-surface">
       <NavRail hideMobileBar={isFullScreen} />
       <main
         className={cn(

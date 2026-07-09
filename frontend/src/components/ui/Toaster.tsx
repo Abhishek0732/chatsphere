@@ -22,8 +22,8 @@ export function Toaster() {
         <div
           key={t.id}
           className={cn(
-            'pointer-events-auto flex animate-slide-down items-start gap-3 rounded-xl border border-slate-200/70 bg-white/90 p-3 shadow-soft backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-800/90',
-            t.href && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/70',
+            'pointer-events-auto flex animate-slide-down items-start gap-3 rounded-xl border border-white/10 bg-surface-container/95 p-3 text-on-surface shadow-2xl backdrop-blur-xl',
+            t.href && 'cursor-pointer hover:bg-surface-container-high',
           )}
           onClick={() => {
             if (t.href) {
@@ -34,11 +34,9 @@ export function Toaster() {
         >
           <div className="mt-0.5">{icons[t.variant]}</div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{t.title}</p>
+            <p className="text-sm font-medium text-on-surface">{t.title}</p>
             {t.description && (
-              <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                {t.description}
-              </p>
+              <p className="mt-0.5 truncate text-xs text-on-surface-variant">{t.description}</p>
             )}
           </div>
           <button
@@ -46,7 +44,7 @@ export function Toaster() {
               e.stopPropagation();
               dismiss(t.id);
             }}
-            className="rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            className="rounded p-0.5 text-on-surface-variant hover:text-on-surface"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

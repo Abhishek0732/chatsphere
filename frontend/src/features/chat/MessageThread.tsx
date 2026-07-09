@@ -10,6 +10,8 @@ import { clearMessageNotifications } from '@/utils/notifications';
 import { formatDayDivider } from '@/utils/format';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
+import { ImageAlbum } from './ImageAlbum';
+import { ContactInfoPanel } from './ContactInfoPanel';
 import { MessageInput } from './MessageInput';
 import { ForwardModal } from './ForwardModal';
 import { TypingBubble } from './TypingBubble';
@@ -38,12 +40,70 @@ function sameDay(a: string, b: string): boolean {
   );
 }
 
+/** Max gap between images still considered "sent together" (one album). */
+const ALBUM_WINDOW_MS = 60_000;
+
+/** A plain photo eligible to join a WhatsApp-style album (no reply/reaction/status). */
+function albumable(m: Message): boolean {
+  return (
+    m.type === 'IMAGE' &&
+    !!m.attachmentUrl &&
+    !m.deleted &&
+    !m.replyTo &&
+    !m.statusRef &&
+    (m.reactions?.length ?? 0) === 0
+  );
+}
+
+type Row =
+  | { kind: 'single'; message: Message }
+  | { kind: 'album'; key: string; messages: Message[] };
+
+/** Fold runs of same-sender images sent close together into single album rows. */
+function buildRows(messages: Message[]): Row[] {
+  const rows: Row[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (albumable(m)) {
+      const group: Message[] = [m];
+      let j = i + 1;
+      while (
+        j < messages.length &&
+        albumable(messages[j]) &&
+        messages[j].senderId === m.senderId &&
+        new Date(messages[j].createdAt).getTime() -
+          new Date(messages[j - 1].createdAt).getTime() <=
+          ALBUM_WINDOW_MS
+      ) {
+        group.push(messages[j]);
+        j++;
+      }
+      if (group.length >= 2) {
+        rows.push({
+          kind: 'album',
+          key: `album-${group[0].tempId ?? group[0].id}`,
+          messages: group,
+        });
+        i = j - 1;
+        continue;
+      }
+    }
+    rows.push({ kind: 'single', message: m });
+  }
+  return rows;
+}
+
 export function MessageThread({ conversationId }: { conversationId: number }) {
   const conversation = useConversation(conversationId);
   const myId = useAuthStore((s) => s.user?.id);
   const setActive = useChatStore((s) => s.setActiveConversation);
   const clearTyping = useChatStore((s) => s.clearTyping);
   const { messages, isLoading, loadOlder, loadingOlder, hasMore } = useMessages(conversationId);
+  const rows = useMemo(() => buildRows(messages), [messages]);
+  const avatarBySender = useMemo(
+    () => new Map((conversation?.members ?? []).map((m) => [m.id, m.avatarUrl])),
+    [conversation?.members],
+  );
   const markRead = useMarkRead();
 
   // Who (other than me) is typing in this conversation right now.
@@ -67,6 +127,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
 
   // Track whether the user is pinned to the bottom so live messages autoscroll
@@ -143,10 +204,15 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
       <ChatHeader
         conversation={conversation}
         onOpenInfo={conversation.type === 'GROUP' ? () => setGroupInfoOpen(true) : undefined}
+        onToggleInfo={
+          conversation.type === 'DIRECT' ? () => setInfoOpen((o) => !o) : undefined
+        }
+        infoActive={infoOpen}
       />
 
       {pinnedMessages.length > 0 && (
@@ -166,7 +232,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="chat-bg flex-1 space-y-1 overflow-y-auto px-4 py-4 scrollbar-thin"
+        className="flex-1 space-y-1 overflow-y-auto bg-surface px-4 py-4 cs-scroll"
       >
         {loadingOlder && (
           <div className="flex justify-center py-2">
@@ -181,29 +247,55 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
             No messages yet. Say hello!
           </div>
         ) : (
-          messages.map((message: Message, idx) => {
-            const prev = messages[idx - 1];
-            const showDivider = !prev || !sameDay(prev.createdAt, message.createdAt);
-            const mine = message.senderId === myId;
+          rows.map((row, idx) => {
+            const first = row.kind === 'album' ? row.messages[0] : row.message;
+            const prevRow = rows[idx - 1];
+            const prevLast = prevRow
+              ? prevRow.kind === 'album'
+                ? prevRow.messages[prevRow.messages.length - 1]
+                : prevRow.message
+              : undefined;
+            const showDivider = !prevLast || !sameDay(prevLast.createdAt, first.createdAt);
+            const mine = first.senderId === myId;
             const showSender =
               conversation.type === 'GROUP' &&
               !mine &&
-              (!prev || prev.senderId !== message.senderId);
+              (!prevLast || prevLast.senderId !== first.senderId);
+            const nextRow = rows[idx + 1];
+            const nextFirst = nextRow
+              ? nextRow.kind === 'album'
+                ? nextRow.messages[0]
+                : nextRow.message
+              : undefined;
+            const showAvatar = !mine && (!nextFirst || nextFirst.senderId !== first.senderId);
+            const avatarUrl = avatarBySender.get(first.senderId) ?? undefined;
             return (
-              <Fragment key={message.tempId ?? message.id}>
+              <Fragment key={row.kind === 'album' ? row.key : (row.message.tempId ?? row.message.id)}>
                 {showDivider && (
                   <div className="my-4 flex justify-center">
                     <span className="rounded-full border border-white/10 bg-white/70 px-3 py-1 text-[11px] font-medium tracking-wide text-slate-500 backdrop-blur-md dark:bg-white/[0.06] dark:text-slate-300">
-                      {formatDayDivider(message.createdAt)}
+                      {formatDayDivider(first.createdAt)}
                     </span>
                   </div>
                 )}
-                <MessageBubble
-                  message={message}
-                  mine={mine}
-                  showSender={showSender}
-                  onForward={setForwardMsg}
-                />
+                {row.kind === 'album' ? (
+                  <ImageAlbum
+                    messages={row.messages}
+                    mine={mine}
+                    showSender={showSender}
+                    showAvatar={showAvatar}
+                    avatarUrl={avatarUrl}
+                  />
+                ) : (
+                  <MessageBubble
+                    message={row.message}
+                    mine={mine}
+                    showSender={showSender}
+                    showAvatar={showAvatar}
+                    avatarUrl={avatarUrl}
+                    onForward={setForwardMsg}
+                  />
+                )}
               </Fragment>
             );
           })
@@ -213,6 +305,16 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
       </div>
 
       <MessageInput conversationId={conversationId} />
+      </div>
+
+      {infoOpen && conversation.type === 'DIRECT' && (
+        <ContactInfoPanel
+          conversation={conversation}
+          other={other}
+          images={messages}
+          onClose={() => setInfoOpen(false)}
+        />
+      )}
 
       {conversation.type === 'GROUP' && (
         <GroupInfoModal
