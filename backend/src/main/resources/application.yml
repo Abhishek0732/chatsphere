@@ -106,6 +106,15 @@ chatsphere:
       host: ${COTURN_HOST:localhost}
       secret: ${COTURN_SECRET:dev-turn-secret-change-me}
       ttl-seconds: ${TURN_TTL:600}
+    # Free public TURN relay — the fallback that carries audio across different
+    # networks (or through an HTTP-only tunnel) when no direct path exists.
+    # Defaults to OpenRelay's free shared credentials; override via env to point
+    # at Cloudflare TURN (or any provider) without a rebuild.
+    public-turn:
+      enabled: ${WEBRTC_TURN_ENABLED:true}
+      urls: ${WEBRTC_TURN_URLS:turn:openrelay.metered.ca:80,turn:openrelay.metered.ca:443,turn:openrelay.metered.ca:443?transport=tcp}
+      username: ${WEBRTC_TURN_USERNAME:openrelayproject}
+      credential: ${WEBRTC_TURN_CREDENTIAL:openrelayproject}
 
 logging:
   level:

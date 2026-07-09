@@ -20,6 +20,7 @@ import { toast } from '@/store/toastStore';
 import { clearMessageNotifications, notifyMessage } from '@/utils/notifications';
 import { muteAccessors } from '@/store/muteStore';
 import { useCallStore } from '@/store/callStore';
+import { mediaService } from '@/features/call/mediaService';
 import type {
   AppNotification,
   CallInvitePayload,
@@ -405,7 +406,23 @@ class SocketService {
     });
   }
 
+  /** Relay a native-WebRTC SDP/ICE frame to the peer via the server. */
+  sendRtcSignal(callId: string, kind: 'offer' | 'answer' | 'ice', sdp?: string, candidate?: string): void {
+    if (!this.client || !this.connected) return;
+    this.client.publish({
+      destination: '/app/call.signal',
+      body: JSON.stringify({ callId, kind, sdp, candidate }),
+    });
+  }
+
   private onCallSignal(signal: CallSignal): void {
+    // WebRTC negotiation frames are pure media plumbing — hand straight to the
+    // peer connection without touching call state.
+    if (signal.type.startsWith('WEBRTC_')) {
+      void mediaService.onSignal(signal);
+      return;
+    }
+
     const store = useCallStore.getState();
     const current = store.call;
 
@@ -468,6 +485,8 @@ class SocketService {
     const store = useCallStore.getState();
     if (!store.call) return;
     store.patchCall({ phase: 'ended', endedLabel: label, durationSeconds });
+    // The call just landed in history — refresh the Calls tab if it's open.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.calls });
   }
 
   private ping(): void {
@@ -574,3 +593,6 @@ class SocketService {
 
 /** Singleton instance. */
 export const socketService = new SocketService();
+
+// Expose the socket for debugging / scripted call testing from the console.
+(globalThis as unknown as { __socket?: SocketService }).__socket = socketService;

@@ -1,6 +1,6 @@
 import { api } from './client';
 import { getDeviceId } from '@/utils/deviceId';
-import type { ActiveCallDto, CallHistoryItem, CallTokenDto } from '@/types';
+import type { ActiveCallDto, CallHistoryItem, IceConfig } from '@/types';
 
 /** Register this browser as a device so the backend knows where to ring. */
 export async function registerDevice(): Promise<void> {
@@ -23,8 +23,8 @@ export async function getMissedCount(): Promise<number> {
   return data.count;
 }
 
-/** Mint this participant's LiveKit token + ICE servers to join the media room. */
-export async function getCallToken(callId: string): Promise<CallTokenDto> {
-  const { data } = await api.get<CallTokenDto>(`/calls/${callId}/token`);
+/** Fetch the ICE servers (STUN + TURN) for the native P2P WebRTC connection. */
+export async function getIceServers(): Promise<IceConfig> {
+  const { data } = await api.get<IceConfig>('/calls/ice-servers');
   return data;
 }

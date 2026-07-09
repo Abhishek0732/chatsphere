@@ -2,12 +2,11 @@ package com.chatsphere.call;
 
 import com.chatsphere.call.dto.CallDtos.ActiveCallDto;
 import com.chatsphere.call.dto.CallDtos.CallHistoryDto;
-import com.chatsphere.call.dto.CallDtos.CallTokenDto;
+import com.chatsphere.call.dto.CallDtos.IceConfigDto;
 import com.chatsphere.call.dto.CallDtos.RegisterDeviceRequest;
 import com.chatsphere.common.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,10 +29,10 @@ public class CallController {
         this.mediaService = mediaService;
     }
 
-    /** Mint this participant's LiveKit token + ICE servers to join the media room. */
-    @GetMapping("/{callId}/token")
-    public CallTokenDto token(@PathVariable String callId) {
-        return mediaService.tokenFor(SecurityUtils.currentUserId(), callId);
+    /** ICE servers (STUN + TURN) for the browser to negotiate the P2P call. */
+    @GetMapping("/ice-servers")
+    public IceConfigDto iceServers() {
+        return mediaService.iceConfig(SecurityUtils.currentUserId());
     }
 
     /** The caller's current live call, or 204 if none — used to resume after a socket drop. */

@@ -8,6 +8,7 @@ import com.chatsphere.call.dto.CallDtos.CallHistoryDto;
 import com.chatsphere.call.dto.CallDtos.CallSignal;
 import com.chatsphere.call.dto.CallDtos.InviteCommand;
 import com.chatsphere.call.dto.CallDtos.RegisterDeviceRequest;
+import com.chatsphere.call.dto.CallDtos.RtcSignalCommand;
 import com.chatsphere.call.repo.CallRepository;
 import com.chatsphere.call.repo.DeviceRepository;
 import com.chatsphere.presence.PresenceService;
@@ -200,6 +201,40 @@ public class CallService {
         terminate(call, Call.Status.ENDED, Call.EndReason.HANGUP, "CALL_ENDED");
     }
 
+    /**
+     * Relay a native-WebRTC negotiation frame (SDP offer/answer or ICE candidate)
+     * to the other participant. The server is a blind pipe here — it validates the
+     * sender is in an ACTIVE call and forwards to the peer; the media itself flows
+     * browser↔browser (or via TURN), never through here. Hot path (many ICE
+     * candidates), so it does no user lookups and stays read-only.
+     */
+    @Transactional(readOnly = true)
+    public void relay(Long fromUserId, RtcSignalCommand cmd) {
+        if (cmd == null || cmd.callId() == null) return;
+        Call call = callRepository.findByCallUid(cmd.callId()).orElse(null);
+        if (call == null || call.getStatus() != Call.Status.ACTIVE) return;
+        boolean participant = fromUserId.equals(call.getCallerId())
+                || fromUserId.equals(call.getCalleeId());
+        if (!participant) return;
+
+        String type = switch (cmd.kind() == null ? "" : cmd.kind().toLowerCase()) {
+            case "offer" -> "WEBRTC_OFFER";
+            case "answer" -> "WEBRTC_ANSWER";
+            case "ice" -> "WEBRTC_ICE";
+            default -> null;
+        };
+        if (type == null) return;
+
+        Long peerId = fromUserId.equals(call.getCallerId())
+                ? call.getCalleeId() : call.getCallerId();
+        CallSignal s = new CallSignal(
+                type, call.getCallUid(), call.getType().name(),
+                call.getCallerId(), null, null, call.getCalleeId(), null, null,
+                call.getConversationId(), null, null, Instant.now(),
+                cmd.sdp(), cmd.candidate());
+        broadcaster.sendTo(peerId, s);
+    }
+
     // ========================================================================
     // Ring timeout (per-instance timer + cluster-safe sweeper backstop)
     // ========================================================================
@@ -340,7 +375,7 @@ public class CallService {
                 type, call.getCallUid(), call.getType().name(),
                 call.getCallerId(), displayName(caller), avatarUrl(caller),
                 call.getCalleeId(), displayName(callee), avatarUrl(callee),
-                call.getConversationId(), duration, reason, Instant.now());
+                call.getConversationId(), duration, reason, Instant.now(), null, null);
     }
 
     /** Lightweight signals for pre-call rejections that never created a Call row. */
@@ -363,7 +398,7 @@ public class CallService {
                 type, null, "VOICE",
                 callerId, displayName(caller), avatarUrl(caller),
                 calleeId, displayName(callee), avatarUrl(callee),
-                null, null, reason, Instant.now());
+                null, null, reason, Instant.now(), null, null);
     }
 
     // ========================================================================

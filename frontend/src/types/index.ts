@@ -11,6 +11,8 @@ export interface User {
   avatarUrl?: string;
   online?: boolean;
   lastSeen?: string;
+  /** When true, other clients block download + deter screenshots of this photo. */
+  protectAvatar?: boolean;
 }
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'FILE';
@@ -276,6 +278,10 @@ export interface CallSignal {
   durationSeconds?: number | null;
   reason?: string | null;
   at: string;
+  /** WEBRTC_OFFER / WEBRTC_ANSWER: the SDP. */
+  sdp?: string | null;
+  /** WEBRTC_ICE: a JSON-encoded RTCIceCandidate. */
+  candidate?: string | null;
 }
 
 /** Outbound invite command (client generates callId so it can cancel instantly). */
@@ -304,20 +310,25 @@ export interface ActiveCall {
   quality?: string;
 }
 
-/** A WebRTC ICE server as returned by the backend token endpoint. */
+/** A WebRTC ICE server (STUN, or TURN with a credential) from the backend. */
 export interface IceServer {
   urls: string[];
   username?: string | null;
   credential?: string | null;
 }
 
-/** GET /api/calls/{id}/token — everything needed to join the media room. */
-export interface CallTokenDto {
-  url: string;
-  token: string;
-  room: string;
-  identity: string;
+/** GET /api/calls/ice-servers — ICE servers for the native P2P connection. */
+export interface IceConfig {
   iceServers: IceServer[];
+}
+
+/** One line of an exported chat transcript (GET /conversations/{id}/export). */
+export interface ExportMessage {
+  senderName: string;
+  type: string;
+  content?: string | null;
+  createdAt: string;
+  deleted: boolean;
 }
 
 /** GET /api/calls row. */

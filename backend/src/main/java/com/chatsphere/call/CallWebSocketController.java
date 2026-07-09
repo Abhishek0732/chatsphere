@@ -2,6 +2,7 @@ package com.chatsphere.call;
 
 import com.chatsphere.call.dto.CallDtos.CallActionCommand;
 import com.chatsphere.call.dto.CallDtos.InviteCommand;
+import com.chatsphere.call.dto.CallDtos.RtcSignalCommand;
 import com.chatsphere.common.security.UserPrincipal;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -47,6 +48,12 @@ public class CallWebSocketController {
     @MessageMapping("call.end")
     public void end(@Payload CallActionCommand cmd, Principal principal) {
         callService.end(userId(principal), cmd.callId());
+    }
+
+    /** Relay a WebRTC SDP/ICE frame to the peer (native P2P media negotiation). */
+    @MessageMapping("call.signal")
+    public void signal(@Payload RtcSignalCommand cmd, Principal principal) {
+        callService.relay(userId(principal), cmd);
     }
 
     private Long userId(Principal principal) {

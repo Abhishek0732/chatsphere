@@ -54,9 +54,9 @@ export function CallManager() {
     return () => stopRingtone();
   }, [phase, callId]);
 
-  // Media plane: join the LiveKit room once active; leave otherwise.
+  // Media plane: open the peer-to-peer connection once active; tear down otherwise.
   useEffect(() => {
-    if (phase === 'active' && callId) void mediaService.join(callId);
+    if (phase === 'active' && callId) void mediaService.start(callId);
     else mediaService.leave();
   }, [phase, callId]);
 
