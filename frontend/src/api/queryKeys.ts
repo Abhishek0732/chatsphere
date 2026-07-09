@@ -11,6 +11,7 @@ export const queryKeys = {
   statusViewers: (id: number) => ['status', 'views', id] as const,
   statusPrivacy: ['status', 'privacy'] as const,
   notifications: ['notifications'] as const,
+  calls: ['calls'] as const,
   group: (id: number) => ['group', id] as const,
   userSearch: (q: string) => ['userSearch', q] as const,
   messageSearch: (q: string) => ['messageSearch', q] as const,

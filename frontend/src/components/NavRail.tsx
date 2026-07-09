@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { MessageCircle, CircleDashed, User, Settings } from 'lucide-react';
+import { MessageCircle, CircleDashed, Phone, Settings } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -11,7 +11,7 @@ import { cn } from '@/utils/cn';
 const navItems = [
   { to: '/', label: 'Chats', icon: MessageCircle },
   { to: '/contacts', label: 'Updates', icon: CircleDashed },
-  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/calls', label: 'Calls', icon: Phone },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -33,12 +33,15 @@ export function NavRail({ hideMobileBar = false }: { hideMobileBar?: boolean }) 
         {/* Brand mark */}
         <Logo className="mb-1 h-9 w-9 shadow-glow" />
         <div className="mb-2">
+          {/* Your own photo — never protected against yourself. */}
           <Avatar
             name={user?.displayName ?? '?'}
             src={user?.avatarUrl}
             size="md"
             className="ring-2 ring-brand-500/40 ring-offset-2 ring-offset-white transition hover:ring-brand-500/70 dark:ring-offset-slate-900"
-            onClick={() => openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })}
+            onClick={() =>
+              openViewer(user?.displayName ?? 'You', user?.avatarUrl, { circle: true })
+            }
           />
         </div>
         {navItems.map(({ to, label, icon: Icon }) => {

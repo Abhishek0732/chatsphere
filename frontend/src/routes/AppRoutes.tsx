@@ -23,6 +23,7 @@ const ProfilePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
+const CallsPage = lazy(() => import('@/pages/CallsPage').then((m) => ({ default: m.CallsPage })));
 const VoiceCallPage = lazy(() =>
   import('@/pages/VoiceCallPage').then((m) => ({ default: m.VoiceCallPage })),
 );
@@ -79,6 +80,7 @@ export function AppRoutes() {
 
           {/* Full-width pages */}
           <Route path="contacts" element={<ContactsPage />} />
+          <Route path="calls" element={<CallsPage />} />
           <Route path="call/voice" element={<VoiceCallPage />} />
           <Route path="call/video" element={<VideoCallPage />} />
           <Route path="profile" element={<ProfilePage />} />
