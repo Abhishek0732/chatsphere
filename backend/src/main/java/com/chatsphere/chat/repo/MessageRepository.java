@@ -23,6 +23,17 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
                            @Param("clearedId") long clearedId,
                            Pageable pageable);
 
+    /** Full transcript (oldest first) for export, respecting the per-user cleared floor. */
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversationId = :conversationId
+              AND m.id > :clearedId
+            ORDER BY m.id ASC
+            """)
+    List<Message> findForExport(@Param("conversationId") Long conversationId,
+                                @Param("clearedId") long clearedId,
+                                Pageable pageable);
+
     Message findTopByConversationIdAndDeletedFalseOrderByIdDesc(Long conversationId);
 
     List<Message> findByConversationIdAndPinnedTrueAndDeletedFalseOrderByIdDesc(Long conversationId);

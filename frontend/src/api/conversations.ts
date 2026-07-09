@@ -1,5 +1,11 @@
 import { api } from './client';
-import type { ConversationSummary, Message } from '@/types';
+import type { ConversationSummary, ExportMessage, Message } from '@/types';
+
+/** Fetch the full transcript for a chat export (oldest first). */
+export async function exportChat(conversationId: number): Promise<ExportMessage[]> {
+  const { data } = await api.get<ExportMessage[]>(`/conversations/${conversationId}/export`);
+  return data;
+}
 
 export async function getConversations(): Promise<ConversationSummary[]> {
   const { data } = await api.get<ConversationSummary[]>('/conversations');

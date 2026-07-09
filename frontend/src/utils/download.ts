@@ -6,6 +6,19 @@ import { mediaSrc } from '@/utils/media';
  * MinIO object store) where the plain <a download> attribute is ignored.
  * Falls back to opening the URL if the blob fetch is blocked.
  */
+/** Download an in-memory string as a text file (e.g. a chat export). */
+export function downloadText(fileName: string, text: string): void {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export async function downloadFile(rawUrl: string, fileName?: string): Promise<void> {
   const url = mediaSrc(rawUrl);
   const name = fileName || url.split('/').pop()?.split('?')[0] || 'download';

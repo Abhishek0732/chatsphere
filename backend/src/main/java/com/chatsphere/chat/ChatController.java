@@ -52,6 +52,12 @@ public class ChatController {
         return chatService.commonGroups(SecurityUtils.currentUserId(), id);
     }
 
+    /** Full transcript for a chat export (the client formats + downloads it). */
+    @GetMapping("/{id}/export")
+    public List<ExportMessageDto> export(@PathVariable Long id) {
+        return chatService.exportChat(SecurityUtils.currentUserId(), id);
+    }
+
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   FileText,
@@ -40,6 +40,7 @@ interface MessageBubbleProps {
 }
 
 const MENU_W = 188; // fits the emoji reaction row
+const EDIT_WINDOW_MS = 15 * 60 * 1000; // WhatsApp: edit within 15 minutes of sending
 
 function previewOf(message: Message): string | null {
   if (message.type === 'IMAGE') return message.content ? `📷 ${message.content}` : '📷 Photo';
@@ -77,9 +78,13 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
   const hasAttachment =
     (message.type === 'IMAGE' || message.type === 'FILE') && Boolean(message.attachmentUrl);
   const canCopy = Boolean(message.content);
-  // Only editable until the other person has read it.
+  // WhatsApp-style: your own text messages are editable for 15 minutes after
+  // sending (read state no longer matters — a read message can still be edited).
   const canEdit =
-    mine && message.type === 'TEXT' && !message.deleted && message.status !== 'READ';
+    mine &&
+    message.type === 'TEXT' &&
+    !message.deleted &&
+    Date.now() - new Date(message.createdAt).getTime() <= EDIT_WINDOW_MS;
   // Reply, Forward, Pin + Copy (text), Edit (own text), Download (attachment),
   // Delete (own). Plus the emoji reaction row at the top.
   const itemCount =
@@ -100,6 +105,27 @@ function MessageBubbleInner({ message, mine, showSender, onForward }: MessageBub
     setMenuPos({ top, left });
     setMenuOpen(true);
   };
+
+  // Re-clamp using the popover's REAL size once it's rendered. openMenu() only
+  // estimates with the actions-menu width, but the emoji reaction row is wider —
+  // on a narrow (mobile) screen that overflows/clips the right edge. This measures
+  // the actual popover (reaction bar + menu) and nudges it fully on-screen. Runs
+  // before paint, so there's no visible jump.
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    const el = menuContentRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    setMenuPos((pos) => {
+      let left = pos.left;
+      let top = pos.top;
+      if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+      if (left < 8) left = 8;
+      if (top + height > window.innerHeight - 8) top = window.innerHeight - height - 8;
+      if (top < 8) top = 8;
+      return left === pos.left && top === pos.top ? pos : { left, top };
+    });
+  }, [menuOpen]);
 
   // Close on outside click or scroll (fixed menu shouldn't float detached).
   useEffect(() => {

@@ -78,4 +78,8 @@ public final class ChatDtos {
     public record ReadEvent(Long conversationId, Long userId, Long messageId) {}
 
     public record MessageDeletedEvent(Long conversationId, Long messageId) {}
+
+    /** A single line of an exported chat transcript (text-only). */
+    public record ExportMessageDto(String senderName, String type, String content,
+                                   java.time.Instant createdAt, boolean deleted) {}
 }

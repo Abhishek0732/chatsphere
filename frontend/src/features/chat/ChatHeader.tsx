@@ -5,6 +5,7 @@ import {
   Ban,
   Bell,
   BellOff,
+  Download,
   Eraser,
   Info,
   LogOut,
@@ -25,6 +26,10 @@ import { useClearChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
 import { formatLastSeen } from '@/utils/format';
+import { exportChat } from '@/api/conversations';
+import { downloadText } from '@/utils/download';
+import { formatChatExport } from '@/utils/chatExport';
+import { toast } from '@/store/toastStore';
 import { socketService } from '@/services/socket';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
@@ -98,6 +103,22 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
     });
   };
 
+  const handleExport = async () => {
+    setMenuOpen(false);
+    try {
+      const msgs = await exportChat(conversation.id);
+      if (!msgs.length) {
+        toast({ title: 'No messages to export', variant: 'info' });
+        return;
+      }
+      const name = conversation.name;
+      downloadText(`Chat with ${name}.txt`, formatChatExport(name, msgs));
+      toast({ title: 'Chat exported', variant: 'success' });
+    } catch {
+      toast({ title: 'Could not export chat', variant: 'error' });
+    }
+  };
+
   const handleLeave = () => {
     setMenuOpen(false);
     setConfirm({
@@ -155,8 +176,14 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
           name={conversation.name}
           src={conversation.avatarUrl}
           size="md"
+          guarded={!!other?.protectAvatar}
           className="ring-2 ring-brand-500/20 transition hover:ring-brand-500/50"
-          onClick={() => openViewer(conversation.name, conversation.avatarUrl, { circle: true })}
+          onClick={() =>
+            openViewer(conversation.name, conversation.avatarUrl, {
+              circle: true,
+              protected: !!other?.protectAvatar,
+            })
+          }
         />
         <button
           className="min-w-0 flex-1 text-left"
@@ -241,6 +268,12 @@ export function ChatHeader({ conversation, onOpenInfo }: ChatHeaderProps) {
             >
               {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
               {isMuted ? 'Unmute' : 'Mute'}
+            </button>
+            <button
+              onClick={handleExport}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <Download className="h-4 w-4" /> Export chat
             </button>
             <button
               onClick={handleClear}

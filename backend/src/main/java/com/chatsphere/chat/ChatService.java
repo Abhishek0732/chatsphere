@@ -20,12 +20,19 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class ChatService {
+
+    /** WhatsApp-style edit window: messages are editable for 15 minutes after sending. */
+    private static final Duration EDIT_WINDOW = Duration.ofMinutes(15);
+
+    /** Upper bound on messages returned by a single chat export (keeps it bounded). */
+    private static final int EXPORT_CAP = 20_000;
 
     private final ConversationRepository conversationRepository;
     private final ConversationMemberRepository memberRepository;
@@ -324,6 +331,36 @@ public class ChatService {
         statusRepository.save(status);
     }
 
+    /**
+     * The full transcript (oldest first) for a chat export, respecting the user's
+     * per-chat cleared floor. One message query + one batched sender lookup — no
+     * N+1. Capped at {@link #EXPORT_CAP} messages so a huge history can't blow up
+     * a single request. Client formats the lines and downloads the file.
+     */
+    @Transactional(readOnly = true)
+    public List<ExportMessageDto> exportChat(Long userId, Long conversationId) {
+        assertMember(conversationId, userId);
+        long cleared = memberRepository.findByConversationIdAndUserId(conversationId, userId)
+                .map(m -> m.getClearedUpToMessageId() == null ? 0L : m.getClearedUpToMessageId())
+                .orElse(0L);
+        List<Message> msgs = messageRepository.findForExport(
+                conversationId, cleared, PageRequest.of(0, EXPORT_CAP));
+        Set<Long> senderIds = msgs.stream().map(Message::getSenderId).collect(Collectors.toSet());
+        Map<Long, User> users = userRepository.findAllById(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        return msgs.stream()
+                .map(m -> {
+                    User s = users.get(m.getSenderId());
+                    return new ExportMessageDto(
+                            s != null ? s.getDisplayName() : "Unknown",
+                            m.getType().name(),
+                            m.getContent(),
+                            m.getCreatedAt(),
+                            m.isDeleted());
+                })
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public MessageDto toMessageDto(Message m, User sender, String status, String tempId) {
         // Single-message path (e.g. WebSocket echo): 1–2 small lookups are fine.
@@ -459,9 +496,11 @@ public class ChatService {
         if (m.isDeleted() || m.getType() != Message.Type.TEXT) {
             throw ApiException.badRequest("This message cannot be edited");
         }
-        // Once the other side has read it, editing is no longer allowed.
-        if ("READ".equals(statusFor(m))) {
-            throw ApiException.badRequest("This message has already been read and can't be edited");
+        // WhatsApp-style: a message is editable only within 15 minutes of sending
+        // (read state no longer matters — you can edit a message that's been read).
+        if (m.getCreatedAt() == null
+                || Duration.between(m.getCreatedAt(), Instant.now()).compareTo(EDIT_WINDOW) > 0) {
+            throw ApiException.badRequest("You can only edit a message within 15 minutes of sending");
         }
         String trimmed = content == null ? "" : content.trim();
         if (trimmed.isEmpty()) {
