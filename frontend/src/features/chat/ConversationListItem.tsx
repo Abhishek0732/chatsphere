@@ -105,11 +105,15 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
             name={conversation.name}
             src={conversation.avatarUrl}
             size="lg"
+            guarded={!!other?.protectAvatar}
             onClick={(e) => {
               // Don't follow the NavLink — open the picture instead.
               e.preventDefault();
               e.stopPropagation();
-              openViewer(conversation.name, conversation.avatarUrl, { circle: true });
+              openViewer(conversation.name, conversation.avatarUrl, {
+                circle: true,
+                protected: !!other?.protectAvatar,
+              });
             }}
           />
           {conversation.type === 'GROUP' ? (

@@ -111,6 +111,7 @@ export function ProfilePanel() {
           <div className="-mt-14 flex flex-col items-center text-center">
             <div className="relative">
               <div className="rounded-full bg-white p-1 shadow-lg dark:bg-[#111a2b]">
+                {/* Your own photo — never protected against yourself. */}
                 <Avatar
                   name={me.displayName}
                   src={avatarUrl}

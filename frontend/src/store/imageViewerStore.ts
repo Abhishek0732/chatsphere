@@ -9,11 +9,18 @@ interface ViewerData {
   fileName?: string;
   /** Render as a circle (profile pictures) vs. a rectangle (message images). */
   circle?: boolean;
+  /**
+   * The PICTURED user enabled protection AND the current user isn't the owner —
+   * so hide download + deter screenshots. The owner always sees their own photo
+   * unprotected (they can download it); only other viewers are restricted.
+   */
+  protected?: boolean;
 }
 
 interface OpenOptions {
   fileName?: string;
   circle?: boolean;
+  protected?: boolean;
 }
 
 interface ImageViewerState {
@@ -31,6 +38,14 @@ interface ImageViewerState {
 export const useImageViewer = create<ImageViewerState>((set) => ({
   current: null,
   open: (name, src, opts) =>
-    set({ current: { name, src, fileName: opts?.fileName, circle: opts?.circle } }),
+    set({
+      current: {
+        name,
+        src,
+        fileName: opts?.fileName,
+        circle: opts?.circle,
+        protected: opts?.protected,
+      },
+    }),
   close: () => set({ current: null }),
 }));

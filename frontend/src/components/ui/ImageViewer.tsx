@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { downloadFile } from '@/utils/download';
+import { cn } from '@/utils/cn';
 import { initials } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
 
@@ -13,6 +14,7 @@ import { mediaSrc } from '@/utils/media';
 export function ImageViewer() {
   const current = useImageViewer((s) => s.current);
   const close = useImageViewer((s) => s.close);
+  const [obscured, setObscured] = useState(false);
 
   useEffect(() => {
     if (!current) return;
@@ -22,6 +24,36 @@ export function ImageViewer() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [current, close]);
+
+  // Screenshot deterrent for a protected photo: blur it whenever the tab is
+  // backgrounded or a screenshot key is pressed, so a casual capture is blurred.
+  // (The web has no true screenshot block — this is best-effort, like WhatsApp.)
+  const isProtected = !!current?.protected;
+  useEffect(() => {
+    if (!isProtected) {
+      setObscured(false);
+      return;
+    }
+    const hide = () => setObscured(true);
+    const show = () => setObscured(false);
+    const onVisibility = () => (document.hidden ? hide() : show());
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'PrintScreen' || ((e.metaKey || e.ctrlKey) && e.shiftKey)) {
+        hide();
+        window.setTimeout(show, 1500);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', hide);
+    window.addEventListener('focus', show);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', hide);
+      window.removeEventListener('focus', show);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isProtected]);
 
   if (!current) return null;
 
@@ -34,7 +66,8 @@ export function ImageViewer() {
       aria-label={`${current.name} profile picture`}
     >
       <div className="absolute right-4 top-4 flex items-center gap-2">
-        {current.src && (
+        {/* Download is hidden for protected photos. */}
+        {current.src && !isProtected && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -65,13 +98,25 @@ export function ImageViewer() {
             <img
               src={mediaSrc(current.src)}
               alt={current.name}
-              className="h-64 w-64 rounded-full object-cover shadow-2xl sm:h-80 sm:w-80"
+              draggable={isProtected ? false : undefined}
+              onContextMenu={isProtected ? (e) => e.preventDefault() : undefined}
+              className={cn(
+                'h-64 w-64 rounded-full object-cover shadow-2xl transition sm:h-80 sm:w-80',
+                isProtected && 'select-none [-webkit-touch-callout:none]',
+                obscured && 'scale-105 blur-2xl',
+              )}
             />
           ) : (
             <img
               src={mediaSrc(current.src)}
               alt={current.name}
-              className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+              draggable={isProtected ? false : undefined}
+              onContextMenu={isProtected ? (e) => e.preventDefault() : undefined}
+              className={cn(
+                'max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl transition',
+                isProtected && 'select-none [-webkit-touch-callout:none]',
+                obscured && 'scale-105 blur-2xl',
+              )}
             />
           )
         ) : (

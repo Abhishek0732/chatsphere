@@ -34,6 +34,14 @@ public class User {
     @Column(name = "avatar_url", length = 512)
     private String avatarUrl;
 
+    /**
+     * When true, other clients apply download/screenshot deterrents to this
+     * user's profile picture (no save, no drag, hidden download button, blur on
+     * tab-blur / PrintScreen). A privacy preference the user controls.
+     */
+    @Column(name = "protect_avatar", nullable = false)
+    private boolean protectAvatar = false;
+
     @Column(nullable = false, length = 20)
     private String role = "USER";
 

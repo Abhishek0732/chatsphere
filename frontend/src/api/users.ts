@@ -2,9 +2,10 @@ import { api } from './client';
 import type { User } from '@/types';
 
 export interface UpdateProfilePayload {
-  displayName: string;
+  displayName?: string;
   about?: string;
   avatarUrl?: string;
+  protectAvatar?: boolean;
 }
 
 export async function getMe(): Promise<User> {

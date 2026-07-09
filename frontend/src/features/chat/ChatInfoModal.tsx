@@ -88,8 +88,14 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
             name={conversation.name}
             src={conversation.avatarUrl}
             size="xl"
+            guarded={!!other?.protectAvatar}
             className="ring-2 ring-brand-500/30"
-            onClick={() => openViewer(conversation.name, conversation.avatarUrl, { circle: true })}
+            onClick={() =>
+              openViewer(conversation.name, conversation.avatarUrl, {
+                circle: true,
+                protected: !!other?.protectAvatar,
+              })
+            }
           />
           <h2 className="mt-3 text-lg font-semibold">{conversation.name}</h2>
           {other?.username && (

@@ -12,6 +12,11 @@ export interface AvatarProps {
   className?: string;
   /** When provided, the avatar becomes clickable (e.g. to open a lightbox). */
   onClick?: (e: MouseEvent) => void;
+  /**
+   * Apply download deterrents (no right-click "Save image", no drag, no iOS
+   * long-press menu) — set when the pictured user has enabled photo protection.
+   */
+  guarded?: boolean;
 }
 
 const sizeClasses: Record<Size, string> = {
@@ -39,7 +44,7 @@ function colorFor(name: string): string {
   return palette[Math.abs(hash) % palette.length];
 }
 
-export function Avatar({ name, src, size = 'md', className, onClick }: AvatarProps) {
+export function Avatar({ name, src, size = 'md', className, onClick, guarded }: AvatarProps) {
   const [failed, setFailed] = useState(false);
   const showImage = src && !failed;
 
@@ -73,7 +78,12 @@ export function Avatar({ name, src, size = 'md', className, onClick }: AvatarPro
           alt={name}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover"
+          draggable={guarded ? false : undefined}
+          onContextMenu={guarded ? (e) => e.preventDefault() : undefined}
+          className={cn(
+            'h-full w-full object-cover',
+            guarded && 'select-none [-webkit-touch-callout:none]',
+          )}
           onError={() => setFailed(true)}
         />
       ) : (
