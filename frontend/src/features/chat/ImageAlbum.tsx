@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { mediaSrc } from '@/utils/media';
 import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/format';
@@ -5,6 +6,7 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { useMediaRevealStore } from '@/store/mediaRevealStore';
 import { MessageStatusTicks } from './MessageStatusTicks';
 import { Avatar } from '@/components/ui/Avatar';
+import { Modal } from '@/components/ui/Modal';
 import type { Message } from '@/types';
 
 const MAX_TILES = 4;
@@ -38,30 +40,42 @@ export function ImageAlbum({
   const last = messages[count - 1];
   const caption = [...messages].reverse().find((m) => m.content?.trim())?.content ?? '';
 
+  const [galleryOpen, setGalleryOpen] = useState(false);
+
   const gated = !mine && messages.some((m) => m.id > 0 && !revealed[m.id]);
   const revealAll = () => messages.forEach((m) => m.id > 0 && reveal(m.id));
 
-  const tile = (m: Message, i: number, className: string) => (
-    <button
-      key={m.tempId ?? m.id}
-      type="button"
-      onClick={() => (gated ? revealAll() : openViewer(m.content || 'Photo', m.attachmentUrl))}
-      className={cn('relative overflow-hidden bg-slate-200 dark:bg-slate-700', className)}
-    >
-      <img
-        src={mediaSrc(m.attachmentUrl)}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
-      />
-      {!gated && i === MAX_TILES - 1 && extra > 0 && (
-        <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
-          +{extra}
-        </span>
-      )}
-    </button>
-  );
+  const tile = (m: Message, i: number, className: string) => {
+    // The last tile with a "+N" overlay opens the full album gallery.
+    const isMoreTile = !gated && i === MAX_TILES - 1 && extra > 0;
+    return (
+      <button
+        key={m.tempId ?? m.id}
+        type="button"
+        onClick={() =>
+          gated
+            ? revealAll()
+            : isMoreTile
+              ? setGalleryOpen(true)
+              : openViewer(m.content || 'Photo', m.attachmentUrl)
+        }
+        className={cn('relative overflow-hidden bg-surface-container-high', className)}
+      >
+        <img
+          src={mediaSrc(m.attachmentUrl)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
+        />
+        {isMoreTile && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
+            +{extra}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
@@ -73,16 +87,12 @@ export function ImageAlbum({
         ))}
       <div
         className={cn(
-          'relative w-[min(75vw,18rem)] animate-pop-in overflow-hidden rounded-[20px] shadow-elevated',
-          mine
-            ? 'rounded-br-[6px] bg-[#d6ebff] dark:bg-[#164e7a]'
-            : 'rounded-bl-[6px] bg-white ring-1 ring-slate-900/5 dark:bg-[#17233c] dark:ring-white/[0.06]',
+          'relative w-[min(75vw,18rem)] animate-pop-in overflow-hidden rounded-2xl shadow-lg',
+          mine ? 'message-gradient-sent rounded-br-none' : 'glass-panel rounded-bl-none',
         )}
       >
         {showSender && !mine && (
-          <p className="px-3 pt-2 text-xs font-semibold text-brand-600 dark:text-brand-400">
-            {last.senderName}
-          </p>
+          <p className="px-3 pt-2 text-xs font-semibold text-primary">{last.senderName}</p>
         )}
 
         <div className="grid grid-cols-2 gap-0.5 p-0.5">
@@ -107,14 +117,19 @@ export function ImageAlbum({
           </button>
         )}
 
-        <div className="flex items-end gap-2 px-3 pb-1.5 pt-1 text-slate-900 dark:text-slate-100">
+        <div
+          className={cn(
+            'flex items-end gap-2 px-3 pb-1.5 pt-1',
+            mine ? 'text-on-primary' : 'text-on-surface',
+          )}
+        >
           {caption && (
             <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{caption}</p>
           )}
           <span
             className={cn(
               'ml-auto flex shrink-0 items-center gap-1 text-[10px]',
-              mine ? 'text-slate-500 dark:text-slate-300/80' : 'text-slate-400',
+              mine ? 'text-on-primary/80' : 'text-on-surface-variant',
             )}
           >
             {formatTime(last.createdAt)}
@@ -122,6 +137,29 @@ export function ImageAlbum({
           </span>
         </div>
       </div>
+
+      {/* Full album gallery — browse every image when there are more than the grid shows. */}
+      <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`${count} photos`} className="max-w-lg">
+        <div className="-mx-1 max-h-[70vh] overflow-y-auto px-1 cs-scroll">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {messages.map((m) => (
+              <button
+                key={m.tempId ?? m.id}
+                type="button"
+                onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
+                className="aspect-square overflow-hidden rounded-lg glass-panel"
+              >
+                <img
+                  src={mediaSrc(m.attachmentUrl)}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

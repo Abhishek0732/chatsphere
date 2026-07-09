@@ -82,4 +82,8 @@ public final class ChatDtos {
     /** A single line of an exported chat transcript (text-only). */
     public record ExportMessageDto(String senderName, String type, String content,
                                    java.time.Instant createdAt, boolean deleted) {}
+
+    /** A shared media/attachment item for the contact info panel. */
+    public record MediaItemDto(Long id, String type, String attachmentUrl, String content,
+                               java.time.Instant createdAt) {}
 }

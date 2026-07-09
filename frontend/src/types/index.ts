@@ -322,6 +322,15 @@ export interface IceConfig {
   iceServers: IceServer[];
 }
 
+/** A shared media/attachment item (GET /conversations/{id}/media). */
+export interface MediaItem {
+  id: number;
+  type: string;
+  attachmentUrl?: string;
+  content?: string;
+  createdAt: string;
+}
+
 /** One line of an exported chat transcript (GET /conversations/{id}/export). */
 export interface ExportMessage {
   senderName: string;

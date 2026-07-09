@@ -58,6 +58,15 @@ public class ChatController {
         return chatService.exportChat(SecurityUtils.currentUserId(), id);
     }
 
+    /** A page of shared media/docs/links for the info panel (kind + cursor `before`, newest first). */
+    @GetMapping("/{id}/media")
+    public List<MediaItemDto> media(@PathVariable Long id,
+                                    @RequestParam(defaultValue = "media") String kind,
+                                    @RequestParam(required = false) Long before,
+                                    @RequestParam(defaultValue = "30") int limit) {
+        return chatService.conversationMedia(SecurityUtils.currentUserId(), id, kind, before, limit);
+    }
+
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);

@@ -240,7 +240,7 @@ function MessageBubbleInner({
           <p
             className={cn(
               'flex items-center gap-1.5 text-sm italic',
-              mine ? 'text-slate-500 dark:text-slate-300' : 'text-slate-400',
+              mine ? 'text-on-surface-variant' : 'text-on-surface-variant',
             )}
           >
             <Ban className="h-3.5 w-3.5" /> This message was deleted
@@ -253,7 +253,7 @@ function MessageBubbleInner({
                   'mb-1 flex items-center gap-2 rounded-lg border-l-4 py-1 pl-2 pr-1.5 text-xs',
                   mine
                     ? 'border-white/70 bg-brand-700/40'
-                    : 'border-brand-400 bg-slate-100 dark:bg-slate-700',
+                    : 'border-primary bg-white/10',
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -300,7 +300,7 @@ function MessageBubbleInner({
                   'mb-1 rounded-lg border-l-4 px-2 py-1 text-xs',
                   mine
                     ? 'border-white/70 bg-brand-700/40'
-                    : 'border-brand-400 bg-slate-100 dark:bg-slate-700',
+                    : 'border-primary bg-white/10',
                 )}
               >
                 <span className="block font-semibold">{message.replyTo.senderName}</span>
@@ -407,7 +407,7 @@ function MessageBubbleInner({
                   }
                   className={cn(
                     'mb-1 flex w-full items-center gap-2 rounded-lg p-2 text-left',
-                    mine ? 'bg-brand-700/40' : 'bg-slate-100 dark:bg-slate-700',
+                    mine ? 'bg-brand-700/40' : 'bg-white/10',
                   )}
                 >
                   <FileText className="h-6 w-6 shrink-0" />
@@ -449,7 +449,7 @@ function MessageBubbleInner({
                         : 'bg-white/15 hover:bg-white/25'
                       : mineReacted
                         ? 'bg-brand-100 text-brand-700 ring-1 ring-brand-300 dark:bg-brand-500/20 dark:text-brand-300'
-                        : 'bg-slate-200/80 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200',
+                        : 'bg-white/10 text-on-surface hover:bg-white/15',
                   )}
                 >
                   <span>{r.emoji}</span>
@@ -503,7 +503,7 @@ function MessageBubbleInner({
             className="z-[60] flex flex-col gap-2"
           >
             {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
-            <div className="flex items-center gap-1 self-start rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-xl dark:border-white/10 dark:bg-[#17233c]">
+            <div className="flex items-center gap-1 self-start rounded-full border border-white/10 bg-surface-container/95 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
               {QUICK_EMOJIS.map((e) => (
                 <button
                   key={e}
@@ -519,23 +519,23 @@ function MessageBubbleInner({
             {/* Actions menu. */}
             <div
               style={{ width: MENU_W }}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#17233c]"
+              className="overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl"
             >
             <button
               onClick={handleReply}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
             >
               <Reply className="h-4 w-4" /> Reply
             </button>
             <button
               onClick={handleForward}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
             >
               <Forward className="h-4 w-4" /> Forward
             </button>
             <button
               onClick={handlePin}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
             >
               {message.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
               {message.pinned ? 'Unpin' : 'Pin'}
@@ -543,7 +543,7 @@ function MessageBubbleInner({
             {canCopy && (
               <button
                 onClick={handleCopy}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Copy className="h-4 w-4" /> Copy
               </button>
@@ -551,7 +551,7 @@ function MessageBubbleInner({
             {canEdit && (
               <button
                 onClick={handleEdit}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Pencil className="h-4 w-4" /> Edit
               </button>
@@ -559,7 +559,7 @@ function MessageBubbleInner({
             {hasAttachment && (
               <button
                 onClick={handleDownload}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Download className="h-4 w-4" /> Download
               </button>
@@ -567,7 +567,7 @@ function MessageBubbleInner({
             {mine && (
               <button
                 onClick={handleDelete}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-error transition hover:bg-error/10"
               >
                 <Trash2 className="h-4 w-4" /> Delete
               </button>

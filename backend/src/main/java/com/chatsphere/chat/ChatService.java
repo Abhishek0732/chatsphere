@@ -361,6 +361,32 @@ public class ChatService {
                 .toList();
     }
 
+    /**
+     * A page of shared media for a conversation (info panel), newest first,
+     * cursor-paginated so a chat with lots of media loads incrementally rather
+     * than all at once. Single indexed query, capped page size.
+     */
+    @Transactional(readOnly = true)
+    public List<MediaItemDto> conversationMedia(Long userId, Long conversationId, String kind,
+                                                Long beforeId, int limit) {
+        assertMember(conversationId, userId);
+        long cleared = memberRepository.findByConversationIdAndUserId(conversationId, userId)
+                .map(m -> m.getClearedUpToMessageId() == null ? 0L : m.getClearedUpToMessageId())
+                .orElse(0L);
+        var page = PageRequest.of(0, Math.min(Math.max(limit, 1), 60));
+        List<Message> rows = switch (kind == null ? "media" : kind.toLowerCase()) {
+            case "docs" -> messageRepository.findAttachmentsByType(
+                    conversationId, cleared, beforeId, Message.Type.FILE, page);
+            case "links" -> messageRepository.findLinks(conversationId, cleared, beforeId, page);
+            default -> messageRepository.findAttachmentsByType(
+                    conversationId, cleared, beforeId, Message.Type.IMAGE, page);
+        };
+        return rows.stream()
+                .map(m -> new MediaItemDto(m.getId(), m.getType().name(), m.getAttachmentUrl(),
+                        m.getContent(), m.getCreatedAt()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public MessageDto toMessageDto(Message m, User sender, String status, String tempId) {
         // Single-message path (e.g. WebSocket echo): 1–2 small lookups are fine.

@@ -34,6 +34,38 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
                                 @Param("clearedId") long clearedId,
                                 Pageable pageable);
 
+    /** Attachments of a given type (IMAGE = media, FILE = docs) — cursor-paginated, newest first. */
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversationId = :conversationId
+              AND m.id > :clearedId
+              AND (:beforeId IS NULL OR m.id < :beforeId)
+              AND m.deleted = false
+              AND m.type = :type
+              AND m.attachmentUrl IS NOT NULL
+            ORDER BY m.id DESC
+            """)
+    List<Message> findAttachmentsByType(@Param("conversationId") Long conversationId,
+                                        @Param("clearedId") long clearedId,
+                                        @Param("beforeId") Long beforeId,
+                                        @Param("type") Message.Type type,
+                                        Pageable pageable);
+
+    /** Messages containing a shared link — cursor-paginated, newest first. */
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversationId = :conversationId
+              AND m.id > :clearedId
+              AND (:beforeId IS NULL OR m.id < :beforeId)
+              AND m.deleted = false
+              AND LOWER(m.content) LIKE '%http%'
+            ORDER BY m.id DESC
+            """)
+    List<Message> findLinks(@Param("conversationId") Long conversationId,
+                            @Param("clearedId") long clearedId,
+                            @Param("beforeId") Long beforeId,
+                            Pageable pageable);
+
     Message findTopByConversationIdAndDeletedFalseOrderByIdDesc(Long conversationId);
 
     List<Message> findByConversationIdAndPinnedTrueAndDeletedFalseOrderByIdDesc(Long conversationId);

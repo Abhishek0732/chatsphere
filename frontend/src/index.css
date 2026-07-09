@@ -33,10 +33,18 @@
   /* Sent-message + primary-action gradient. Light = strong blue (white text),
      dark = periwinkle (navy text) — pairs with the `on-primary` token. */
   .message-gradient-sent {
-    background: linear-gradient(135deg, #0052ff 0%, #003ec7 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--brand-600)) 0%,
+      rgb(var(--brand-700)) 100%
+    );
   }
   html.dark .message-gradient-sent {
-    background: linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--brand-300)) 0%,
+      rgb(var(--brand-500)) 100%
+    );
   }
   /* Thin design-system scrollbar. */
   .cs-scroll::-webkit-scrollbar {
@@ -72,8 +80,9 @@
     --c-surface-variant: 218 226 253;
     --c-on-surface: 19 27 46;
     --c-on-surface-variant: 67 70 86;
-    --c-primary: 0 62 199;
-    --c-primary-container: 0 82 255;
+    /* Primary follows the user's accent (--brand-*), darker shades for light mode. */
+    --c-primary: var(--brand-700);
+    --c-primary-container: var(--brand-600);
     --c-on-primary: 255 255 255;
     --c-on-primary-container: 223 227 255;
     --c-secondary: 80 95 118;
@@ -95,16 +104,16 @@
 
     /* Default accent = light blue. Space-separated RGB channels so
        Tailwind's `<alpha-value>` (opacity) modifiers keep working. */
-    --brand-50: 239 248 255;
-    --brand-100: 219 238 254;
-    --brand-200: 189 226 253;
-    --brand-300: 145 208 252;
-    --brand-400: 91 182 248;
-    --brand-500: 51 161 242;
-    --brand-600: 37 137 223;
-    --brand-700: 31 111 187;
-    --brand-800: 32 92 152;
-    --brand-900: 32 77 123;
+    --brand-50: 236 242 255;
+    --brand-100: 219 230 255;
+    --brand-200: 189 210 255;
+    --brand-300: 173 198 255;
+    --brand-400: 122 165 255;
+    --brand-500: 77 142 255;
+    --brand-600: 0 82 255;
+    --brand-700: 0 62 199;
+    --brand-800: 0 50 160;
+    --brand-900: 0 40 120;
   }
   html.dark {
     color-scheme: dark;
@@ -121,8 +130,9 @@
     --c-surface-variant: 50 53 55;
     --c-on-surface: 224 227 229;
     --c-on-surface-variant: 194 198 214;
-    --c-primary: 173 198 255;
-    --c-primary-container: 77 142 255;
+    /* Primary follows the user's accent (--brand-*), lighter shades for dark mode. */
+    --c-primary: var(--brand-300);
+    --c-primary-container: var(--brand-500);
     --c-on-primary: 0 46 106;
     --c-on-primary-container: 0 40 93;
     --c-secondary: 164 201 255;
@@ -139,16 +149,16 @@
 
   /* ─── Accent palettes (per-user chat theme) ─────────────────────────── */
   html[data-accent='whatsapp'] {
-    --brand-50: 239 248 255;
-    --brand-100: 219 238 254;
-    --brand-200: 189 226 253;
-    --brand-300: 145 208 252;
-    --brand-400: 91 182 248;
-    --brand-500: 51 161 242;
-    --brand-600: 37 137 223;
-    --brand-700: 31 111 187;
-    --brand-800: 32 92 152;
-    --brand-900: 32 77 123;
+    --brand-50: 236 242 255;
+    --brand-100: 219 230 255;
+    --brand-200: 189 210 255;
+    --brand-300: 173 198 255;
+    --brand-400: 122 165 255;
+    --brand-500: 77 142 255;
+    --brand-600: 0 82 255;
+    --brand-700: 0 62 199;
+    --brand-800: 0 50 160;
+    --brand-900: 0 40 120;
   }
   html[data-accent='emerald'] {
     --brand-50: 236 253 245;

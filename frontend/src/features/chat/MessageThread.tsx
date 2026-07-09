@@ -311,7 +311,6 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
         <ContactInfoPanel
           conversation={conversation}
           other={other}
-          images={messages}
           onClose={() => setInfoOpen(false)}
         />
       )}

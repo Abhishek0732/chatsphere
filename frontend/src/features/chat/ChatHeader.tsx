@@ -46,7 +46,7 @@ interface ChatHeaderProps {
   infoActive?: boolean;
 }
 
-export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive }: ChatHeaderProps) {
+export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeaderProps) {
   const navigate = useNavigate();
   const myId = useAuthStore((s) => s.user?.id);
   const other = otherMember(conversation, myId);
@@ -168,7 +168,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
     <header className="glass-panel relative z-30 flex items-center gap-3 border-x-0 border-t-0 px-3 py-3">
       <button
         onClick={() => navigate('/')}
-        className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
+        className="rounded-full p-1.5 text-on-surface-variant hover:bg-white/5 hover:text-on-surface md:hidden"
         aria-label="Back"
       >
         <ArrowLeft className="h-5 w-5" />
@@ -180,7 +180,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
           src={conversation.avatarUrl}
           size="md"
           guarded={!!other?.protectAvatar}
-          className="ring-2 ring-brand-500/20 transition hover:ring-brand-500/50"
+          className="ring-2 ring-primary/20 transition hover:ring-primary/50"
           onClick={() =>
             openViewer(conversation.name, conversation.avatarUrl, {
               circle: true,
@@ -240,21 +240,6 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
         <Video className="h-5 w-5" />
       </button>
 
-      {conversation.type === 'DIRECT' && onToggleInfo && (
-        <button
-          onClick={onToggleInfo}
-          className={cn(
-            'rounded-lg p-2 transition',
-            infoActive
-              ? 'bg-primary/10 text-primary'
-              : 'text-on-surface-variant hover:bg-white/5 hover:text-primary',
-          )}
-          aria-label="Contact info"
-        >
-          <Info className="h-5 w-5" />
-        </button>
-      )}
-
       {conversation.type === 'GROUP' && (
         <button
           onClick={onOpenInfo}
@@ -269,21 +254,22 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
       <div ref={menuRef} className="relative">
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary dark:hover:bg-slate-800"
+          className="rounded-full p-2 text-on-surface-variant transition hover:bg-white/5 hover:text-primary"
           aria-label="Chat options"
         >
           <MoreVertical className="h-5 w-5" />
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-11 z-30 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#17233c]">
+          <div className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl">
             {conversation.type === 'DIRECT' && (
               <button
                 onClick={() => {
                   setMenuOpen(false);
-                  setInfoOpen(true);
+                  if (onToggleInfo) onToggleInfo();
+                  else setInfoOpen(true);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Info className="h-4 w-4" /> Contact info
               </button>
@@ -293,27 +279,27 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
                 setMenuOpen(false);
                 toggleMute(conversation.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
             >
               {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
               {isMuted ? 'Unmute' : 'Mute'}
             </button>
             <button
               onClick={handleExport}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
             >
               <Download className="h-4 w-4" /> Export chat
             </button>
             <button
               onClick={handleClear}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
             >
               <Eraser className="h-4 w-4" /> Clear chat
             </button>
             {conversation.type === 'GROUP' && (
               <button
                 onClick={handleLeave}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-error transition hover:bg-error/10"
               >
                 <LogOut className="h-4 w-4" /> Leave group
               </button>
@@ -323,14 +309,14 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo, infoActive 
               (isBlocked ? (
                 <button
                   onClick={handleBlockToggle}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
                 >
                   <UserCheck className="h-4 w-4" /> Unblock
                 </button>
               ) : (
                 <button
                   onClick={handleBlockToggle}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-error transition hover:bg-error/10"
                 >
                   <Ban className="h-4 w-4" /> Block
                 </button>

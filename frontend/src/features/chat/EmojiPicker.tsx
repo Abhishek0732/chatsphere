@@ -93,7 +93,7 @@ export function EmojiPicker({ onSelect, onClose }: Props) {
   return (
     <div
       ref={ref}
-      className="flex h-72 w-[19rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#17233c]"
+      className="flex h-72 w-[19rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface-container/95 text-on-surface shadow-2xl backdrop-blur-xl"
       role="dialog"
       aria-label="Emoji picker"
     >
@@ -103,14 +103,14 @@ export function EmojiPicker({ onSelect, onClose }: Props) {
             key={`${e}-${i}`}
             type="button"
             onClick={() => onSelect(e)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-slate-100 dark:hover:bg-white/10"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-white/5"
             aria-label={e}
           >
             {e}
           </button>
         ))}
       </div>
-      <div className="flex shrink-0 items-center justify-between border-t border-slate-100 px-1 dark:border-white/10">
+      <div className="flex shrink-0 items-center justify-between border-t border-white/10 px-1">
         {CATEGORIES.map((c, i) => (
           <button
             key={c.id}
@@ -120,7 +120,7 @@ export function EmojiPicker({ onSelect, onClose }: Props) {
               'flex h-9 flex-1 items-center justify-center rounded-lg text-lg transition ' +
               (i === active
                 ? 'bg-brand-500/10 opacity-100'
-                : 'opacity-60 hover:opacity-100 hover:bg-slate-100 dark:hover:bg-white/10')
+                : 'opacity-60 hover:opacity-100 hover:bg-white/5')
             }
             aria-label={c.label}
           >

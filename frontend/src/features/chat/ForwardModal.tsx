@@ -86,22 +86,22 @@ export function ForwardModal({ message, onClose }: ForwardModalProps) {
           <Spinner className="h-6 w-6" />
         </div>
       ) : !conversations || conversations.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-400">No conversations available.</p>
+        <p className="py-8 text-center text-sm text-on-surface-variant">No conversations available.</p>
       ) : (
         <div className="space-y-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
             <input
               autoFocus
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder="Search chats"
-              className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-on-surface focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
           </div>
 
           {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">No chats found.</p>
+            <p className="py-6 text-center text-sm text-on-surface-variant">No chats found.</p>
           ) : (
             <ul className="max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
               {filtered.map((c) => {
@@ -114,13 +114,13 @@ export function ForwardModal({ message, onClose }: ForwardModalProps) {
                         'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition',
                         isSelected
                           ? 'bg-brand-50 dark:bg-brand-500/10'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-800',
+                          : 'hover:bg-white/5',
                       )}
                     >
                       <Avatar name={c.name} src={c.avatarUrl} size="md" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{c.name}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-on-surface-variant">
                           {c.type === 'GROUP' ? 'Group' : 'Direct message'}
                         </p>
                       </div>
@@ -129,7 +129,7 @@ export function ForwardModal({ message, onClose }: ForwardModalProps) {
                           'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition',
                           isSelected
                             ? 'border-brand-500 bg-brand-gradient text-white'
-                            : 'border-slate-300 dark:border-slate-600',
+                            : 'border-white/20',
                         )}
                         aria-hidden
                       >

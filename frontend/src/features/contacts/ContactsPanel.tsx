@@ -102,33 +102,33 @@ export function ContactsPanel() {
           <button
             onClick={() => setMenuOpen((o) => !o)}
             aria-label="Menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-white/5 hover:text-on-surface"
           >
             <MoreVertical className="h-5 w-5" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#17233c]">
+            <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl">
               <button
                 onClick={menuAction(() => setStatusOpen(true))}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
               >
                 <CircleDashed className="h-4 w-4" /> Add status
               </button>
               <button
                 onClick={menuAction(() => setPrivacyOpen(true))}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Lock className="h-4 w-4" /> Status privacy
               </button>
               <button
                 onClick={menuAction(() => setAddOpen(true))}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
               >
                 <UserPlus className="h-4 w-4" /> Add contact
               </button>
               <button
                 onClick={menuAction(() => setGroupOpen(true))}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Users className="h-4 w-4" /> New group
               </button>

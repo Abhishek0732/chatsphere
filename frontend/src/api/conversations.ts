@@ -1,5 +1,20 @@
 import { api } from './client';
-import type { ConversationSummary, ExportMessage, Message } from '@/types';
+import type { ConversationSummary, ExportMessage, MediaItem, Message } from '@/types';
+
+export type MediaKind = 'media' | 'docs' | 'links';
+
+/** A page of shared media/docs/links in a conversation, newest first (cursor: before). */
+export async function getConversationMedia(
+  conversationId: number,
+  kind: MediaKind = 'media',
+  before?: number,
+  limit = 30,
+): Promise<MediaItem[]> {
+  const { data } = await api.get<MediaItem[]>(`/conversations/${conversationId}/media`, {
+    params: { kind, before, limit },
+  });
+  return data;
+}
 
 /** Fetch the full transcript for a chat export (oldest first). */
 export async function exportChat(conversationId: number): Promise<ExportMessage[]> {
