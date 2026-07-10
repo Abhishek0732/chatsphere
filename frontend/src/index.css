@@ -344,6 +344,16 @@
 }
 
 @layer utilities {
+  /* Render-virtualization: the browser skips layout/paint for off-screen rows,
+     so a long chat or conversation list stays smooth without DOM windowing (and
+     without touching scroll-to-bottom / load-older / reply-jump logic). The
+     `auto` in contain-intrinsic-size makes the browser remember each row's real
+     size after it's first rendered, so scrollbars stay stable. */
+  .cv-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 56px;
+  }
+
   /* Signature two-tone brand gradient (Primary → Accent, e.g. indigo → cyan). */
   .bg-brand-gradient {
     background-color: var(--grad-from);

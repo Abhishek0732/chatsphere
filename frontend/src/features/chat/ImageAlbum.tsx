@@ -89,7 +89,7 @@ function ImageAlbumInner({
   };
 
   return (
-    <div className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('cv-row flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
       {avatarColumn &&
         !mine &&
         (showAvatar ? (

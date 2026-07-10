@@ -217,7 +217,7 @@ function MessageBubbleInner({
   };
 
   return (
-    <div className={cn('group flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('cv-row group flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
       {avatarColumn &&
         !mine &&
         (showAvatar ? (
