@@ -12,7 +12,6 @@ import {
   MoreVertical,
   Phone,
   UserCheck,
-  Users,
   Video,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -246,7 +245,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
           className="rounded-full p-2 text-on-surface-variant hover:bg-white/5 hover:text-primary dark:hover:bg-white/10"
           aria-label="Group info"
         >
-          <Users className="h-5 w-5" />
+          <Info className="h-5 w-5" />
         </button>
       )}
 

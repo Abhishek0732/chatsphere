@@ -13,10 +13,13 @@ import {
   useUpdateGroup,
 } from '@/hooks/useGroups';
 import { useContacts } from '@/hooks/useContacts';
+import { useUserSearch } from '@/hooks/useUserSearch';
+import { ConversationMediaPreview } from '@/features/chat/ConversationMediaPreview';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
+import { cn } from '@/utils/cn';
 
 interface GroupInfoModalProps {
   open: boolean;
@@ -39,6 +42,8 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [addTerm, setAddTerm] = useState('');
+  const [tab, setTab] = useState<'members' | 'media'>('members');
 
   useEffect(() => {
     if (group) setName(group.name);
@@ -49,7 +54,18 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
   const isAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
 
   const memberIds = new Set((group?.members ?? []).map((m) => m.user.id));
-  const addableContacts = (contacts ?? []).filter((c) => !memberIds.has(c.user.id));
+
+  // Candidates to add. Searching queries the whole directory so admins can add
+  // (or re-add) anyone — not just their saved contacts. This is what lets a
+  // just-removed member, who may never have been in your contact list, be
+  // added back. With no search term we fall back to your contacts.
+  const searching = addTerm.trim().length >= 2;
+  const { data: searchResults, isFetching: searchLoading } = useUserSearch(addTerm);
+  const candidates = (
+    searching
+      ? (searchResults ?? []).filter((u) => u.id !== myId)
+      : (contacts ?? []).map((c) => c.user)
+  ).filter((u) => !memberIds.has(u.id));
 
   const saveName = () => {
     if (name.trim().length < 2) return;
@@ -157,41 +173,83 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
             )}
           </div>
 
+          {/* Members / Media tabs — only one section at a time keeps the modal short. */}
+          <div className="flex gap-1 rounded-xl bg-white/5 p-1">
+            {(['members', 'media'] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className={cn(
+                  'flex-1 rounded-lg py-1.5 text-sm font-medium capitalize transition',
+                  tab === k
+                    ? 'bg-white/10 text-on-surface'
+                    : 'text-on-surface-variant hover:text-on-surface',
+                )}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'members' && (
           <div>
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
                 {group.members.length} members
               </p>
               {isAdmin && (
-                <Button size="sm" variant="ghost" onClick={() => setAdding((v) => !v)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setAdding((v) => {
+                      if (v) setAddTerm('');
+                      return !v;
+                    })
+                  }
+                >
                   <Plus className="h-4 w-4" /> Add
                 </Button>
               )}
             </div>
 
             {adding && (
-              <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-slate-200 scrollbar-thin dark:border-slate-700">
-                {addableContacts.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-sm text-slate-400">No contacts to add.</p>
-                ) : (
-                  addableContacts.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => addMembers.mutate([c.user.id])}
-                      className="flex w-full items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                      <Avatar name={c.user.displayName} src={c.user.avatarUrl} size="sm" />
-                      <span className="flex-1 truncate text-left text-sm">
-                        {c.user.displayName}
-                      </span>
-                      <Plus className="h-4 w-4 text-brand-600" />
-                    </button>
-                  ))
-                )}
+              <div className="mb-3 space-y-2">
+                <Input
+                  value={addTerm}
+                  onChange={(e) => setAddTerm(e.target.value)}
+                  placeholder="Search people to add"
+                />
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 scrollbar-thin dark:border-slate-700">
+                  {searching && searchLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Spinner className="h-4 w-4" />
+                    </div>
+                  ) : candidates.length === 0 ? (
+                    <p className="px-3 py-4 text-center text-sm text-slate-400">
+                      {searching ? 'No people found.' : 'Search to add people.'}
+                    </p>
+                  ) : (
+                    candidates.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => addMembers.mutate([u.id])}
+                        disabled={addMembers.isPending}
+                        className="flex w-full items-center gap-3 px-3 py-2 hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-slate-800"
+                      >
+                        <Avatar name={u.displayName} src={u.avatarUrl} size="sm" />
+                        <span className="min-w-0 flex-1 truncate text-left text-sm">
+                          {u.displayName}
+                        </span>
+                        <Plus className="h-4 w-4 text-brand-600" />
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            <ul className="max-h-[45vh] divide-y divide-slate-100 overflow-y-auto cs-scroll dark:divide-slate-800">
               {group.members.map((m) => {
                 const isMe = m.user.id === myId;
                 const isTargetOwner = m.role === 'OWNER';
@@ -251,6 +309,9 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
               })}
             </ul>
           </div>
+          )}
+
+          {tab === 'media' && <ConversationMediaPreview conversationId={groupId} />}
         </div>
       )}
     </Modal>

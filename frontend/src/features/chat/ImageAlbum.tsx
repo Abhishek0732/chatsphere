@@ -5,6 +5,7 @@ import { formatTime } from '@/utils/format';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useMediaRevealStore } from '@/store/mediaRevealStore';
 import { MessageStatusTicks } from './MessageStatusTicks';
+import { MessageActionsMenu } from './MessageActionsMenu';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
 import type { Message } from '@/types';
@@ -23,12 +24,14 @@ export function ImageAlbum({
   showSender,
   showAvatar,
   avatarUrl,
+  onForward,
 }: {
   messages: Message[];
   mine: boolean;
   showSender: boolean;
   showAvatar?: boolean;
   avatarUrl?: string;
+  onForward?: (message: Message) => void;
 }) {
   const openViewer = useImageViewer((s) => s.open);
   const revealed = useMediaRevealStore((s) => s.revealed);
@@ -49,31 +52,40 @@ export function ImageAlbum({
     // The last tile with a "+N" overlay opens the full album gallery.
     const isMoreTile = !gated && i === MAX_TILES - 1 && extra > 0;
     return (
-      <button
+      <div
         key={m.tempId ?? m.id}
-        type="button"
-        onClick={() =>
-          gated
-            ? revealAll()
-            : isMoreTile
-              ? setGalleryOpen(true)
-              : openViewer(m.content || 'Photo', m.attachmentUrl)
-        }
-        className={cn('relative overflow-hidden bg-surface-container-high', className)}
+        data-message-id={m.id}
+        className={cn('group relative overflow-hidden bg-surface-container-high', className)}
       >
-        <img
-          src={mediaSrc(m.attachmentUrl)}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
-        />
-        {isMoreTile && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
-            +{extra}
-          </span>
+        <button
+          type="button"
+          onClick={() =>
+            gated
+              ? revealAll()
+              : isMoreTile
+                ? setGalleryOpen(true)
+                : openViewer(m.content || 'Photo', m.attachmentUrl)
+          }
+          className="block h-full w-full"
+        >
+          <img
+            src={mediaSrc(m.attachmentUrl)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
+          />
+          {isMoreTile && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
+              +{extra}
+            </span>
+          )}
+        </button>
+        {/* Per-photo actions — reply to or delete a single image, not the whole album. */}
+        {!gated && m.id > 0 && !m.deleted && (
+          <MessageActionsMenu message={m} mine={mine} onForward={onForward} />
         )}
-      </button>
+      </div>
     );
   };
 
@@ -143,19 +155,31 @@ export function ImageAlbum({
         <div className="-mx-1 max-h-[70vh] overflow-y-auto px-1 cs-scroll">
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {messages.map((m) => (
-              <button
+              <div
                 key={m.tempId ?? m.id}
-                type="button"
-                onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
-                className="aspect-square overflow-hidden rounded-lg glass-panel"
+                className="group relative aspect-square overflow-hidden rounded-lg glass-panel"
               >
-                <img
-                  src={mediaSrc(m.attachmentUrl)}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
-                />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
+                  className="block h-full w-full"
+                >
+                  <img
+                    src={mediaSrc(m.attachmentUrl)}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                  />
+                </button>
+                {m.id > 0 && !m.deleted && (
+                  <MessageActionsMenu
+                    message={m}
+                    mine={mine}
+                    onForward={onForward}
+                    onDismiss={() => setGalleryOpen(false)}
+                  />
+                )}
+              </div>
             ))}
           </div>
         </div>

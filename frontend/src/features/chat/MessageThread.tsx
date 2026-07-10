@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMessages } from '@/hooks/useMessages';
@@ -129,6 +129,28 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
+
+  // Jump to the original of a reply. Read hasMore/loadOlder through refs so the
+  // callback stays stable (memoized bubbles mustn't re-render on every change).
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const loadOlderRef = useRef(loadOlder);
+  loadOlderRef.current = loadOlder;
+  const jumpToMessage = useCallback(async (id: number) => {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const el = scrollRef.current?.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        pinnedToBottom.current = false;
+        el.classList.add('reply-flash');
+        window.setTimeout(() => el.classList.remove('reply-flash'), 1300);
+        return;
+      }
+      // Not rendered yet — pull in older pages and retry.
+      if (!hasMoreRef.current) break;
+      await loadOlderRef.current();
+    }
+  }, []);
 
   // Track whether the user is pinned to the bottom so live messages autoscroll
   // without yanking them away while reading history.
@@ -285,6 +307,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
                     showSender={showSender}
                     showAvatar={showAvatar}
                     avatarUrl={avatarUrl}
+                    onForward={setForwardMsg}
                   />
                 ) : (
                   <MessageBubble
@@ -294,6 +317,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
                     showAvatar={showAvatar}
                     avatarUrl={avatarUrl}
                     onForward={setForwardMsg}
+                    onJumpTo={jumpToMessage}
                   />
                 )}
               </Fragment>

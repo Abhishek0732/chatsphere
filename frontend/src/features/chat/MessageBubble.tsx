@@ -42,6 +42,8 @@ interface MessageBubbleProps {
   /** Sender's avatar URL (resolved from the conversation members). */
   avatarUrl?: string;
   onForward: (message: Message) => void;
+  /** Jump to (scroll + highlight) the original message when a reply is tapped. */
+  onJumpTo?: (messageId: number) => void;
 }
 
 const MENU_W = 188; // fits the emoji reaction row
@@ -68,6 +70,7 @@ function MessageBubbleInner({
   showAvatar,
   avatarUrl,
   onForward,
+  onJumpTo,
 }: MessageBubbleProps) {
   const setReplyTo = useChatStore((s) => s.setReplyTo);
   const setEditing = useChatStore((s) => s.setEditing);
@@ -223,10 +226,13 @@ function MessageBubbleInner({
         ) : (
           <div className="w-8 shrink-0" />
         ))}
-      <div className={cn('flex max-w-[85%] flex-col gap-0.5', mine ? 'items-end' : 'items-start')}>
+      <div
+        data-message-id={message.id}
+        className={cn('flex min-w-0 max-w-[85%] flex-col gap-0.5', mine ? 'items-end' : 'items-start')}
+      >
       <div
         className={cn(
-          'relative animate-pop-in rounded-2xl px-3.5 py-2 shadow-lg transition-transform duration-150',
+          'relative min-w-0 max-w-full animate-pop-in rounded-2xl px-3.5 py-2 shadow-lg transition-transform duration-150',
           mine
             ? 'message-gradient-sent rounded-br-none font-medium text-on-primary'
             : 'glass-panel rounded-bl-none text-on-surface',
@@ -295,19 +301,21 @@ function MessageBubbleInner({
             )}
 
             {message.replyTo && (
-              <div
+              <button
+                type="button"
+                onClick={() => onJumpTo?.(message.replyTo!.id)}
                 className={cn(
-                  'mb-1 rounded-lg border-l-4 px-2 py-1 text-xs',
+                  'mb-1 block w-full rounded-lg border-l-4 px-2 py-1 text-left text-xs transition hover:brightness-110',
                   mine
                     ? 'border-white/70 bg-brand-700/40'
                     : 'border-primary bg-white/10',
                 )}
               >
                 <span className="block font-semibold">{message.replyTo.senderName}</span>
-                <span className="block truncate opacity-80">
+                <span className="line-clamp-1 [overflow-wrap:anywhere] opacity-80">
                   {message.replyTo.content || 'Attachment'}
                 </span>
-              </div>
+              </button>
             )}
 
             {message.type === 'IMAGE' && message.attachmentUrl && (
@@ -426,7 +434,9 @@ function MessageBubbleInner({
             )}
 
             {message.type === 'TEXT' && message.content && (
-              <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
+                {message.content}
+              </p>
             )}
           </>
         )}
