@@ -32,6 +32,8 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { useUpdateProfile } from '@/hooks/useProfile';
 import { Avatar } from '@/components/ui/Avatar';
 import { toast } from '@/store/toastStore';
+import { getMyQr } from '@/api/users';
+import { copyText } from '@/utils/clipboard';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -106,6 +108,34 @@ export function SettingsPanel() {
   const protectAvatar = !!user?.protectAvatar;
   const toggleProtect = () => updateProfile.mutate({ protectAvatar: !protectAvatar });
   const soon = () => toast({ title: 'Coming soon', variant: 'info' });
+
+  // Invite: share a personal "add me" deep link (same token the QR encodes),
+  // built from the current origin so it works on whatever URL the app is on.
+  const inviteFriends = async () => {
+    let url: string;
+    try {
+      const qr = await getMyQr();
+      url = `${window.location.origin}/add?token=${encodeURIComponent(qr.token)}`;
+    } catch {
+      toast({ title: 'Could not create your invite link', variant: 'error' });
+      return;
+    }
+    const shareData = { title: 'Join me on ChatSphere', text: 'Add me on ChatSphere 👋', url };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // User dismissed the share sheet — nothing to do.
+      }
+      return;
+    }
+    const ok = await copyText(url);
+    toast({
+      title: ok ? 'Invite link copied' : 'Copy failed',
+      description: ok ? 'Share it with a friend to connect.' : undefined,
+      variant: ok ? 'success' : 'error',
+    });
+  };
 
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
@@ -242,7 +272,8 @@ export function SettingsPanel() {
           <Row
             icon={<Share2 className="h-5 w-5 text-primary" />}
             title="Invite Friends"
-            onClick={soon}
+            subtitle="Share your add-me link"
+            onClick={inviteFriends}
             right={<span />}
           />
         </Section>
