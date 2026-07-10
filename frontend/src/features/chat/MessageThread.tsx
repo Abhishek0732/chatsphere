@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pin } from 'lucide-react';
+import { ChevronRight, Pin, PinOff } from 'lucide-react';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
+import { Modal } from '@/components/ui/Modal';
 import { useMessages } from '@/hooks/useMessages';
 import { useConversation, useMarkRead } from '@/hooks/useConversations';
 import { useAuthStore } from '@/store/authStore';
@@ -129,6 +130,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
 
   // Jump to the original of a reply. Read hasMore/loadOlder through refs so the
   // callback stays stable (memoized bubbles mustn't re-render on every change).
@@ -238,7 +240,15 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
       />
 
       {pinnedMessages.length > 0 && (
-        <div className="flex items-center gap-2 border-b border-white/40 bg-white/70 px-4 py-2 backdrop-blur-md dark:border-white/5 dark:bg-slate-900/70">
+        <button
+          type="button"
+          onClick={() =>
+            pinnedMessages.length > 1
+              ? setPinnedOpen(true)
+              : jumpToMessage(pinnedMessages[0].id)
+          }
+          className="flex w-full items-center gap-2 border-b border-white/40 bg-white/70 px-4 py-2 text-left backdrop-blur-md transition hover:bg-white/90 dark:border-white/5 dark:bg-slate-900/70 dark:hover:bg-slate-900/90"
+        >
           <Pin className="h-4 w-4 shrink-0 text-brand-500" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-brand-600 dark:text-brand-400">
@@ -248,7 +258,10 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
               {pinnedPreview(pinnedMessages[pinnedMessages.length - 1])}
             </p>
           </div>
-        </div>
+          {pinnedMessages.length > 1 && (
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+          )}
+        </button>
       )}
 
       <div
@@ -305,6 +318,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
                     messages={row.messages}
                     mine={mine}
                     showSender={showSender}
+                    avatarColumn={conversation.type === 'GROUP'}
                     showAvatar={showAvatar}
                     avatarUrl={avatarUrl}
                     onForward={setForwardMsg}
@@ -314,6 +328,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
                     message={row.message}
                     mine={mine}
                     showSender={showSender}
+                    avatarColumn={conversation.type === 'GROUP'}
                     showAvatar={showAvatar}
                     avatarUrl={avatarUrl}
                     onForward={setForwardMsg}
@@ -348,6 +363,36 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
       )}
 
       <ForwardModal message={forwardMsg} onClose={() => setForwardMsg(null)} />
+
+      <Modal open={pinnedOpen} onClose={() => setPinnedOpen(false)} title={`Pinned messages · ${pinnedMessages.length}`}>
+        <ul className="divide-y divide-white/5">
+          {pinnedMessages.map((m) => (
+            <li key={m.id} className="flex items-center gap-3 py-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setPinnedOpen(false);
+                  jumpToMessage(m.id);
+                }}
+                className="min-w-0 flex-1 text-left"
+              >
+                <p className="truncate text-sm font-medium text-primary">{m.senderName}</p>
+                <p className="truncate text-sm text-on-surface-variant">
+                  {pinnedPreview(m) || 'Message'}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => socketService.pinMessage(m.conversationId, m.id, false)}
+                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition hover:bg-white/5 hover:text-on-surface"
+                aria-label="Unpin"
+              >
+                <PinOff className="h-4 w-4" /> Unpin
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Modal>
     </div>
   );
 }

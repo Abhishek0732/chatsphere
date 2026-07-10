@@ -14,6 +14,16 @@ import { Logo } from '@/components/ui/Logo';
 export const PENDING_QR_KEY = 'pendingQrToken';
 
 /**
+ * Where to send a just-authenticated user if a QR add is pending — used by BOTH
+ * the auth hooks and PublicOnlyRoute so whichever redirect fires wins the same
+ * way. Peeks only; AddByQrPage clears the key once it processes the token.
+ */
+export function pendingQrPath(): string | null {
+  const token = sessionStorage.getItem(PENDING_QR_KEY);
+  return token ? `/add?token=${encodeURIComponent(token)}` : null;
+}
+
+/**
  * Landing page for a scanned QR deep link ({@code /add?token=…}). If signed in,
  * it sends the contact invitation immediately; if not, it stashes the token and
  * routes to login, which resumes here afterwards.
@@ -45,6 +55,7 @@ export function AddByQrPage() {
     }
 
     ran.current = true;
+    sessionStorage.removeItem(PENDING_QR_KEY); // consumed — don't resume again
     requestByQr(token)
       .then((res) => {
         if (res.status === 'ACCEPTED') {

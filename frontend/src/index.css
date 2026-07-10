@@ -46,6 +46,16 @@
       rgb(var(--brand-500)) 100%
     );
   }
+  /* Incoming bubble: a soft, low-opacity tint of the SAME accent as the sent
+     bubble ("same colour, lighter") with readable on-surface text. */
+  .message-received {
+    background-color: rgb(var(--brand-500) / 0.12);
+    border: 1px solid rgb(var(--brand-600) / 0.16);
+  }
+  html.dark .message-received {
+    background-color: rgb(var(--brand-400) / 0.15);
+    border-color: rgb(var(--brand-300) / 0.2);
+  }
   /* Thin design-system scrollbar. */
   .cs-scroll::-webkit-scrollbar {
     width: 4px;

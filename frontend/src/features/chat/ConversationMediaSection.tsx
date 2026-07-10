@@ -19,9 +19,15 @@ const URL_RE = /(https?:\/\/[^\s]+)/i;
  * nested modal) so it can drop into either the direct-chat info panel or the
  * group info modal, giving groups the same media view as one-to-one chats.
  */
-export function ConversationMediaSection({ conversationId }: { conversationId: number }) {
+export function ConversationMediaSection({
+  conversationId,
+  initialTab = 'media',
+}: {
+  conversationId: number;
+  initialTab?: MediaKind;
+}) {
   const openGallery = useImageViewer((s) => s.openGallery);
-  const [tab, setTab] = useState<MediaKind>('media');
+  const [tab, setTab] = useState<MediaKind>(initialTab);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const gallery = useInfiniteQuery({

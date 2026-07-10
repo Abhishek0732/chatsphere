@@ -5,7 +5,7 @@
 export function TypingBubble({ label }: { label?: string }) {
   return (
     <div className="flex w-full justify-start">
-      <div className="animate-pop-in flex items-center gap-2 rounded-2xl rounded-bl-md bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-800 dark:ring-slate-700/50">
+      <div className="message-received animate-pop-in flex items-center gap-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 shadow-sm">
         {label && (
           <span className="text-xs font-medium text-brand-600 dark:text-brand-400">{label}</span>
         )}

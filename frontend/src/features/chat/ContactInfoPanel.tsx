@@ -69,7 +69,7 @@ export function ContactInfoPanel({
           <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>
         </div>
         <div className="flex gap-6 pt-1">
-          <Action icon={<UserIcon className="h-5 w-5" />} label="Profile" onClick={() => openViewer(conversation.name, conversation.avatarUrl, { circle: true })} />
+          <Action icon={<UserIcon className="h-5 w-5" />} label="Profile" onClick={() => openViewer(conversation.name, conversation.avatarUrl, { circle: true, protected: !!other?.protectAvatar })} />
           <Action icon={muted ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />} label={muted ? 'Unmute' : 'Mute'} active={muted} onClick={() => toggleMute(conversation.id)} />
           <Action icon={<Search className="h-5 w-5" />} label="Search" onClick={() => toast({ title: 'In-chat search coming soon', variant: 'info' })} />
         </div>

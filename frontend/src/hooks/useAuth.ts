@@ -5,17 +5,12 @@ import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
 import { queryClient } from '@/services/queryClient';
 import { toast } from '@/store/toastStore';
-import { PENDING_QR_KEY } from '@/pages/AddByQrPage';
+import { pendingQrPath } from '@/pages/AddByQrPage';
 import type { LoginPayload, RegisterPayload } from '@/types';
 
-/** After auth, resume a QR add if one was pending, else go home. */
+/** After auth, resume a pending QR add, else go home. (AddByQrPage clears the key.) */
 function postAuthDestination(): string {
-  const pending = sessionStorage.getItem(PENDING_QR_KEY);
-  if (pending) {
-    sessionStorage.removeItem(PENDING_QR_KEY);
-    return `/add?token=${encodeURIComponent(pending)}`;
-  }
-  return '/';
+  return pendingQrPath() ?? '/';
 }
 
 export function useLogin() {

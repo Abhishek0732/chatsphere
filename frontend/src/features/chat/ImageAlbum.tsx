@@ -22,6 +22,7 @@ export function ImageAlbum({
   messages,
   mine,
   showSender,
+  avatarColumn,
   showAvatar,
   avatarUrl,
   onForward,
@@ -29,6 +30,7 @@ export function ImageAlbum({
   messages: Message[];
   mine: boolean;
   showSender: boolean;
+  avatarColumn?: boolean;
   showAvatar?: boolean;
   avatarUrl?: string;
   onForward?: (message: Message) => void;
@@ -88,7 +90,8 @@ export function ImageAlbum({
 
   return (
     <div className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
-      {!mine &&
+      {avatarColumn &&
+        !mine &&
         (showAvatar ? (
           <Avatar name={last.senderName} src={avatarUrl} size="sm" className="mb-1 h-8 w-8 shrink-0" />
         ) : (
@@ -97,7 +100,7 @@ export function ImageAlbum({
       <div
         className={cn(
           'relative w-[min(75vw,18rem)] animate-pop-in overflow-hidden rounded-2xl shadow-lg',
-          mine ? 'message-gradient-sent rounded-br-none' : 'glass-panel rounded-bl-none',
+          mine ? 'message-gradient-sent rounded-br-none' : 'message-received rounded-bl-none',
         )}
       >
         {showSender && !mine && (

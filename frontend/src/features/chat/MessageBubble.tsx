@@ -37,6 +37,8 @@ interface MessageBubbleProps {
   mine: boolean;
   /** Show sender name (group chats, incoming only). */
   showSender: boolean;
+  /** Reserve the avatar gutter (group chats only; direct chats have no avatars). */
+  avatarColumn?: boolean;
   /** Render the sender's avatar beside this (incoming) bubble. */
   showAvatar?: boolean;
   /** Sender's avatar URL (resolved from the conversation members). */
@@ -67,6 +69,7 @@ function MessageBubbleInner({
   message,
   mine,
   showSender,
+  avatarColumn,
   showAvatar,
   avatarUrl,
   onForward,
@@ -215,7 +218,8 @@ function MessageBubbleInner({
 
   return (
     <div className={cn('group flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
-      {!mine &&
+      {avatarColumn &&
+        !mine &&
         (showAvatar ? (
           <Avatar
             name={message.senderName}
@@ -235,7 +239,7 @@ function MessageBubbleInner({
           'relative min-w-0 max-w-full animate-pop-in rounded-2xl px-3.5 py-2 shadow-lg transition-transform duration-150',
           mine
             ? 'message-gradient-sent rounded-br-none font-medium text-on-primary'
-            : 'glass-panel rounded-bl-none text-on-surface',
+            : 'message-received rounded-bl-none text-on-surface',
         )}
       >
         {showSender && !mine && !message.deleted && (
