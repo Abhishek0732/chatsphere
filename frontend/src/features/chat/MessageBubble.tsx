@@ -237,9 +237,13 @@ function MessageBubbleInner({
       <div
         className={cn(
           'relative min-w-0 max-w-full animate-pop-in rounded-2xl px-3.5 py-2 shadow-lg transition-transform duration-150',
-          mine
-            ? 'message-gradient-sent rounded-br-none font-medium text-on-primary'
-            : 'message-received rounded-bl-none text-on-surface',
+          // A deleted message is neutral/muted (never the accent bubble), so its
+          // "This message was deleted" text always has proper contrast.
+          message.deleted
+            ? cn('bg-surface-container-high text-on-surface-variant', mine ? 'rounded-br-none' : 'rounded-bl-none')
+            : mine
+              ? 'message-gradient-sent rounded-br-none font-medium text-on-primary'
+              : 'message-received rounded-bl-none text-on-surface',
         )}
       >
         {showSender && !mine && !message.deleted && (
