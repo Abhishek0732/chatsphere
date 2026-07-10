@@ -7,6 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Tracks online presence in Redis (heartbeat with TTL) and persists last-seen to MySQL.
@@ -39,6 +45,35 @@ public class PresenceService {
         return presenceRepository.findById(userId)
                 .map(UserPresence::getLastSeen)
                 .orElse(null);
+    }
+
+    /**
+     * Batched online check for many users in ONE Redis round-trip (MGET) instead
+     * of one hasKey() per user. Use this anywhere presence is needed for a list.
+     */
+    public Set<Long> onlineAmong(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return Set.of();
+        List<Long> ids = userIds.stream().distinct().toList();
+        List<String> keys = ids.stream().map(id -> KEY_PREFIX + id).toList();
+        List<String> vals = redis.opsForValue().multiGet(keys);
+        Set<Long> online = new java.util.HashSet<>();
+        if (vals != null) {
+            for (int i = 0; i < ids.size(); i++) {
+                if (i < vals.size() && vals.get(i) != null) online.add(ids.get(i));
+            }
+        }
+        return online;
+    }
+
+    /** Batched last-seen for many users in ONE SQL query instead of one findById each. */
+    @Transactional(readOnly = true)
+    public Map<Long, Instant> lastSeenAmong(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return Map.of();
+        Map<Long, Instant> out = new HashMap<>();
+        for (UserPresence p : presenceRepository.findAllById(userIds.stream().distinct().toList())) {
+            out.put(p.getUserId(), p.getLastSeen());
+        }
+        return out;
     }
 
     /** Called on connect / periodic ping. Broadcasts a transition to online. */

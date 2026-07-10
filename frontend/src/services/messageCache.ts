@@ -74,9 +74,20 @@ export function markMessageDeleted(conversationId: number, messageId: number): v
 
 /** Update statuses of messages up to and including `messageId` for a conversation. */
 export function applyReadReceipt(conversationId: number, messageId: number): void {
-  queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) =>
-    (prev ?? []).map((m) => (m.id <= messageId ? { ...m, status: 'READ' as MessageStatus } : m)),
-  );
+  queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) => {
+    if (!prev) return prev;
+    // Only rebuild the array (and re-render the thread) if something actually
+    // changes — read receipts fire often and most are no-ops.
+    let changed = false;
+    const next = prev.map((m) => {
+      if (m.id <= messageId && m.status !== 'READ') {
+        changed = true;
+        return { ...m, status: 'READ' as MessageStatus };
+      }
+      return m;
+    });
+    return changed ? next : prev;
+  });
 }
 
 /** Update the conversation list when a message arrives / is sent. */

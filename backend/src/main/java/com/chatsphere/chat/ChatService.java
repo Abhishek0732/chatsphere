@@ -152,11 +152,16 @@ public class ChatService {
                         members.stream().map(ConversationMember::getUserId).toList())
                 .stream().collect(Collectors.toMap(User::getId, u -> u));
 
+        // Batched presence: one Redis MGET + one query for all members, instead of
+        // isOnline()+lastSeen() per member.
+        List<Long> memberIds = members.stream().map(ConversationMember::getUserId).toList();
+        java.util.Set<Long> onlineMembers = presenceService.onlineAmong(memberIds);
+        java.util.Map<Long, java.time.Instant> lastSeenMembers = presenceService.lastSeenAmong(memberIds);
         List<UserDto> memberDtos = members.stream()
                 .map(m -> users.get(m.getUserId()))
                 .filter(Objects::nonNull)
-                .map(u -> UserDto.from(u, presenceService.isOnline(u.getId()),
-                        presenceService.lastSeen(u.getId())))
+                .map(u -> UserDto.from(u, onlineMembers.contains(u.getId()),
+                        lastSeenMembers.get(u.getId())))
                 .toList();
 
         // Resolve display name / avatar for DIRECT conversations from the counterpart.

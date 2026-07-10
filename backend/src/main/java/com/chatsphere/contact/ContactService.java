@@ -18,7 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ContactService {
@@ -46,9 +49,20 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public List<ContactDto> list(Long ownerId) {
-        return contactRepository.findByOwnerIdOrderByIdDesc(ownerId).stream()
-                .map(this::toDto)
-                .toList();
+        List<Contact> contacts = contactRepository.findByOwnerIdOrderByIdDesc(ownerId);
+        List<Long> ids = contacts.stream().map(Contact::getContactUserId).toList();
+        // Batched: one query for the users, one Redis MGET + one query for presence,
+        // instead of (findById + isOnline + lastSeen) per contact.
+        Map<Long, User> users = userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Set<Long> online = presenceService.onlineAmong(ids);
+        Map<Long, Instant> lastSeen = presenceService.lastSeenAmong(ids);
+        return contacts.stream().map(c -> {
+            User u = users.get(c.getContactUserId());
+            UserDto dto = u == null ? null
+                    : UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId()));
+            return new ContactDto(c.getId(), dto, c.getAlias(), c.getCreatedAt());
+        }).toList();
     }
 
     /**

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { mediaSrc } from '@/utils/media';
 import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/format';
@@ -18,7 +18,7 @@ const MAX_TILES = 4;
  * last tile) rather than one message per image. Tapping a tile opens it in the
  * viewer. Incoming media still respects the tap-to-reveal gate — as one unit.
  */
-export function ImageAlbum({
+function ImageAlbumInner({
   messages,
   mine,
   showSender,
@@ -187,3 +187,7 @@ export function ImageAlbum({
     </div>
   );
 }
+
+// Memoized: an unrelated thread re-render (typing/read events) must not
+// re-render every album and its <img> subtrees.
+export const ImageAlbum = memo(ImageAlbumInner);
