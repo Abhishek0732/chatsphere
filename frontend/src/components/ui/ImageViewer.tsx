@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, X } from 'lucide-react';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { downloadFile } from '@/utils/download';
 import { cn } from '@/utils/cn';
@@ -14,16 +14,26 @@ import { mediaSrc } from '@/utils/media';
 export function ImageViewer() {
   const current = useImageViewer((s) => s.current);
   const close = useImageViewer((s) => s.close);
+  const items = useImageViewer((s) => s.items);
+  const index = useImageViewer((s) => s.index);
+  const next = useImageViewer((s) => s.next);
+  const prev = useImageViewer((s) => s.prev);
   const [obscured, setObscured] = useState(false);
+
+  const hasPrev = index > 0;
+  const hasNext = index < items.length - 1;
+  const isGallery = items.length > 1;
 
   useEffect(() => {
     if (!current) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key === 'ArrowLeft') prev();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [current, close]);
+  }, [current, close, next, prev]);
 
   // Screenshot deterrent for a protected photo: blur it whenever the tab is
   // backgrounded or a screenshot key is pressed, so a casual capture is blurred.
@@ -89,6 +99,32 @@ export function ImageViewer() {
         </button>
       </div>
 
+      {/* Prev / next arrows for a gallery. */}
+      {isGallery && hasPrev && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            prev();
+          }}
+          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white/90 transition hover:bg-white/20 hover:text-white sm:left-4"
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
+      {isGallery && hasNext && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            next();
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white/90 transition hover:bg-white/20 hover:text-white sm:right-4"
+          aria-label="Next"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+      )}
+
       {/* Stop propagation so clicking the image itself doesn't close the viewer. */}
       <div className="flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
         {current.src ? (
@@ -125,6 +161,11 @@ export function ImageViewer() {
           </div>
         )}
         <p className="text-lg font-medium text-white">{current.name}</p>
+        {isGallery && (
+          <span className="text-sm font-medium text-white/60">
+            {index + 1} / {items.length}
+          </span>
+        )}
       </div>
     </div>
   );

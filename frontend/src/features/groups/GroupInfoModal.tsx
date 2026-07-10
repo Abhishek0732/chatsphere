@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useGroups';
 import { useContacts } from '@/hooks/useContacts';
 import { useUserSearch } from '@/hooks/useUserSearch';
+import { useResetOnClose } from '@/hooks/useResetOnClose';
 import { ConversationMediaPreview } from '@/features/chat/ConversationMediaPreview';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
@@ -44,6 +45,13 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
   const [adding, setAdding] = useState(false);
   const [addTerm, setAddTerm] = useState('');
   const [tab, setTab] = useState<'members' | 'media'>('members');
+
+  useResetOnClose(open, () => {
+    setAdding(false);
+    setAddTerm('');
+    setTab('members');
+    setEditingName(false);
+  });
 
   useEffect(() => {
     if (group) setName(group.name);

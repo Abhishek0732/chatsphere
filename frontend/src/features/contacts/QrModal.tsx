@@ -9,6 +9,7 @@ import { requestByQr } from '@/api/contacts';
 import { queryKeys } from '@/api/queryKeys';
 import { toast } from '@/store/toastStore';
 import { apiErrorMessage } from '@/utils/apiError';
+import { useResetOnClose } from '@/hooks/useResetOnClose';
 import { cn } from '@/utils/cn';
 import type { SendRequestResult } from '@/types';
 
@@ -27,6 +28,8 @@ function makeDetector(): BarcodeDetectorLike | null {
 
 export function QrModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<'code' | 'scan'>('code');
+  // Reopening starts on "My code"; this also unmounts Scan, clearing its input.
+  useResetOnClose(open, () => setTab('code'));
 
   return (
     <Modal open={open} onClose={onClose} title="QR code">
@@ -59,9 +62,13 @@ function MyCode({ open }: { open: boolean }) {
   });
 
   useEffect(() => {
-    if (!qr?.payload) return;
-    QRCode.toDataURL(qr.payload, { width: 256, margin: 1 }).then(setDataUrl).catch(() => setDataUrl(''));
-  }, [qr?.payload]);
+    if (!qr?.token) return;
+    // Encode a deep link built from the CURRENT origin, so the QR works on
+    // whatever URL the app is being served from (localhost, LAN IP, tunnel).
+    // Any camera opens it; the in-app scanner also understands it.
+    const url = `${window.location.origin}/add?token=${encodeURIComponent(qr.token)}`;
+    QRCode.toDataURL(url, { width: 256, margin: 1 }).then(setDataUrl).catch(() => setDataUrl(''));
+  }, [qr?.token]);
 
   const rotate = useMutation({
     mutationFn: rotateMyQr,

@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Spinner } from '@/components/ui/Spinner';
 import { useContacts } from '@/hooks/useContacts';
 import { useCreateGroup } from '@/hooks/useGroups';
+import { useResetOnClose } from '@/hooks/useResetOnClose';
 import { cn } from '@/utils/cn';
 
 interface CreateGroupModalProps {
@@ -20,6 +21,10 @@ export function CreateGroupModal({ open, onClose }: CreateGroupModalProps) {
 
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  useResetOnClose(open, () => {
+    setName('');
+    setSelected(new Set());
+  });
 
   const toggle = (userId: number) => {
     setSelected((prev) => {

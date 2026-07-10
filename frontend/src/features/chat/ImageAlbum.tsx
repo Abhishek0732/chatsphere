@@ -33,9 +33,10 @@ export function ImageAlbum({
   avatarUrl?: string;
   onForward?: (message: Message) => void;
 }) {
-  const openViewer = useImageViewer((s) => s.open);
+  const openGallery = useImageViewer((s) => s.openGallery);
   const revealed = useMediaRevealStore((s) => s.revealed);
   const reveal = useMediaRevealStore((s) => s.reveal);
+  const galleryImages = messages.map((m) => ({ name: m.content || 'Photo', src: m.attachmentUrl }));
 
   const count = messages.length;
   const shown = messages.slice(0, MAX_TILES);
@@ -60,11 +61,7 @@ export function ImageAlbum({
         <button
           type="button"
           onClick={() =>
-            gated
-              ? revealAll()
-              : isMoreTile
-                ? setGalleryOpen(true)
-                : openViewer(m.content || 'Photo', m.attachmentUrl)
+            gated ? revealAll() : isMoreTile ? setGalleryOpen(true) : openGallery(galleryImages, i)
           }
           className="block h-full w-full"
         >
@@ -154,14 +151,14 @@ export function ImageAlbum({
       <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`${count} photos`} className="max-w-lg">
         <div className="-mx-1 max-h-[70vh] overflow-y-auto px-1 cs-scroll">
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {messages.map((m) => (
+            {messages.map((m, i) => (
               <div
                 key={m.tempId ?? m.id}
                 className="group relative aspect-square overflow-hidden rounded-lg glass-panel"
               >
                 <button
                   type="button"
-                  onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
+                  onClick={() => openGallery(galleryImages, i)}
                   className="block h-full w-full"
                 >
                   <img

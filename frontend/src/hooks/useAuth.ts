@@ -5,7 +5,18 @@ import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
 import { queryClient } from '@/services/queryClient';
 import { toast } from '@/store/toastStore';
+import { PENDING_QR_KEY } from '@/pages/AddByQrPage';
 import type { LoginPayload, RegisterPayload } from '@/types';
+
+/** After auth, resume a QR add if one was pending, else go home. */
+function postAuthDestination(): string {
+  const pending = sessionStorage.getItem(PENDING_QR_KEY);
+  if (pending) {
+    sessionStorage.removeItem(PENDING_QR_KEY);
+    return `/add?token=${encodeURIComponent(pending)}`;
+  }
+  return '/';
+}
 
 export function useLogin() {
   const login = useAuthStore((s) => s.login);
@@ -16,7 +27,7 @@ export function useLogin() {
     onSuccess: (data) => {
       login({ user: data.user, accessToken: data.accessToken, refreshToken: data.refreshToken });
       socketService.connect();
-      navigate('/', { replace: true });
+      navigate(postAuthDestination(), { replace: true });
     },
     onError: () => {
       toast({ title: 'Login failed', description: 'Check your credentials.', variant: 'error' });
@@ -33,7 +44,7 @@ export function useRegister() {
     onSuccess: (data) => {
       login({ user: data.user, accessToken: data.accessToken, refreshToken: data.refreshToken });
       socketService.connect();
-      navigate('/', { replace: true });
+      navigate(postAuthDestination(), { replace: true });
     },
     onError: () => {
       toast({

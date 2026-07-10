@@ -20,7 +20,7 @@ const URL_RE = /(https?:\/\/[^\s]+)/i;
  * group info modal, giving groups the same media view as one-to-one chats.
  */
 export function ConversationMediaSection({ conversationId }: { conversationId: number }) {
-  const openViewer = useImageViewer((s) => s.open);
+  const openGallery = useImageViewer((s) => s.openGallery);
   const [tab, setTab] = useState<MediaKind>('media');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -67,11 +67,16 @@ export function ConversationMediaSection({ conversationId }: { conversationId: n
           <p className="py-10 text-center text-sm text-on-surface-variant">No {tab} shared yet.</p>
         ) : tab === 'media' ? (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {items.map((m) => (
+            {items.map((m, i) => (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
+                onClick={() =>
+                  openGallery(
+                    items.map((x) => ({ name: x.content || 'Photo', src: x.attachmentUrl })),
+                    i,
+                  )
+                }
                 className="aspect-square overflow-hidden rounded-lg glass-panel"
               >
                 <img

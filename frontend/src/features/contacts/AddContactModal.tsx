@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useUserSearch } from '@/hooks/useUserSearch';
 import { useAddContact, useContacts, useOutgoingRequests } from '@/hooks/useContacts';
+import { useResetOnClose } from '@/hooks/useResetOnClose';
 import { useAuthStore } from '@/store/authStore';
 
 interface AddContactModalProps {
@@ -17,6 +18,7 @@ interface AddContactModalProps {
 export function AddContactModal({ open, onClose }: AddContactModalProps) {
   const myId = useAuthStore((s) => s.user?.id);
   const [term, setTerm] = useState('');
+  useResetOnClose(open, () => setTerm(''));
   const { data: results, isFetching } = useUserSearch(term);
   const { data: contacts } = useContacts();
   const { data: outgoing } = useOutgoingRequests();

@@ -26,10 +26,20 @@ public final class QrTokens {
         return PREFIX + token;
     }
 
-    /** Accept either the raw token or the full {@code chatsphere:add:<token>} payload. */
+    /**
+     * Accept any form the token might arrive in: a deep-link URL
+     * ({@code https://host/add?token=XYZ}), the {@code chatsphere:add:<token>}
+     * payload, or the raw token itself.
+     */
     public static String parse(String code) {
         if (code == null) return "";
         String c = code.trim();
+        int idx = c.indexOf("token=");
+        if (idx >= 0) {
+            String t = c.substring(idx + "token=".length());
+            int amp = t.indexOf('&');
+            return amp >= 0 ? t.substring(0, amp) : t;
+        }
         return c.startsWith(PREFIX) ? c.substring(PREFIX.length()) : c;
     }
 }

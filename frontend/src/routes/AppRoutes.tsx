@@ -11,6 +11,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { AddByQrPage } from '@/pages/AddByQrPage';
 import { EmptyChatPage } from '@/pages/EmptyChatPage';
 
 // Everything else is code-split into its own chunk, so the initial bundle stays
@@ -81,6 +82,8 @@ export function AppRoutes() {
             </PublicOnlyRoute>
           }
         />
+        {/* QR deep link — handles its own auth (redirects to login if needed). */}
+        <Route path="/add" element={<AddByQrPage />} />
 
         {/* Protected app shell */}
         <Route

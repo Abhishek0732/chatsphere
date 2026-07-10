@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
-import { Button } from './Button';
 import { cn } from '@/utils/cn';
 
 export interface ConfirmDialogProps {
@@ -19,8 +18,8 @@ export interface ConfirmDialogProps {
 
 /**
  * In-app confirmation dialog — a clean, themed replacement for window.confirm().
- * A colored icon badge, a title, an optional one-line message, and balanced
- * Cancel / Confirm buttons. No header or close icon.
+ * A soft icon badge, a title, an optional one-line message, and balanced
+ * Cancel / Confirm buttons styled with the design tokens (glass + gradient/error).
  */
 export function ConfirmDialog({
   open,
@@ -34,36 +33,45 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   return (
-    <Modal open={open} onClose={onClose} className="max-w-xs">
-      <div className="flex flex-col items-center px-1 pb-1 pt-2 text-center">
+    <Modal open={open} onClose={onClose} className="max-w-sm">
+      <div className="flex flex-col items-center px-2 pb-1 pt-3 text-center">
         <div
           className={cn(
-            'mb-4 flex h-14 w-14 items-center justify-center rounded-full',
-            danger ? 'bg-error/15 text-error' : 'bg-primary/15 text-primary',
+            'mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ring-8',
+            danger ? 'bg-error/15 text-error ring-error/5' : 'bg-primary/15 text-primary ring-primary/5',
           )}
         >
-          {icon ?? <AlertTriangle className="h-7 w-7" />}
+          {icon ?? <AlertTriangle className="h-8 w-8" />}
         </div>
 
-        <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
+        <h2 className="text-xl font-bold text-on-surface">{title}</h2>
         {message && (
-          <p className="mt-1.5 text-sm leading-relaxed text-on-surface-variant">{message}</p>
+          <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{message}</p>
         )}
 
-        <div className="mt-6 flex w-full gap-3">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>
+        <div className="mt-7 flex w-full gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl glass-panel py-3 text-sm font-semibold text-on-surface transition hover:bg-white/5 active:scale-[0.97]"
+          >
             {cancelLabel}
-          </Button>
-          <Button
-            variant={danger ? 'danger' : 'primary'}
-            className="flex-1"
+          </button>
+          <button
+            type="button"
             onClick={() => {
               onConfirm();
               onClose();
             }}
+            className={cn(
+              'flex-1 rounded-xl py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]',
+              danger
+                ? 'bg-gradient-to-br from-red-500 to-red-600'
+                : 'bg-primary-container text-on-primary-container',
+            )}
           >
             {confirmLabel}
-          </Button>
+          </button>
         </div>
       </div>
     </Modal>

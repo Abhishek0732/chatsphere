@@ -16,7 +16,7 @@ const PREVIEW = 6;
  * the group info the same media UX as a one-to-one chat.
  */
 export function ConversationMediaPreview({ conversationId }: { conversationId: number }) {
-  const openViewer = useImageViewer((s) => s.open);
+  const openGallery = useImageViewer((s) => s.openGallery);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
   const { data: preview = [] } = useQuery({
@@ -35,11 +35,16 @@ export function ConversationMediaPreview({ conversationId }: { conversationId: n
 
       {preview.length > 0 ? (
         <div className="grid grid-cols-3 gap-1.5">
-          {preview.map((m: MediaItem) => (
+          {preview.map((m: MediaItem, i: number) => (
             <button
               key={m.id}
               type="button"
-              onClick={() => openViewer(m.content || 'Photo', m.attachmentUrl)}
+              onClick={() =>
+                openGallery(
+                  preview.map((x) => ({ name: x.content || 'Photo', src: x.attachmentUrl })),
+                  i,
+                )
+              }
               className="aspect-square overflow-hidden rounded-lg glass-panel"
             >
               <img

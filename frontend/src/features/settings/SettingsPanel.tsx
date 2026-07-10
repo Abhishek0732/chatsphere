@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
+  Ban,
   Bell,
   BellOff,
   Camera,
@@ -34,6 +35,7 @@ import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { BlockedUsersModal } from './BlockedUsersModal';
 import { QrModal } from '@/features/contacts/QrModal';
 
 type SettingKey = 'appearance' | 'privacy' | 'notifications';
@@ -96,6 +98,7 @@ export function SettingsPanel() {
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
   const [openModal, setOpenModal] = useState<SettingKey | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const close = () => setOpenModal(null);
 
@@ -225,6 +228,12 @@ export function SettingsPanel() {
             subtitle="Update your account password"
             onClick={() => setPwOpen(true)}
           />
+          <Row
+            icon={<Ban className="h-5 w-5" />}
+            title="Blocked contacts"
+            subtitle="People you've blocked"
+            onClick={() => setBlockedOpen(true)}
+          />
           <Row icon={<Database className="h-5 w-5" />} title="Storage and Data" onClick={soon} />
         </Section>
 
@@ -344,6 +353,7 @@ export function SettingsPanel() {
       </Modal>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <BlockedUsersModal open={blockedOpen} onClose={() => setBlockedOpen(false)} />
       <QrModal open={qrOpen} onClose={() => setQrOpen(false)} />
     </div>
   );

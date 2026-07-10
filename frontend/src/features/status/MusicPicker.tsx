@@ -7,6 +7,7 @@ import { mediaSrc } from '@/utils/media';
 import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { MUSIC_LIBRARY, type LibraryTrack, type MusicSelection } from './musicLibrary';
+import { useResetOnClose } from '@/hooks/useResetOnClose';
 
 function fmt(ms: number) {
   const s = Math.round(ms / 1000);
@@ -42,6 +43,11 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
   const [query, setQuery] = useState('');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  useResetOnClose(open, () => {
+    setQuery('');
+    setTab('library');
+    setPlayingId(null);
+  });
   // One shared <audio> for previews — never one element per row.
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
