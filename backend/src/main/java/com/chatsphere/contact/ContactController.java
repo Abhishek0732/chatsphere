@@ -4,6 +4,7 @@ import com.chatsphere.common.security.SecurityUtils;
 import com.chatsphere.contact.dto.ContactDtos.AddContactRequest;
 import com.chatsphere.contact.dto.ContactDtos.ContactDto;
 import com.chatsphere.contact.dto.ContactDtos.ContactRequestDto;
+import com.chatsphere.contact.dto.ContactDtos.QrAddRequest;
 import com.chatsphere.contact.dto.ContactDtos.SendRequestResult;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,12 @@ public class ContactController {
     @PostMapping
     public SendRequestResult add(@Valid @RequestBody AddContactRequest req) {
         return contactService.sendRequest(SecurityUtils.currentUserId(), req);
+    }
+
+    /** Scan a QR code to send that user a contact invitation (they accept manually). */
+    @PostMapping("/qr")
+    public SendRequestResult addByQr(@Valid @RequestBody QrAddRequest req) {
+        return contactService.requestByQr(SecurityUtils.currentUserId(), req.code());
     }
 
     @GetMapping("/requests")

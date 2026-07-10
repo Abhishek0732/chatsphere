@@ -4,6 +4,7 @@ import com.chatsphere.auth.dto.AuthDtos.*;
 import com.chatsphere.common.config.AppProperties;
 import com.chatsphere.common.error.ApiException;
 import com.chatsphere.common.security.JwtService;
+import com.chatsphere.common.util.QrTokens;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
 import com.chatsphere.user.dto.UserDto;
@@ -80,6 +81,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setDisplayName(req.displayName());
         user.setRole("USER");
+        user.setQrToken(QrTokens.newToken());
         user = userRepository.save(user);
 
         if (requireEmailVerification) {

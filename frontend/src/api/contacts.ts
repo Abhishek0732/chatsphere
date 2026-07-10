@@ -6,6 +6,12 @@ export async function getContacts(): Promise<Contact[]> {
   return data;
 }
 
+/** Scan a QR code to send that user a contact invitation (they accept manually). */
+export async function requestByQr(code: string): Promise<SendRequestResult> {
+  const { data } = await api.post<SendRequestResult>('/contacts/qr', { code });
+  return data;
+}
+
 /** Sends a contact invitation. The user is only added once they accept. */
 export async function addContact(contactUserId: number): Promise<SendRequestResult> {
   const { data } = await api.post<SendRequestResult>('/contacts', { contactUserId });

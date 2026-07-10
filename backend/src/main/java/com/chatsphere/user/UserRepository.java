@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUsernameOrEmail(String username, String email);
 
+    Optional<User> findByQrToken(String qrToken);
+
     @Query("""
             SELECT u FROM User u
             WHERE u.id <> :excludeId

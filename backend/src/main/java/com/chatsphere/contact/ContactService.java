@@ -2,6 +2,7 @@ package com.chatsphere.contact;
 
 import com.chatsphere.chat.ChatService;
 import com.chatsphere.common.error.ApiException;
+import com.chatsphere.common.util.QrTokens;
 import com.chatsphere.contact.ContactRequest.Status;
 import com.chatsphere.contact.dto.ContactDtos.AddContactRequest;
 import com.chatsphere.contact.dto.ContactDtos.ContactDto;
@@ -161,6 +162,23 @@ public class ContactService {
         c.setOwnerId(ownerId);
         c.setContactUserId(contactUserId);
         contactRepository.save(c);
+    }
+
+    /**
+     * Scanning a QR code resolves the owner and sends them a contact invitation —
+     * it does NOT add directly. The owner accepts manually, exactly like a normal
+     * request. Reuses {@link #sendRequest} so self/duplicate/reverse-accept
+     * handling and notifications are identical.
+     */
+    @Transactional
+    public SendRequestResult requestByQr(Long scannerId, String code) {
+        String token = QrTokens.parse(code);
+        if (token.isBlank()) {
+            throw ApiException.badRequest("Invalid QR code");
+        }
+        User target = userRepository.findByQrToken(token)
+                .orElseThrow(() -> ApiException.badRequest("This QR code is invalid or expired"));
+        return sendRequest(scannerId, new AddContactRequest(target.getId(), null));
     }
 
     @Transactional

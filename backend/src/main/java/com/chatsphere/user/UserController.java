@@ -2,6 +2,7 @@ package com.chatsphere.user;
 
 import com.chatsphere.common.security.SecurityUtils;
 import com.chatsphere.presence.PresenceService;
+import com.chatsphere.user.dto.QrDto;
 import com.chatsphere.user.dto.UpdateProfileRequest;
 import com.chatsphere.user.dto.UserDto;
 import jakarta.validation.Valid;
@@ -29,6 +30,16 @@ public class UserController {
     @PutMapping("/me")
     public UserDto updateMe(@Valid @RequestBody UpdateProfileRequest req) {
         return UserDto.from(userService.updateProfile(SecurityUtils.currentUserId(), req));
+    }
+
+    @GetMapping("/me/qr")
+    public QrDto myQr() {
+        return userService.myQr(SecurityUtils.currentUserId());
+    }
+
+    @PostMapping("/me/qr/rotate")
+    public QrDto rotateQr() {
+        return userService.rotateQr(SecurityUtils.currentUserId());
     }
 
     @GetMapping

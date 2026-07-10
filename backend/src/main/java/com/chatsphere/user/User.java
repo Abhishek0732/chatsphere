@@ -45,6 +45,10 @@ public class User {
     @Column(nullable = false, length = 20)
     private String role = "USER";
 
+    /** Rotatable token behind the user's "add me" QR code. */
+    @Column(name = "qr_token", nullable = false, unique = true, length = 64)
+    private String qrToken;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 

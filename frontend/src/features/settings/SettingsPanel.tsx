@@ -34,6 +34,7 @@ import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { QrModal } from '@/features/contacts/QrModal';
 
 type SettingKey = 'appearance' | 'privacy' | 'notifications';
 
@@ -95,6 +96,7 @@ export function SettingsPanel() {
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
   const [openModal, setOpenModal] = useState<SettingKey | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const close = () => setOpenModal(null);
 
   const enableNotifications = async () => setNotifPerm(await requestNotificationPermission());
@@ -154,9 +156,18 @@ export function SettingsPanel() {
               <h2 className="truncate text-lg font-semibold text-on-surface">{user.displayName}</h2>
               <p className="truncate text-sm text-on-surface-variant">Online • @{user.username}</p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/20 text-primary">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setQrOpen(true);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/20 text-primary transition hover:bg-primary-container/40"
+              aria-label="My QR code"
+            >
               <QrCode className="h-5 w-5" />
-            </span>
+            </button>
           </Link>
         )}
 
@@ -333,6 +344,7 @@ export function SettingsPanel() {
       </Modal>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} />
     </div>
   );
 }
