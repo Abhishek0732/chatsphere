@@ -116,13 +116,88 @@ public class ChatService {
     @Transactional(readOnly = true)
     public List<ConversationSummaryDto> listConversations(Long userId) {
         List<Conversation> conversations = conversationRepository.findAllForUser(userId);
-        List<ConversationSummaryDto> result = new ArrayList<>();
+        if (conversations.isEmpty()) return List.of();
+        // Viewers with active blocks keep the per-conversation path — block-window
+        // filtering of the last-message preview is per-viewer and rare.
+        if (blockService.hasAnyBlocks(userId)) {
+            List<ConversationSummaryDto> result = new ArrayList<>();
+            for (Conversation c : conversations) result.add(toSummary(c, userId));
+            return result;
+        }
+        return listConversationsBatched(userId, conversations);
+    }
+
+    /**
+     * Build the whole conversation list in a FIXED number of queries instead of
+     * ~8–11 per conversation: members, users, presence, latest message, unread,
+     * reactions and reply previews are each loaded once for the entire list.
+     */
+    private List<ConversationSummaryDto> listConversationsBatched(Long userId, List<Conversation> conversations) {
+        List<Long> convIds = conversations.stream().map(Conversation::getId).toList();
+
+        Map<Long, List<ConversationMember>> membersByConv = memberRepository.findByConversationIdIn(convIds)
+                .stream().collect(Collectors.groupingBy(ConversationMember::getConversationId));
+
+        Set<Long> userIds = membersByConv.values().stream().flatMap(List::stream)
+                .map(ConversationMember::getUserId).collect(Collectors.toSet());
+        Map<Long, User> users = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Set<Long> online = presenceService.onlineAmong(userIds);
+        Map<Long, java.time.Instant> lastSeen = presenceService.lastSeenAmong(userIds);
+
+        Map<Long, Message> latestByConv = messageRepository.findLatestPerConversation(convIds)
+                .stream().collect(Collectors.toMap(Message::getConversationId, m -> m));
+
+        Map<Long, Long> unreadByConv = new HashMap<>();
+        for (Object[] row : messageRepository.countUnreadPerConversation(userId, convIds)) {
+            unreadByConv.put((Long) row[0], (Long) row[1]);
+        }
+
+        // Visible last message per conversation (respect this viewer's clear floor).
+        List<Message> visibleLast = new ArrayList<>();
         for (Conversation c : conversations) {
-            // "Clear chat": the conversation stays in the list; only its messages
-            // are hidden for this user (toSummary nulls the cleared preview/unread).
-            result.add(toSummary(c, userId));
+            ConversationMember vm = viewerMember(membersByConv.get(c.getId()), userId);
+            long clearedFloor = vm == null || vm.getClearedUpToMessageId() == null
+                    ? 0L : vm.getClearedUpToMessageId();
+            Message last = latestByConv.get(c.getId());
+            if (last != null && last.getId() > clearedFloor) visibleLast.add(last);
+        }
+        Map<Long, MessageDto> lastDtoByConv = new HashMap<>();
+        for (MessageDto d : assembleBatch(visibleLast, users, m -> "SENT")) {
+            lastDtoByConv.put(d.conversationId(), d);
+        }
+
+        List<ConversationSummaryDto> result = new ArrayList<>(conversations.size());
+        for (Conversation c : conversations) {
+            List<ConversationMember> members = membersByConv.getOrDefault(c.getId(), List.of());
+            List<UserDto> memberDtos = members.stream()
+                    .map(m -> users.get(m.getUserId()))
+                    .filter(Objects::nonNull)
+                    .map(u -> UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId())))
+                    .toList();
+
+            String name = c.getName();
+            String avatar = c.getAvatarUrl();
+            if (c.getType() == Conversation.Type.DIRECT) {
+                User other = members.stream().map(ConversationMember::getUserId)
+                        .filter(id -> !Objects.equals(id, userId))
+                        .findFirst().map(users::get).orElse(null);
+                if (other != null) {
+                    name = other.getDisplayName();
+                    avatar = other.getAvatarUrl(); // this path only runs when the viewer has no blocks
+                }
+            }
+
+            result.add(new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(),
+                    name, avatar, lastDtoByConv.get(c.getId()),
+                    unreadByConv.getOrDefault(c.getId(), 0L), memberDtos, c.getUpdatedAt()));
         }
         return result;
+    }
+
+    private static ConversationMember viewerMember(List<ConversationMember> members, Long userId) {
+        if (members == null) return null;
+        return members.stream().filter(m -> Objects.equals(m.getUserId(), userId)).findFirst().orElse(null);
     }
 
     /**
