@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, SquarePen } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Logo } from '@/components/ui/Logo';
 import { useConversations } from '@/hooks/useConversations';
 import { socketService } from '@/services/socket';
 import { cn } from '@/utils/cn';
@@ -71,7 +72,10 @@ export function ConversationList() {
     <div className="relative flex h-full flex-col bg-surface-container-lowest">
       <div className="space-y-4 p-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-primary">ChatSphere</h1>
+          <div className="flex items-center gap-2.5">
+            <Logo className="h-8 w-8 shadow ring-1 ring-white/10" />
+            <h1 className="text-2xl font-bold tracking-tight text-primary">ChatSphere</h1>
+          </div>
           <button
             onClick={() => setAddOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"

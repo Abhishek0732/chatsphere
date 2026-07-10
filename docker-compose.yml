@@ -114,6 +114,8 @@ services:
         condition: service_started
       kafka:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -131,6 +133,16 @@ services:
       CHATSPHERE_JWT_ACCESS_TTL_MIN: ${JWT_ACCESS_TTL_MIN}
       CHATSPHERE_JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS}
       CHATSPHERE_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      # Email (password reset) — defaults to the bundled Mailpit dev SMTP. The
+      # reset link points at the frontend host so it opens in the user's browser.
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://${PUBLIC_HOST}:${FRONTEND_PORT}}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-ChatSphere <no-reply@chatsphere.local>}
       # Media plane: native peer-to-peer WebRTC (no SFU). The backend only hands
       # the browser ICE servers so the two peers can find a path to each other.
       TURN_ENABLED: "true"
@@ -175,6 +187,15 @@ services:
     # Reach the host-networked LiveKit SFU (for the same-origin /rtc proxy).
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks: [chatsphere]
+
+  mailpit:
+    image: axllent/mailpit:v1.20
+    container_name: chatsphere-mailpit
+    restart: unless-stopped
+    ports:
+      # Web inbox to view sent password-reset emails in dev.
+      - "${MAILPIT_UI_PORT:-8025}:8025"
     networks: [chatsphere]
 
   adminer:

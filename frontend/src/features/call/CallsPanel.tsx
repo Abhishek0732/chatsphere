@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowDownLeft, ArrowUpRight, Phone, PhoneCall, Search, Video } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Spinner } from '@/components/ui/Spinner';
+import { Logo } from '@/components/ui/Logo';
 import { useCallHistory } from '@/hooks/useCalls';
 import { socketService } from '@/services/socket';
 import { cn } from '@/utils/cn';
@@ -72,7 +73,10 @@ export function CallsPanel() {
   return (
     <div className="relative min-h-full bg-surface pb-24 text-on-surface">
       <header className="glass-panel sticky top-0 z-20 flex h-16 items-center justify-between border-x-0 border-t-0 px-5">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">ChatSphere</h1>
+        <div className="flex items-center gap-2.5">
+          <Logo className="h-8 w-8 shadow ring-1 ring-white/10" />
+          <h1 className="text-2xl font-bold tracking-tight text-primary">ChatSphere</h1>
+        </div>
         <button className="rounded-full p-2 text-on-surface-variant transition hover:bg-white/5" aria-label="Search">
           <Search className="h-5 w-5" />
         </button>

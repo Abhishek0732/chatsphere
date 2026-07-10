@@ -9,6 +9,8 @@ import { Spinner } from '@/components/ui/Spinner';
 // eager so there's no loading flash before auth.
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { EmptyChatPage } from '@/pages/EmptyChatPage';
 
 // Everything else is code-split into its own chunk, so the initial bundle stays
@@ -60,6 +62,22 @@ export function AppRoutes() {
           element={
             <PublicOnlyRoute>
               <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <PublicOnlyRoute>
+              <ResetPasswordPage />
             </PublicOnlyRoute>
           }
         />

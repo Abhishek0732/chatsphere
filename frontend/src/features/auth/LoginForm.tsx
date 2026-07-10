@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -61,6 +62,11 @@ export function LoginForm() {
         {errors.password?.message && (
           <p className="mt-1 pl-1 text-xs text-error">{errors.password.message}</p>
         )}
+        <div className="mt-1.5 text-right">
+          <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+            Forgot password?
+          </Link>
+        </div>
       </div>
 
       <button

@@ -15,6 +15,18 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @PostMapping("/register/send-otp")
+    public ResponseEntity<Void> sendRegistrationOtp(@Valid @RequestBody SendOtpRequest req) {
+        authService.sendRegistrationOtp(req);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/register/verify-otp")
+    public ResponseEntity<Void> verifyRegistrationOtp(@Valid @RequestBody VerifyOtpRequest req) {
+        authService.verifyRegistrationOtp(req);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest req) {
         return authService.register(req);

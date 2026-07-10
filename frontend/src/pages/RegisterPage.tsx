@@ -1,5 +1,5 @@
-import { Cloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Logo } from '@/components/ui/Logo';
 import { RegisterForm } from '@/features/auth/RegisterForm';
 
 export function RegisterPage() {
@@ -7,9 +7,7 @@ export function RegisterPage() {
     <div className="flex min-h-full items-center justify-center overflow-y-auto bg-surface p-6 text-on-surface">
       <div className="w-full max-w-sm py-8">
         <header className="mb-8 flex flex-col items-center text-center">
-          <div className="glow-button mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-container">
-            <Cloud className="h-9 w-9 text-on-primary-container" fill="currentColor" strokeWidth={1.5} />
-          </div>
+          <Logo className="mb-4 h-16 w-16 shadow-lg ring-1 ring-white/10" />
           <h1 className="text-3xl font-bold tracking-tight text-primary">ChatSphere</h1>
           <p className="mt-1 text-sm text-on-surface-variant">Connect beyond boundaries</p>
         </header>

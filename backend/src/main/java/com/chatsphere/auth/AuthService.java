@@ -7,6 +7,7 @@ import com.chatsphere.common.security.JwtService;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
 import com.chatsphere.user.dto.UserDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,24 +26,48 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final EmailVerificationService emailVerification;
     private final long refreshTtlDays;
+    private final boolean requireEmailVerification;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        AuthenticationManager authenticationManager,
-                       AppProperties props) {
+                       EmailVerificationService emailVerification,
+                       AppProperties props,
+                       @Value("${chatsphere.app.require-email-verification:true}") boolean requireEmailVerification) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.emailVerification = emailVerification;
         this.refreshTtlDays = props.jwt().refreshTtlDays();
+        this.requireEmailVerification = requireEmailVerification;
+    }
+
+    /** Signup step 1 — email a verification code (after basic availability checks). */
+    public void sendRegistrationOtp(SendOtpRequest req) {
+        if (userRepository.existsByEmail(req.email().trim())) {
+            throw ApiException.conflict("Email already registered");
+        }
+        emailVerification.sendOtp(req.email());
+    }
+
+    /** Signup step 2 — confirm the emailed code. */
+    public void verifyRegistrationOtp(VerifyOtpRequest req) {
+        emailVerification.verifyOtp(req.email(), req.code());
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest req) {
+        // The email must have been proven via the OTP step (unless disabled for
+        // tests/seed via chatsphere.app.require-email-verification=false).
+        if (requireEmailVerification) {
+            emailVerification.assertVerified(req.email());
+        }
         if (userRepository.existsByUsername(req.username())) {
             throw ApiException.conflict("Username already taken");
         }
@@ -57,6 +82,9 @@ public class AuthService {
         user.setRole("USER");
         user = userRepository.save(user);
 
+        if (requireEmailVerification) {
+            emailVerification.clearVerified(req.email());
+        }
         return issueTokens(user);
     }
 

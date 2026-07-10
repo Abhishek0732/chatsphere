@@ -33,6 +33,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 type SettingKey = 'appearance' | 'privacy' | 'notifications';
 
@@ -93,6 +94,7 @@ export function SettingsPanel() {
 
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
   const [openModal, setOpenModal] = useState<SettingKey | null>(null);
+  const [pwOpen, setPwOpen] = useState(false);
   const close = () => setOpenModal(null);
 
   const enableNotifications = async () => setNotifPerm(await requestNotificationPermission());
@@ -205,6 +207,12 @@ export function SettingsPanel() {
             icon={<ShieldCheck className="h-5 w-5" />}
             title="Privacy"
             onClick={() => setOpenModal('privacy')}
+          />
+          <Row
+            icon={<Lock className="h-5 w-5" />}
+            title="Change password"
+            subtitle="Update your account password"
+            onClick={() => setPwOpen(true)}
           />
           <Row icon={<Database className="h-5 w-5" />} title="Storage and Data" onClick={soon} />
         </Section>
@@ -323,6 +331,8 @@ export function SettingsPanel() {
           </div>
         </div>
       </Modal>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>
   );
 }
