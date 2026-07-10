@@ -273,9 +273,21 @@
   html[data-accent='graphite']{ --grad-from: #64748b; --grad-to: #94a3b8; }
 
   html,
-  body,
-  #root {
+  body {
     height: 100%;
+    /* Lock the document so the on-screen keyboard can't scroll the whole page
+       (which would push the chat header out of view on mobile). */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  /* The app tracks the *visual* viewport: when the mobile keyboard opens, the
+     shell shrinks (header stays pinned, the message list gives up the space)
+     instead of the page scrolling. `--app-height` is set from visualViewport in
+     JS; `100dvh` is the fallback for browsers without the JS hook. */
+  #root {
+    height: 100dvh;
+    height: var(--app-height, 100dvh);
+    overflow: hidden;
   }
 
   body {

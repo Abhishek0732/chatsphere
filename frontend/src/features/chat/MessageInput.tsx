@@ -298,7 +298,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   };
 
   return (
-    <div className="relative border-t border-white/5 bg-surface p-3">
+    <div className="relative shrink-0 border-t border-white/5 bg-surface p-3">
       {emojiOpen && !recording && (
         <div className="absolute bottom-full left-3 z-50 mb-2">
           <EmojiPicker onSelect={insertEmoji} onClose={() => setEmojiOpen(false)} />

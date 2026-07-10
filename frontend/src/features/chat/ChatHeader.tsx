@@ -164,7 +164,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
   }
 
   return (
-    <header className="glass-panel relative z-30 flex items-center gap-3 border-x-0 border-t-0 px-3 py-3">
+    <header className="glass-panel relative z-30 flex shrink-0 items-center gap-3 border-x-0 border-t-0 px-3 py-3">
       <button
         onClick={() => navigate('/')}
         className="rounded-full p-1.5 text-on-surface-variant hover:bg-white/5 hover:text-on-surface md:hidden"
