@@ -1,5 +1,11 @@
 import { api } from './client';
-import type { ConversationSummary, ExportMessage, MediaItem, Message } from '@/types';
+import type {
+  ConversationSummary,
+  ExportMessage,
+  MediaItem,
+  Message,
+  MessageInfo,
+} from '@/types';
 
 export type MediaKind = 'media' | 'docs' | 'links';
 
@@ -59,6 +65,17 @@ export async function markConversationRead(conversationId: number): Promise<void
 export async function getCommonGroups(conversationId: number): Promise<ConversationSummary[]> {
   const { data } = await api.get<ConversationSummary[]>(
     `/conversations/${conversationId}/common-groups`,
+  );
+  return data;
+}
+
+/** Who has seen one of my messages ("Message info"). Sender-only, group chats. */
+export async function getMessageInfo(
+  conversationId: number,
+  messageId: number,
+): Promise<MessageInfo> {
+  const { data } = await api.get<MessageInfo>(
+    `/conversations/${conversationId}/messages/${messageId}/info`,
   );
   return data;
 }

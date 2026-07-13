@@ -44,6 +44,8 @@ export interface Message {
   editedAt?: string | null;
   /** Snapshot of the status this message replies/reacts to, if any. */
   statusRef?: StatusRef | null;
+  /** Ids of the users @mentioned in this message (group chats). */
+  mentions?: number[];
 }
 
 /** Quoted snapshot of a status a message answers (WhatsApp-style). */
@@ -169,6 +171,23 @@ export interface GroupDetail {
   createdBy: number;
 }
 
+/** Outcome of adding people to a group: contacts join, strangers are invited. */
+export interface AddMembersResult {
+  group: GroupDetail;
+  added: User[];
+  invited: User[];
+}
+
+/** A pending "join this group" invite, as shown to the invitee. */
+export interface GroupInvite {
+  id: number;
+  groupId: number;
+  groupName: string;
+  groupAvatarUrl?: string;
+  inviter: User;
+  createdAt: string;
+}
+
 export interface MediaUploadResult {
   url: string;
   fileName: string;
@@ -226,6 +245,13 @@ export interface ChatSendPayload {
   attachmentUrl?: string;
   replyToId?: number;
   tempId: string;
+  mentions?: number[];
+}
+
+/** WhatsApp-style "Message info": who has seen one of my messages. */
+export interface MessageInfo {
+  readBy: User[];
+  pending: User[];
 }
 
 export interface MessageDeletedEvent {

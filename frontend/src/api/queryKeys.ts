@@ -3,6 +3,8 @@ export const queryKeys = {
   me: ['me'] as const,
   conversations: ['conversations'] as const,
   messages: (conversationId: number) => ['messages', conversationId] as const,
+  messageInfo: (conversationId: number, messageId: number) =>
+    ['messageInfo', conversationId, messageId] as const,
   contacts: ['contacts'] as const,
   contactRequests: ['contactRequests'] as const,
   contactRequestsOutgoing: ['contactRequests', 'outgoing'] as const,
@@ -13,6 +15,7 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   calls: ['calls'] as const,
   group: (id: number) => ['group', id] as const,
+  groupInvites: ['groupInvites'] as const,
   userSearch: (q: string) => ['userSearch', q] as const,
   messageSearch: (q: string) => ['messageSearch', q] as const,
 };

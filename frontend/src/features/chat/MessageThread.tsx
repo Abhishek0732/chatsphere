@@ -11,6 +11,8 @@ import { clearMessageNotifications } from '@/utils/notifications';
 import { formatDayDivider } from '@/utils/format';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
+import { MessageInfoModal } from './MessageInfoModal';
+import { mentionNamesOf } from './MessageText';
 import { ImageAlbum } from './ImageAlbum';
 import { ContactInfoPanel } from './ContactInfoPanel';
 import { MessageInput } from './MessageInput';
@@ -24,6 +26,9 @@ import type { Message } from '@/types';
 // Stable empty reference so a zustand selector doesn't return a fresh [] each
 // render (which would loop under useSyncExternalStore).
 const NO_TYPERS: { userId: number; userName: string }[] = [];
+
+/** Stable empty list for direct chats (no @mentions there). */
+const NO_MENTION_NAMES: string[] = [];
 
 function pinnedPreview(m: Message): string {
   if (m.type === 'IMAGE') return m.content ? `📷 ${m.content}` : '📷 Photo';
@@ -97,6 +102,7 @@ function buildRows(messages: Message[]): Row[] {
 export function MessageThread({ conversationId }: { conversationId: number }) {
   const conversation = useConversation(conversationId);
   const myId = useAuthStore((s) => s.user?.id);
+  const myName = useAuthStore((s) => s.user?.displayName);
   const setActive = useChatStore((s) => s.setActiveConversation);
   const clearTyping = useChatStore((s) => s.clearTyping);
   const { messages, isLoading, loadOlder, loadingOlder, hasMore } = useMessages(conversationId);
@@ -104,6 +110,15 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const avatarBySender = useMemo(
     () => new Map((conversation?.members ?? []).map((m) => [m.id, m.avatarUrl])),
     [conversation?.members],
+  );
+  const isGroup = conversation?.type === 'GROUP';
+  // Names an @mention can spell here — memoized so memoized bubbles keep their props.
+  const mentionNames = useMemo(
+    () =>
+      isGroup
+        ? mentionNamesOf((conversation?.members ?? []).map((m) => m.displayName))
+        : NO_MENTION_NAMES,
+    [isGroup, conversation?.members],
   );
   const markRead = useMarkRead();
 
@@ -131,6 +146,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [infoMsg, setInfoMsg] = useState<Message | null>(null);
 
   // Jump to the original of a reply. Read hasMore/loadOlder through refs so the
   // callback stays stable (memoized bubbles mustn't re-render on every change).
@@ -333,6 +349,9 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
                     avatarUrl={avatarUrl}
                     onForward={setForwardMsg}
                     onJumpTo={jumpToMessage}
+                    mentionNames={mentionNames}
+                    myName={myName}
+                    onShowInfo={isGroup ? setInfoMsg : undefined}
                   />
                 )}
               </Fragment>
@@ -363,6 +382,8 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
       )}
 
       <ForwardModal message={forwardMsg} onClose={() => setForwardMsg(null)} />
+
+      <MessageInfoModal message={infoMsg} onClose={() => setInfoMsg(null)} />
 
       <Modal open={pinnedOpen} onClose={() => setPinnedOpen(false)} title={`Pinned messages · ${pinnedMessages.length}`}>
         <ul className="divide-y divide-white/5">

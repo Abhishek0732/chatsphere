@@ -12,6 +12,7 @@ import {
   Pin,
   PinOff,
   Pencil,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { fileNameFromUrl, formatTime, isAudioUrl, isVideoUrl } from '@/utils/format';
@@ -28,7 +29,11 @@ import { copyText } from '@/utils/clipboard';
 import { mediaSrc } from '@/utils/media';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
+import { MessageText } from './MessageText';
 import { Avatar } from '@/components/ui/Avatar';
+
+/** Stable empty list so direct chats don't hand memoized bubbles a new array. */
+const NO_MENTIONS: string[] = [];
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -46,6 +51,12 @@ interface MessageBubbleProps {
   onForward: (message: Message) => void;
   /** Jump to (scroll + highlight) the original message when a reply is tapped. */
   onJumpTo?: (messageId: number) => void;
+  /** Names that can be @mentioned here (group members + All/Everyone). */
+  mentionNames?: string[];
+  /** My display name — a mention of it is highlighted more strongly. */
+  myName?: string;
+  /** Open "Message info" (who has seen this) — group chats, own messages. */
+  onShowInfo?: (message: Message) => void;
 }
 
 const MENU_W = 188; // fits the emoji reaction row
@@ -74,6 +85,9 @@ function MessageBubbleInner({
   avatarUrl,
   onForward,
   onJumpTo,
+  mentionNames = NO_MENTIONS,
+  myName,
+  onShowInfo,
 }: MessageBubbleProps) {
   const setReplyTo = useChatStore((s) => s.setReplyTo);
   const setEditing = useChatStore((s) => s.setEditing);
@@ -103,10 +117,18 @@ function MessageBubbleInner({
     message.type === 'TEXT' &&
     !message.deleted &&
     Date.now() - new Date(message.createdAt).getTime() <= EDIT_WINDOW_MS;
+  // "Message info" (who has seen it) is a group-only action on your own messages,
+  // exactly as in WhatsApp — a direct chat already says it with the read ticks.
+  const canShowInfo = Boolean(onShowInfo) && mine && sent && !message.deleted;
   // Reply, Forward, Pin + Copy (text), Edit (own text), Download (attachment),
-  // Delete (own). Plus the emoji reaction row at the top.
+  // Info + Delete (own). Plus the emoji reaction row at the top.
   const itemCount =
-    3 + (canCopy ? 1 : 0) + (canEdit ? 1 : 0) + (hasAttachment ? 1 : 0) + (mine ? 1 : 0);
+    3 +
+    (canCopy ? 1 : 0) +
+    (canEdit ? 1 : 0) +
+    (hasAttachment ? 1 : 0) +
+    (canShowInfo ? 1 : 0) +
+    (mine ? 1 : 0);
 
   // Position the menu next to the trigger, clamped to stay fully on screen.
   const openMenu = () => {
@@ -351,9 +373,13 @@ function MessageBubbleInner({
                 )}
                 {/* Caption typed alongside the image. */}
                 {message.content && (
-                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
-                    {message.content}
-                  </p>
+                  <MessageText
+                    content={message.content}
+                    mentionNames={mentionNames}
+                    myName={myName}
+                    mine={mine}
+                    className="mb-0.5"
+                  />
                 )}
               </>
             )}
@@ -376,9 +402,13 @@ function MessageBubbleInner({
                   />
                 )}
                 {message.content && (
-                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
-                    {message.content}
-                  </p>
+                  <MessageText
+                    content={message.content}
+                    mentionNames={mentionNames}
+                    myName={myName}
+                    mine={mine}
+                    className="mb-0.5"
+                  />
                 )}
               </>
             )}
@@ -404,9 +434,13 @@ function MessageBubbleInner({
                   />
                 )}
                 {message.content && (
-                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
-                    {message.content}
-                  </p>
+                  <MessageText
+                    content={message.content}
+                    mentionNames={mentionNames}
+                    myName={myName}
+                    mine={mine}
+                    className="mb-0.5"
+                  />
                 )}
               </>
             )}
@@ -434,17 +468,24 @@ function MessageBubbleInner({
                 </button>
                 {/* Caption typed alongside the file. */}
                 {message.content && (
-                  <p className="mb-0.5 whitespace-pre-wrap break-words text-sm">
-                    {message.content}
-                  </p>
+                  <MessageText
+                    content={message.content}
+                    mentionNames={mentionNames}
+                    myName={myName}
+                    mine={mine}
+                    className="mb-0.5"
+                  />
                 )}
               </>
             )}
 
             {message.type === 'TEXT' && message.content && (
-              <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
-                {message.content}
-              </p>
+              <MessageText
+                content={message.content}
+                mentionNames={mentionNames}
+                myName={myName}
+                mine={mine}
+              />
             )}
           </>
         )}
@@ -580,6 +621,17 @@ function MessageBubbleInner({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
               >
                 <Download className="h-4 w-4" /> Download
+              </button>
+            )}
+            {canShowInfo && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onShowInfo?.(message);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
+              >
+                <Info className="h-4 w-4" /> Message info
               </button>
             )}
             {mine && (
