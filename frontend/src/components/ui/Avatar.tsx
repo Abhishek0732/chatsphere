@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import { cn } from '@/utils/cn';
 import { initials } from '@/utils/format';
-import { mediaSrc } from '@/utils/media';
+import { ThumbImage } from './ThumbImage';
 
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -73,11 +73,9 @@ export function Avatar({ name, src, size = 'md', className, onClick, guarded }: 
       )}
     >
       {showImage ? (
-        <img
-          src={mediaSrc(src)}
+        <ThumbImage
+          url={src}
           alt={name}
-          loading="lazy"
-          decoding="async"
           draggable={guarded ? false : undefined}
           onContextMenu={guarded ? (e) => e.preventDefault() : undefined}
           className={cn(

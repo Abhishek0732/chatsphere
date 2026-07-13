@@ -20,4 +20,10 @@ public final class SecurityUtils {
     public static Long currentUserId() {
         return currentPrincipal().id();
     }
+
+    /** The signed-in user id, or null when the caller is anonymous (no throw). */
+    public static Long currentUserIdOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return (auth != null && auth.getPrincipal() instanceof UserPrincipal p) ? p.id() : null;
+    }
 }

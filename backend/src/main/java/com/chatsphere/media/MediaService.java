@@ -12,6 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.UUID;
 
@@ -20,7 +25,19 @@ public class MediaService {
 
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 
-    public record UploadResult(String url, String fileName, String contentType, long size) {}
+    public record UploadResult(String url, String fileName, String contentType, long size,
+                               String thumbnailUrl) {}
+
+    /**
+     * Longest edge of the generated thumbnail. Chat bubbles are ~288px and grid
+     * tiles ~100px, so this covers both at 2x for retina.
+     */
+    private static final int THUMB_MAX_EDGE = 480;
+
+    /** Thumbnails live beside the original, at a derivable key. */
+    static String thumbKey(String objectKey) {
+        return objectKey + ".thumb.jpg";
+    }
 
     private final MinioClient minioClient;
     private final AppProperties.Minio config;
@@ -66,10 +83,58 @@ public class MediaService {
                     "Upload failed: " + e.getMessage());
         }
 
+        // A thumbnail, so a 100px grid tile doesn't download a 3MB original. Every
+        // member of a group re-downloaded the full-size photo, every time it fell
+        // out of browser cache — the single biggest bandwidth cost in the app.
+        String thumbUrl = null;
+        if (contentType.startsWith("image/") && !contentType.contains("gif")) {
+            thumbUrl = writeThumbnail(file, objectKey);
+        }
+
         // Return a relative, same-origin URL. The frontend nginx proxies
         // "/media/<bucket>/<object>" to MinIO, so media loads correctly over
         // localhost, a LAN IP, or an HTTPS tunnel without a baked-in host.
         String url = "/media/" + config.bucket() + "/" + objectKey;
-        return new UploadResult(url, original, contentType, file.getSize());
+        return new UploadResult(url, original, contentType, file.getSize(), thumbUrl);
+    }
+
+    /**
+     * Scale the image down and store it next to the original. Failure is never
+     * fatal: the client falls back to the original, which is what happened for
+     * every image uploaded before thumbnails existed.
+     */
+    private String writeThumbnail(MultipartFile file, String objectKey) {
+        try (InputStream in = file.getInputStream()) {
+            BufferedImage src = ImageIO.read(in);
+            if (src == null) return null;
+
+            int w = src.getWidth();
+            int h = src.getHeight();
+            double scale = (double) THUMB_MAX_EDGE / Math.max(w, h);
+            if (scale >= 1.0) return null; // already small — the original IS the thumb
+
+            int tw = Math.max(1, (int) Math.round(w * scale));
+            int th = Math.max(1, (int) Math.round(h * scale));
+            BufferedImage thumb = new BufferedImage(tw, th, BufferedImage.TYPE_INT_RGB);
+            var g = thumb.createGraphics();
+            g.drawImage(src.getScaledInstance(tw, th, Image.SCALE_SMOOTH), 0, 0, null);
+            g.dispose();
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(thumb, "jpg", out);
+            byte[] bytes = out.toByteArray();
+
+            String key = thumbKey(objectKey);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(config.bucket())
+                    .object(key)
+                    .stream(new ByteArrayInputStream(bytes), bytes.length, -1)
+                    .contentType("image/jpeg")
+                    .build());
+            return "/media/" + config.bucket() + "/" + key;
+        } catch (Exception e) {
+            log.warn("Could not generate thumbnail for {}: {}", objectKey, e.toString());
+            return null;
+        }
     }
 }

@@ -1,12 +1,17 @@
 package com.chatsphere.presence;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.chatsphere.chat.repo.ConversationMemberRepository;
+import com.chatsphere.common.realtime.StompRelay;
+import com.chatsphere.contact.ContactRepository;
+import com.chatsphere.user.User;
+import com.chatsphere.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -24,16 +29,28 @@ public class PresenceService {
     private static final String KEY_PREFIX = "presence:online:";
     private static final Duration HEARTBEAT_TTL = Duration.ofSeconds(45);
 
+    /** Upper bound on how many people one presence change is announced to. */
+    private static final int AUDIENCE_CAP = 2_000;
+
     private final StringRedisTemplate redis;
     private final UserPresenceRepository presenceRepository;
-    private final SimpMessagingTemplate messaging;
+    private final StompRelay relay;
+    private final ContactRepository contactRepository;
+    private final ConversationMemberRepository memberRepository;
+    private final UserRepository userRepository;
 
     public PresenceService(StringRedisTemplate redis,
                            UserPresenceRepository presenceRepository,
-                           SimpMessagingTemplate messaging) {
+                           StompRelay relay,
+                           ContactRepository contactRepository,
+                           ConversationMemberRepository memberRepository,
+                           UserRepository userRepository) {
         this.redis = redis;
         this.presenceRepository = presenceRepository;
-        this.messaging = messaging;
+        this.relay = relay;
+        this.contactRepository = contactRepository;
+        this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
     }
 
     public boolean isOnline(Long userId) {
@@ -109,7 +126,34 @@ public class PresenceService {
         presenceRepository.save(p);
     }
 
+    /**
+     * Announce a presence change to the people who can actually see it: those who
+     * have this user as a contact, plus anyone sharing a conversation with them.
+     *
+     * It used to go to a single global "/topic/presence" that EVERY client
+     * subscribes to. At 100k online users a single connect published 100k frames,
+     * and a reconnect storm (a deploy, a load-balancer blip, a mobile network
+     * handover) meant 100k x 100k — the node simply dies. Nobody needs to know
+     * that a stranger's phone woke up.
+     */
     private void broadcast(PresenceEvent event) {
-        messaging.convertAndSend("/topic/presence", event);
+        List<String> audience = audienceOf(event.userId());
+        if (!audience.isEmpty()) {
+            relay.toUsers(audience, "/queue/presence", event);
+        }
+    }
+
+    /** Usernames of this user's contacts + conversation partners (bounded). */
+    private List<String> audienceOf(Long userId) {
+        try {
+            Set<Long> ids = new HashSet<>(contactRepository.findOwnerIdsByContactUserId(userId));
+            ids.addAll(memberRepository.findConnectedUserIds(userId));
+            ids.remove(userId);
+            if (ids.isEmpty()) return List.of();
+            List<Long> capped = ids.stream().limit(AUDIENCE_CAP).toList();
+            return userRepository.findAllById(capped).stream().map(User::getUsername).toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 }

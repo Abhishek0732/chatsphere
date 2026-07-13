@@ -19,10 +19,16 @@ public class CallRedisConfig {
 
     @Bean
     public RedisMessageListenerContainer callSignalListenerContainer(
-            RedisConnectionFactory connectionFactory, CallSignalListener listener) {
+            RedisConnectionFactory connectionFactory,
+            CallSignalListener listener,
+            com.chatsphere.common.realtime.StompRelayListener relayListener) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(listener, new ChannelTopic(CallBroadcaster.CHANNEL));
+        // Chat messages, notifications, typing, read receipts and presence all
+        // travel the same way now, so they reach users on OTHER instances too.
+        container.addMessageListener(relayListener,
+                new ChannelTopic(com.chatsphere.common.realtime.StompRelay.CHANNEL));
         return container;
     }
 }

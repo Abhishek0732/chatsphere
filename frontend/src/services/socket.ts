@@ -174,8 +174,11 @@ class SocketService {
       if (message) replaceMessage(message);
     });
 
-    // Global presence topic.
-    client.subscribe('/topic/presence', (frame: IMessage) => {
+    // Presence for the people I can actually see (contacts + conversation
+    // partners). This was a GLOBAL topic every client subscribed to: one user
+    // coming online published a frame to all 100k clients, so a reconnect storm
+    // was quadratic. Now the server sends it only to the audience that cares.
+    client.subscribe('/user/queue/presence', (frame: IMessage) => {
       const event = parse<PresenceEvent>(frame.body);
       if (event) useChatStore.getState().setPresence(event);
     });

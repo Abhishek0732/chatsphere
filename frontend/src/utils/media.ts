@@ -24,3 +24,21 @@ export function mediaSrc(url?: string | null): string {
     return url;
   }
 }
+
+/**
+ * URL of the stored thumbnail for an uploaded image, by convention (the backend
+ * writes "<object>.thumb.jpg" beside every image it stores).
+ *
+ * Small renders — avatars, grid tiles, status rings, chat bubbles — used to load
+ * the FULL-SIZE original: a 3MB photo downloaded into a 100px tile, by every
+ * member of the group, every time it wasn't in cache. Returns null when there
+ * can't be a thumbnail (a video, or an image uploaded before thumbnails existed),
+ * so callers fall back to the original.
+ */
+export function mediaThumb(url?: string | null): string | null {
+  if (!url) return null;
+  const src = mediaSrc(url);
+  if (!src.startsWith('/media/')) return null; // external (e.g. catalogue art)
+  if (/\.(mp4|webm|mov|m4v|mp3|wav|m4a|ogg|pdf|zip)$/i.test(src)) return null;
+  return `${src}.thumb.jpg`;
+}

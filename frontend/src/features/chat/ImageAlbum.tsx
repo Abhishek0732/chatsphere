@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
 import { mediaSrc } from '@/utils/media';
+import { ThumbImage } from '@/components/ui/ThumbImage';
 import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/format';
 import { useImageViewer } from '@/store/imageViewerStore';
@@ -71,11 +72,9 @@ function ImageAlbumInner({
           }
           className="block h-full w-full"
         >
-          <img
-            src={mediaSrc(m.attachmentUrl)}
+          <ThumbImage
+            url={m.attachmentUrl}
             alt=""
-            loading="lazy"
-            decoding="async"
             className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
           />
           {isMoreTile && (
@@ -168,10 +167,9 @@ function ImageAlbumInner({
                   onClick={() => openGallery(galleryImages, i)}
                   className="block h-full w-full"
                 >
-                  <img
-                    src={mediaSrc(m.attachmentUrl)}
+                  <ThumbImage
+                    url={m.attachmentUrl}
                     alt=""
-                    loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
                   />
                 </button>

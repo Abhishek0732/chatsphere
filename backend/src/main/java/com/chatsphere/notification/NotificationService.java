@@ -5,7 +5,7 @@ import com.chatsphere.notification.dto.NotificationDto;
 import com.chatsphere.presence.PresenceService;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.chatsphere.common.realtime.StompRelay;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,16 +20,16 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private final NotificationRepository repository;
-    private final SimpMessagingTemplate messaging;
+    private final StompRelay relay;
     private final PresenceService presenceService;
     private final UserRepository userRepository;
 
     public NotificationService(NotificationRepository repository,
-                               SimpMessagingTemplate messaging,
+                               StompRelay relay,
                                PresenceService presenceService,
                                UserRepository userRepository) {
         this.repository = repository;
-        this.messaging = messaging;
+        this.relay = relay;
         this.presenceService = presenceService;
         this.userRepository = userRepository;
     }
@@ -106,8 +106,7 @@ public class NotificationService {
         for (Notification saved : repository.saveAll(batch)) {
             User u = users.get(saved.getUserId());
             if (u != null) {
-                messaging.convertAndSendToUser(u.getUsername(), "/queue/notifications",
-                        NotificationDto.from(saved));
+                relay.toUser(u.getUsername(), "/queue/notifications", NotificationDto.from(saved));
             }
         }
     }
@@ -128,7 +127,7 @@ public class NotificationService {
     private void pushToUser(Long userId, NotificationDto dto) {
         User u = userRepository.findById(userId).orElse(null);
         if (u != null) {
-            messaging.convertAndSendToUser(u.getUsername(), "/queue/notifications", dto);
+            relay.toUser(u.getUsername(), "/queue/notifications", dto);
         }
     }
 }

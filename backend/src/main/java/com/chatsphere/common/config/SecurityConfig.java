@@ -1,6 +1,7 @@
 package com.chatsphere.common.config;
 
 import com.chatsphere.common.security.JwtAuthenticationFilter;
+import com.chatsphere.common.security.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,10 +26,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final AppProperties props;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter, AppProperties props) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter,
+                          RateLimitFilter rateLimitFilter,
+                          AppProperties props) {
         this.jwtFilter = jwtFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.props = props;
     }
 
@@ -48,7 +53,10 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // After the JWT filter, so a signed-in caller is limited per user
+                // rather than per IP (whole offices share one IP).
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

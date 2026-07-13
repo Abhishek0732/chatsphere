@@ -5,6 +5,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { getConversationMedia, type MediaKind } from '@/api/conversations';
 import { mediaSrc } from '@/utils/media';
+import { ThumbImage } from '@/components/ui/ThumbImage';
 import { downloadFile } from '@/utils/download';
 import { fileNameFromUrl } from '@/utils/format';
 import { cn } from '@/utils/cn';
@@ -85,10 +86,9 @@ export function ConversationMediaSection({
                 }
                 className="aspect-square overflow-hidden rounded-lg glass-panel"
               >
-                <img
-                  src={mediaSrc(m.attachmentUrl)}
+                <ThumbImage
+                  url={m.attachmentUrl}
                   alt=""
-                  loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
                 />
               </button>
