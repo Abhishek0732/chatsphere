@@ -25,14 +25,31 @@ public class UserService {
                 .orElseThrow(() -> ApiException.notFound("User not found: " + id));
     }
 
-    /** Directory search, hard-capped — an unbounded LIKE '%q%' over every user is a full scan. */
+    /** Directory search, hard-capped and index-backed. */
     @Transactional(readOnly = true)
     public List<User> search(String query, Long excludeUserId) {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        return userRepository.search(query.trim(), excludeUserId,
-                org.springframework.data.domain.PageRequest.of(0, SEARCH_LIMIT));
+        String q = query.trim();
+        // FULLTEXT can't see tokens shorter than 3 chars, so short queries take a
+        // bounded prefix match (which an index CAN serve) instead.
+        if (q.length() < 3) {
+            return userRepository.searchPrefix(q, excludeUserId, SEARCH_LIMIT);
+        }
+        String terms = java.util.Arrays.stream(q.split("\\s+"))
+                .map(t -> t.replaceAll("[+\\-><()~*\"@]", ""))
+                .filter(t -> t.length() > 1)
+                .map(t -> t + "*")            // prefix-match each word
+                .collect(java.util.stream.Collectors.joining(" "));
+        if (terms.isBlank()) {
+            return userRepository.searchPrefix(q, excludeUserId, SEARCH_LIMIT);
+        }
+        try {
+            return userRepository.searchFulltext(terms, excludeUserId, SEARCH_LIMIT);
+        } catch (org.springframework.dao.DataAccessException e) {
+            return List.of(); // 2s cap tripped by an absurdly broad term
+        }
     }
 
     /** Nobody scrolls past this, and it bounds the work a single query can cause. */

@@ -10,6 +10,36 @@ import java.util.Optional;
 
 public interface ConversationMemberRepository extends JpaRepository<ConversationMember, Long> {
 
+    /** One statement bumps every recipient of a new message (not the sender). */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("""
+            UPDATE ConversationMember cm SET cm.unreadCount = cm.unreadCount + 1
+            WHERE cm.conversationId = :conversationId AND cm.userId <> :senderId
+            """)
+    void incrementUnread(@org.springframework.data.repository.query.Param("conversationId") Long conversationId,
+                         @org.springframework.data.repository.query.Param("senderId") Long senderId);
+
+    /** Opening a chat clears its badge. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("""
+            UPDATE ConversationMember cm SET cm.unreadCount = 0
+            WHERE cm.conversationId = :conversationId AND cm.userId = :userId
+            """)
+    void clearUnread(@org.springframework.data.repository.query.Param("conversationId") Long conversationId,
+                     @org.springframework.data.repository.query.Param("userId") Long userId);
+
+    /** Deleting an unread message shouldn't leave it counted (never below zero). */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("""
+            UPDATE ConversationMember cm SET cm.unreadCount = cm.unreadCount - 1
+            WHERE cm.conversationId = :conversationId AND cm.userId <> :senderId
+              AND cm.unreadCount > 0
+              AND (cm.lastReadMessageId IS NULL OR cm.lastReadMessageId < :messageId)
+            """)
+    void decrementUnread(@org.springframework.data.repository.query.Param("conversationId") Long conversationId,
+                         @org.springframework.data.repository.query.Param("senderId") Long senderId,
+                         @org.springframework.data.repository.query.Param("messageId") Long messageId);
+
     List<ConversationMember> findByConversationId(Long conversationId);
 
     /** All members for many conversations at once (batched conversation-list build). */

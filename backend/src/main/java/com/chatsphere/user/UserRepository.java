@@ -27,17 +27,36 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByInviteCode(String inviteCode);
 
     /**
-     * Directory search. MUST be called with a Pageable — without a limit this
-     * returned every matching row (a one-letter query on a 100k-user table
-     * returned essentially the whole table, sorted with a filesort).
+     * Directory search, using the FULLTEXT index on (username, display_name,
+     * email). The old JPQL used LIKE '%q%', whose leading wildcard no index can
+     * serve: every search scanned all 100k+ users.
+     *
+     * Deliberately NOT sorted by name: ordering forces MySQL to materialise and
+     * sort every match before applying the LIMIT, so a common term (e.g. a shared
+     * surname) would sort tens of thousands of rows. Relevance order lets it stop
+     * as soon as it has enough.
      */
-    @Query("""
-            SELECT u FROM User u
+    @Query(value = """
+            SELECT /*+ MAX_EXECUTION_TIME(2000) */ u.* FROM users u
             WHERE u.id <> :excludeId
-              AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')))
-            ORDER BY u.displayName ASC
-            """)
-    List<User> search(@Param("q") String q, @Param("excludeId") Long excludeId, Pageable pageable);
+              AND MATCH(u.username, u.display_name, u.email) AGAINST (:q IN BOOLEAN MODE)
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<User> searchFulltext(@Param("q") String q, @Param("excludeId") Long excludeId,
+                             @Param("limit") int limit);
+
+    /**
+     * Fallback for very short queries: InnoDB's FULLTEXT ignores tokens shorter
+     * than innodb_ft_min_token_size (3 by default), so "jo" would find nothing.
+     * Bounded by the LIMIT, which is what made the old version dangerous.
+     */
+    @Query(value = """
+            SELECT u.* FROM users u
+            WHERE u.id <> :excludeId
+              AND (u.username LIKE CONCAT(:q, '%')
+                   OR u.display_name LIKE CONCAT(:q, '%'))
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<User> searchPrefix(@Param("q") String q, @Param("excludeId") Long excludeId,
+                            @Param("limit") int limit);
 }

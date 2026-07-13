@@ -58,7 +58,7 @@ public class ChatWebSocketController {
     @MessageMapping("chat.send")
     public void send(@Payload SendMessageCommand cmd, Principal principal) {
         Long senderId = userId(principal);
-        Message saved = chatService.persistMessage(senderId, cmd);
+        Message saved = persistWithRetry(senderId, cmd);
         MessageDto dto = chatService.toMessageDto(saved, cmd.tempId());
 
         List<Long> members = chatService.memberUserIds(cmd.conversationId());
@@ -71,6 +71,29 @@ public class ChatWebSocketController {
         // Async: the notification fan-out (a row + a push per recipient) must not
         // sit between the sender pressing Enter and their message appearing.
         notificationService.notifyNewMessage(dto, deliverable, senderId);
+    }
+
+    /**
+     * A message must never be silently dropped. The row lock taken in
+     * persistMessage removes the deadlock that used to lose sends, but any
+     * database can still fail a write under contention — so retry a couple of
+     * times before giving up, rather than losing what the user typed.
+     */
+    private Message persistWithRetry(Long senderId, SendMessageCommand cmd) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return chatService.persistMessage(senderId, cmd);
+            } catch (org.springframework.dao.PessimisticLockingFailureException e) {
+                // Covers deadlock + lock-acquisition failures.
+                if (attempt >= 3) throw e;
+                try {
+                    Thread.sleep(20L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
     }
 
     @MessageMapping("chat.typing")

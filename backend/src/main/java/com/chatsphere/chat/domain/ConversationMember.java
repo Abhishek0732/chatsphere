@@ -31,6 +31,13 @@ public class ConversationMember {
     @Column(name = "last_read_message_id")
     private Long lastReadMessageId;
 
+    /**
+     * Unread messages for this member, maintained on write. Counting them per
+     * chat on every list load cost ~260ms for a user with 350 conversations.
+     */
+    @Column(name = "unread_count", nullable = false)
+    private int unreadCount = 0;
+
     /** Per-user "delete chat" marker: messages with id <= this are hidden from this member. */
     @Column(name = "cleared_up_to_message_id")
     private Long clearedUpToMessageId;

@@ -163,27 +163,14 @@ public class ChatService {
         Set<Long> online = presenceService.onlineAmong(directMemberIds);
         Map<Long, java.time.Instant> lastSeen = presenceService.lastSeenAmong(directMemberIds);
 
-        // Unread counts. Counting is proportional to the number of unread rows, so
-        // don't ask about conversations that CANNOT have any: if the newest message
-        // is at or below my read/clear floor, the answer is 0 without touching the
-        // messages table. In practice most of a user's chats are fully read.
-        List<Long> maybeUnread = new ArrayList<>();
-        for (Conversation c : conversations) {
-            Long lastId = c.getLastMessageId();
-            if (lastId == null) continue;
-            ConversationMember vm = viewerMember(membersByConv.get(c.getId()), userId);
-            long floor = 0L;
-            if (vm != null) {
-                long read = vm.getLastReadMessageId() == null ? 0L : vm.getLastReadMessageId();
-                long cleared = vm.getClearedUpToMessageId() == null ? 0L : vm.getClearedUpToMessageId();
-                floor = Math.max(read, cleared);
-            }
-            if (lastId > floor) maybeUnread.add(c.getId());
-        }
+        // Unread counts come straight off my membership row — already loaded above,
+        // so this costs nothing. It used to run a COUNT per conversation over the
+        // messages table (~260ms for a user with 350 chats).
         Map<Long, Long> unreadByConv = new HashMap<>();
-        if (!maybeUnread.isEmpty()) {
-            for (Object[] row : messageRepository.countUnreadPerConversation(userId, maybeUnread)) {
-                unreadByConv.put((Long) row[0], (Long) row[1]);
+        for (Conversation c : conversations) {
+            ConversationMember vm = viewerMember(membersByConv.get(c.getId()), userId);
+            if (vm != null && vm.getUnreadCount() > 0) {
+                unreadByConv.put(c.getId(), (long) vm.getUnreadCount());
             }
         }
 
@@ -274,6 +261,7 @@ public class ChatService {
         if (member.getLastReadMessageId() == null || upTo > member.getLastReadMessageId()) {
             member.setLastReadMessageId(upTo);
         }
+        member.setUnreadCount(0);
         memberRepository.save(member);
     }
 
@@ -344,7 +332,7 @@ public class ChatService {
         if (cleared != null && (floor == null || cleared > floor)) {
             floor = cleared;
         }
-        long unread = messageRepository.countUnread(c.getId(), viewerId, floor);
+        long unread = viewerMember == null ? 0L : viewerMember.getUnreadCount();
 
         return new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(), name, avatar,
                 lastDto, unread, memberDtos, members.size(), c.getUpdatedAt());
@@ -389,6 +377,11 @@ public class ChatService {
     @Transactional
     public Message persistMessage(Long senderId, SendMessageCommand cmd) {
         assertMember(cmd.conversationId(), senderId);
+        // Lock the conversation row FIRST. See findByIdForUpdate: without this,
+        // two concurrent sends into the same chat deadlock on a shared->exclusive
+        // lock upgrade and one of them is rolled back — a lost message.
+        Conversation conv = conversationRepository.findByIdForUpdate(cmd.conversationId())
+                .orElseThrow(() -> ApiException.notFound("Conversation not found"));
         Message m = new Message();
         m.setConversationId(cmd.conversationId());
         m.setSenderId(senderId);
@@ -406,10 +399,11 @@ public class ChatService {
 
         // Point the conversation at its newest message (and touch updated_at so it
         // sorts to the top). The chat list reads this instead of deriving MAX(id).
-        conversationRepository.findById(cmd.conversationId()).ifPresent(c -> {
-            c.setLastMessageId(saved.getId());
-            conversationRepository.save(c);
-        });
+        conv.setLastMessageId(saved.getId());
+        conversationRepository.save(conv);
+        // One UPDATE bumps the unread badge for every recipient, whatever the group
+        // size — so the chat list never has to count messages.
+        memberRepository.incrementUnread(cmd.conversationId(), senderId);
         return saved;
     }
 
@@ -469,10 +463,11 @@ public class ChatService {
         m.setStatusRefCaption(statusCaption);
         m.setStatusRefBgColor(statusBgColor);
         Message saved = messageRepository.save(m);
-        conversationRepository.findById(conversationId).ifPresent(c -> {
+        conversationRepository.findByIdForUpdate(conversationId).ifPresent(c -> {
             c.setLastMessageId(saved.getId());
             conversationRepository.save(c);
         });
+        memberRepository.incrementUnread(conversationId, senderId);
         return saved;
     }
 
@@ -489,6 +484,9 @@ public class ChatService {
         m.setContent(null);
         m.setAttachmentUrl(null);
         Message saved = messageRepository.save(m);
+
+        // A deleted message must not keep inflating anyone's unread badge.
+        memberRepository.decrementUnread(m.getConversationId(), m.getSenderId(), saved.getId());
 
         // If the deleted message was the conversation's preview, move the pointer
         // back to the newest surviving message (indexed, so this is a single seek).
@@ -507,8 +505,15 @@ public class ChatService {
     public void markRead(Long userId, Long conversationId, Long messageId) {
         assertMember(conversationId, userId);
         memberRepository.findByConversationIdAndUserId(conversationId, userId).ifPresent(m -> {
-            if (m.getLastReadMessageId() == null || messageId > m.getLastReadMessageId()) {
+            boolean advanced = m.getLastReadMessageId() == null || messageId > m.getLastReadMessageId();
+            if (advanced) {
                 m.setLastReadMessageId(messageId);
+            }
+            // Clear the badge whenever the chat is opened — NOT only when the read
+            // pointer moves. Otherwise a count left over from any earlier drift
+            // sticks forever, because the pointer is already at the newest message.
+            if (advanced || m.getUnreadCount() != 0) {
+                m.setUnreadCount(0);
                 memberRepository.save(m);
             }
         });

@@ -10,6 +10,24 @@ import java.util.Optional;
 
 public interface ConversationRepository extends JpaRepository<Conversation, Long> {
 
+    /**
+     * Take the conversation's row lock BEFORE writing a message into it.
+     *
+     * Inserting a message takes a shared lock on this row (the foreign key check);
+     * updating last_message_id then needs to upgrade that to an exclusive lock. Two
+     * concurrent sends each held the shared lock and each waited for the other to
+     * release it — a deadlock, and MySQL rolled one of them back, so the message
+     * was SILENTLY LOST. Acquiring the exclusive lock first makes every sender take
+     * locks in the same order, which cannot deadlock.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.QueryHints({
+            @jakarta.persistence.QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000")
+    })
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM Conversation c WHERE c.id = :id")
+    java.util.Optional<Conversation> findByIdForUpdate(
+            @org.springframework.data.repository.query.Param("id") Long id);
+
     Optional<Conversation> findByDirectKey(String directKey);
 
     @Query("""
