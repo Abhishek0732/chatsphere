@@ -12,6 +12,12 @@ export async function requestByQr(code: string): Promise<SendRequestResult> {
   return data;
 }
 
+/** Open an invite link (/i/<code>) to send that user a contact invitation. */
+export async function requestByInvite(code: string): Promise<SendRequestResult> {
+  const { data } = await api.post<SendRequestResult>('/contacts/invite', { code });
+  return data;
+}
+
 /** Sends a contact invitation. The user is only added once they accept. */
 export async function addContact(contactUserId: number): Promise<SendRequestResult> {
   const { data } = await api.post<SendRequestResult>('/contacts', { contactUserId });

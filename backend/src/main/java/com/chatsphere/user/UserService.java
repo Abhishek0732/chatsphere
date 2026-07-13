@@ -2,6 +2,7 @@ package com.chatsphere.user;
 
 import com.chatsphere.common.error.ApiException;
 import com.chatsphere.common.util.QrTokens;
+import com.chatsphere.user.dto.InviteDto;
 import com.chatsphere.user.dto.QrDto;
 import com.chatsphere.user.dto.UpdateProfileRequest;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,38 @@ public class UserService {
         u.setQrToken(QrTokens.newToken());
         userRepository.save(u);
         return new QrDto(u.getQrToken(), QrTokens.payload(u.getQrToken()));
+    }
+
+    /**
+     * The short code behind my shareable invite link. Minted on first use, so
+     * existing accounts get one without a backfill.
+     */
+    @Transactional
+    public InviteDto myInvite(Long userId) {
+        User u = getById(userId);
+        if (u.getInviteCode() == null || u.getInviteCode().isBlank()) {
+            u.setInviteCode(freshInviteCode());
+            userRepository.save(u);
+        }
+        return new InviteDto(u.getInviteCode());
+    }
+
+    /** Issue a new invite code — any link already shared stops working. */
+    @Transactional
+    public InviteDto rotateInvite(Long userId) {
+        User u = getById(userId);
+        u.setInviteCode(freshInviteCode());
+        userRepository.save(u);
+        return new InviteDto(u.getInviteCode());
+    }
+
+    /** A code nobody else holds. Collisions are vanishingly rare, but cheap to retry. */
+    private String freshInviteCode() {
+        for (int i = 0; i < 10; i++) {
+            String code = QrTokens.newInviteCode();
+            if (!userRepository.existsByInviteCode(code)) return code;
+        }
+        throw ApiException.badRequest("Could not allocate an invite code, please retry");
     }
 
     @Transactional

@@ -41,6 +41,22 @@ export async function rotateMyQr(): Promise<QrInfo> {
   return data;
 }
 
+/** The short code behind my shareable invite link (/i/<code>). */
+export interface InviteInfo {
+  code: string;
+}
+
+export async function getMyInvite(): Promise<InviteInfo> {
+  const { data } = await api.get<InviteInfo>('/users/me/invite');
+  return data;
+}
+
+/** Issue a new invite code — any link already shared stops working. */
+export async function rotateMyInvite(): Promise<InviteInfo> {
+  const { data } = await api.post<InviteInfo>('/users/me/invite/rotate');
+  return data;
+}
+
 export async function getUser(id: number): Promise<User> {
   const { data } = await api.get<User>(`/users/${id}`);
   return data;

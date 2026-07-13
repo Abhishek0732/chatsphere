@@ -49,6 +49,10 @@ public class User {
     @Column(name = "qr_token", nullable = false, unique = true, length = 64)
     private String qrToken;
 
+    /** Short code behind the shareable "add me" link (/i/<code>). Rotatable. */
+    @Column(name = "invite_code", unique = true, length = 16)
+    private String inviteCode;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 

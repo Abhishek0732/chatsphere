@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
-import { requestByQr } from '@/api/contacts';
+import { requestByInvite } from '@/api/contacts';
 import { useAuthStore } from '@/store/authStore';
 import { queryClient } from '@/services/queryClient';
 import { queryKeys } from '@/api/queryKeys';
@@ -9,31 +9,18 @@ import { toast } from '@/store/toastStore';
 import { apiErrorMessage } from '@/utils/apiError';
 import { Spinner } from '@/components/ui/Spinner';
 import { Logo } from '@/components/ui/Logo';
-import { pendingInvitePath } from '@/utils/pendingInvite';
-
-/** sessionStorage key used to resume a QR add after logging in. */
-export const PENDING_QR_KEY = 'pendingQrToken';
+import { PENDING_INVITE_KEY } from '@/utils/pendingInvite';
 
 /**
- * Where to send a just-authenticated user if an add is pending — from a scanned
- * QR *or* a shared invite link. Used by BOTH the auth hooks and PublicOnlyRoute
- * so whichever redirect fires wins the same way. Peeks only; the landing page
- * clears its key once it processes the code.
+ * Landing page for a shared invite link ({@code /i/<code>}). The code is a
+ * random lookup key — it carries no user id and no long-lived secret, which is
+ * why this link is safe to paste into a chat, unlike the raw QR token.
+ *
+ * Signed in, it sends the contact invitation straight away (they still have to
+ * accept). Signed out, it stashes the path and resumes here after login.
  */
-export function pendingQrPath(): string | null {
-  const token = sessionStorage.getItem(PENDING_QR_KEY);
-  if (token) return `/add?token=${encodeURIComponent(token)}`;
-  return pendingInvitePath();
-}
-
-/**
- * Landing page for a scanned QR deep link ({@code /add?token=…}). If signed in,
- * it sends the contact invitation immediately; if not, it stashes the token and
- * routes to login, which resumes here afterwards.
- */
-export function AddByQrPage() {
-  const [params] = useSearchParams();
-  const token = params.get('token') ?? '';
+export function InvitePage() {
+  const { code = '' } = useParams();
   const navigate = useNavigate();
   const hydrated = useAuthStore((s) => s.hydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -44,22 +31,21 @@ export function AddByQrPage() {
   useEffect(() => {
     if (!hydrated || ran.current) return;
 
-    if (!token) {
+    if (!code) {
       ran.current = true;
       setState('error');
-      setMessage('This link is missing its code.');
+      setMessage('This invite link is missing its code.');
       return;
     }
     if (!accessToken) {
-      // Not signed in — remember the token and continue after auth.
-      sessionStorage.setItem(PENDING_QR_KEY, token);
+      sessionStorage.setItem(PENDING_INVITE_KEY, `/i/${encodeURIComponent(code)}`);
       navigate('/login', { replace: true });
       return;
     }
 
     ran.current = true;
-    sessionStorage.removeItem(PENDING_QR_KEY); // consumed — don't resume again
-    requestByQr(token)
+    sessionStorage.removeItem(PENDING_INVITE_KEY); // consumed — don't resume again
+    requestByInvite(code)
       .then((res) => {
         if (res.status === 'ACCEPTED') {
           void queryClient.invalidateQueries({ queryKey: queryKeys.contacts });
@@ -68,7 +54,11 @@ export function AddByQrPage() {
           setMessage('You are now connected.');
         } else {
           void queryClient.invalidateQueries({ queryKey: queryKeys.contactRequestsOutgoing });
-          toast({ title: 'Invitation sent', description: 'They need to accept it.', variant: 'success' });
+          toast({
+            title: 'Invitation sent',
+            description: 'They need to accept it.',
+            variant: 'success',
+          });
           setMessage('Invitation sent. They need to accept it.');
         }
         setState('done');
@@ -76,9 +66,9 @@ export function AddByQrPage() {
       })
       .catch((err) => {
         setState('error');
-        setMessage(apiErrorMessage(err, 'This QR code is invalid or expired.'));
+        setMessage(apiErrorMessage(err, 'This invite link is invalid or expired.'));
       });
-  }, [hydrated, accessToken, token, navigate]);
+  }, [hydrated, accessToken, code, navigate]);
 
   return (
     <div className="flex min-h-full items-center justify-center bg-surface p-6 text-on-surface">

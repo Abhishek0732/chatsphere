@@ -39,6 +39,12 @@ public class ContactController {
         return contactService.requestByQr(SecurityUtils.currentUserId(), req.code());
     }
 
+    /** Open an invite link (/i/<code>) to send that user a contact invitation. */
+    @PostMapping("/invite")
+    public SendRequestResult addByInvite(@Valid @RequestBody QrAddRequest req) {
+        return contactService.requestByInvite(SecurityUtils.currentUserId(), req.code());
+    }
+
     @GetMapping("/requests")
     public List<ContactRequestDto> incoming() {
         return contactService.incomingRequests(SecurityUtils.currentUserId());

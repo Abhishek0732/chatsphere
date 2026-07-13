@@ -195,6 +195,23 @@ public class ContactService {
         return sendRequest(scannerId, new AddContactRequest(target.getId(), null));
     }
 
+    /**
+     * Open someone's invite link (/i/&lt;code&gt;). Same outcome as scanning their QR:
+     * an invitation they must accept — never an automatic add. The code is a
+     * random lookup key, so the link exposes neither a user id nor a long-lived
+     * secret, and rotating it kills every link already shared.
+     */
+    @Transactional
+    public SendRequestResult requestByInvite(Long actorId, String rawCode) {
+        String code = QrTokens.parseInviteCode(rawCode);
+        if (code.isBlank()) {
+            throw ApiException.badRequest("Invalid invite link");
+        }
+        User target = userRepository.findByInviteCode(code)
+                .orElseThrow(() -> ApiException.badRequest("This invite link is invalid or expired"));
+        return sendRequest(actorId, new AddContactRequest(target.getId(), null));
+    }
+
     @Transactional
     public void remove(Long ownerId, Long contactId) {
         Contact c = contactRepository.findByIdAndOwnerId(contactId, ownerId)

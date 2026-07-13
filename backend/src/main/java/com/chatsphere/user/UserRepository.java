@@ -21,6 +21,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByQrToken(String qrToken);
 
+    Optional<User> findByInviteCode(String inviteCode);
+
+    boolean existsByInviteCode(String inviteCode);
+
     @Query("""
             SELECT u FROM User u
             WHERE u.id <> :excludeId

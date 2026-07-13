@@ -15,11 +15,40 @@ public final class QrTokens {
 
     private QrTokens() {}
 
+    /** Alphabet for the short invite code: no 0/O/1/l, so it survives being read aloud. */
+    private static final String CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    private static final int CODE_LENGTH = 8;
+
     /** A fresh url-safe token (~32 chars). */
     public static String newToken() {
         byte[] bytes = new byte[24];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * A short random invite code for a shareable "add me" link ({@code /i/<code>}).
+     * It encodes nothing — it is a random lookup key, so the link gives away no
+     * user id and no long-lived secret, and stays short enough to read out.
+     * 56^8 ≈ 9.6e13 possibilities, so guessing one is not feasible.
+     */
+    public static String newInviteCode() {
+        StringBuilder sb = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            sb.append(CODE_ALPHABET.charAt(RANDOM.nextInt(CODE_ALPHABET.length())));
+        }
+        return sb.toString();
+    }
+
+    /** Pull the code out of an invite link ({@code https://host/i/<code>}) or take it raw. */
+    public static String parseInviteCode(String input) {
+        if (input == null) return "";
+        String c = input.trim();
+        int idx = c.lastIndexOf("/i/");
+        if (idx >= 0) c = c.substring(idx + 3);
+        int q = c.indexOf('?');
+        if (q >= 0) c = c.substring(0, q);
+        return c.trim();
     }
 
     public static String payload(String token) {

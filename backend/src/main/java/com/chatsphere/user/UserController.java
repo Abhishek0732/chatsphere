@@ -2,6 +2,7 @@ package com.chatsphere.user;
 
 import com.chatsphere.common.security.SecurityUtils;
 import com.chatsphere.presence.PresenceService;
+import com.chatsphere.user.dto.InviteDto;
 import com.chatsphere.user.dto.QrDto;
 import com.chatsphere.user.dto.UpdateProfileRequest;
 import com.chatsphere.user.dto.UserDto;
@@ -40,6 +41,18 @@ public class UserController {
     @PostMapping("/me/qr/rotate")
     public QrDto rotateQr() {
         return userService.rotateQr(SecurityUtils.currentUserId());
+    }
+
+    /** The short code behind my shareable invite link (/i/<code>). */
+    @GetMapping("/me/invite")
+    public InviteDto myInvite() {
+        return userService.myInvite(SecurityUtils.currentUserId());
+    }
+
+    /** Issue a new invite code — any link already shared stops working. */
+    @PostMapping("/me/invite/rotate")
+    public InviteDto rotateInvite() {
+        return userService.rotateInvite(SecurityUtils.currentUserId());
     }
 
     @GetMapping
