@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Music2, Pause, Play, Search, Upload } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/utils/cn';
 import { mediaSrc } from '@/utils/media';
 import { uploadMedia, uploadSizeError } from '@/api/media';
+import { getMusicCategories, searchMusic, type CatalogTrack } from '@/api/music';
 import { toast } from '@/store/toastStore';
-import { MUSIC_LIBRARY, type LibraryTrack, type MusicSelection } from './musicLibrary';
+import { useDebounce } from '@/hooks/useDebounce';
+import { MUSIC_LIBRARY, type MusicSelection } from './musicLibrary';
 import { useResetOnClose } from '@/hooks/useResetOnClose';
 
 function fmt(ms: number) {
@@ -32,6 +35,18 @@ function readDuration(file: File): Promise<number> {
   });
 }
 
+/** The bundled loops, shaped like catalogue tracks — used when the catalogue
+ *  is unreachable (offline / upstream down) so the picker is never empty. */
+const OFFLINE_TRACKS: CatalogTrack[] = MUSIC_LIBRARY.map((t) => ({
+  id: t.id,
+  title: t.title,
+  artist: t.artist,
+  genre: t.genre,
+  artworkUrl: '',
+  previewUrl: t.url,
+  durationMs: t.durationMs,
+}));
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -39,25 +54,50 @@ interface Props {
 }
 
 export function MusicPicker({ open, onClose, onSelect }: Props) {
-  const [tab, setTab] = useState<'library' | 'device'>('library');
+  const [tab, setTab] = useState<'catalog' | 'device'>('catalog');
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('Trending');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const debouncedQuery = useDebounce(query, 350);
+
   useResetOnClose(open, () => {
     setQuery('');
-    setTab('library');
+    setCategory('Trending');
+    setTab('catalog');
     setPlayingId(null);
   });
+
   // One shared <audio> for previews — never one element per row.
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const { data: categories } = useQuery({
+    queryKey: ['music', 'categories'],
+    queryFn: getMusicCategories,
+    enabled: open,
+    staleTime: Infinity,
+  });
+
+  // Searching overrides the category shelf, as in Instagram.
+  const searching = debouncedQuery.trim().length > 0;
+  const { data: tracks, isLoading } = useQuery({
+    queryKey: ['music', 'search', searching ? debouncedQuery.trim() : `cat:${category}`],
+    queryFn: () =>
+      searchMusic(searching ? { q: debouncedQuery.trim() } : { category, limit: 25 }),
+    enabled: open && tab === 'catalog',
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // If the catalogue is unreachable, don't show an empty sheet.
+  const offline = !isLoading && (tracks?.length ?? 0) === 0 && !searching;
+  const list = offline ? OFFLINE_TRACKS : (tracks ?? []);
 
   const stopPreview = () => {
     audioRef.current?.pause();
     setPlayingId(null);
   };
 
-  // Tear down the preview whenever the sheet closes or unmounts.
   useEffect(() => {
     if (!open) stopPreview();
     return () => {
@@ -66,25 +106,19 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
     };
   }, [open]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return MUSIC_LIBRARY;
-    return MUSIC_LIBRARY.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.artist.toLowerCase().includes(q) ||
-        t.genre.toLowerCase().includes(q),
-    );
-  }, [query]);
+  // Changing shelf/search shouldn't leave the old clip playing.
+  useEffect(() => {
+    stopPreview();
+  }, [category, debouncedQuery]);
 
-  const preview = (t: LibraryTrack) => {
+  const preview = (t: CatalogTrack) => {
     if (playingId === t.id) return stopPreview();
     if (!audioRef.current) audioRef.current = new Audio();
     const a = audioRef.current;
-    a.src = mediaSrc(t.url);
+    a.src = mediaSrc(t.previewUrl);
     a.currentTime = 0;
     a.onended = () => setPlayingId(null);
-    void a.play().catch(() => {});
+    void a.play().catch(() => toast({ title: 'Could not play this track', variant: 'error' }));
     setPlayingId(t.id);
   };
 
@@ -94,8 +128,13 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
     onClose();
   };
 
-  const pickFromLibrary = (t: LibraryTrack) =>
-    choose({ url: t.url, title: t.title, artist: t.artist, durationMs: t.durationMs });
+  const pickTrack = (t: CatalogTrack) =>
+    choose({
+      url: t.previewUrl,
+      title: t.title,
+      artist: t.artist,
+      durationMs: t.durationMs,
+    });
 
   const pickFromDevice = async (file?: File) => {
     if (!file) return;
@@ -119,7 +158,7 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
       <div className="space-y-3">
         {/* Tabs */}
         <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-          {(['library', 'device'] as const).map((t) => (
+          {(['catalog', 'device'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -130,75 +169,115 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
                   : 'text-slate-500 dark:text-slate-400',
               )}
             >
-              {t === 'library' ? <Music2 className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-              {t === 'library' ? 'Library' : 'My device'}
+              {t === 'catalog' ? <Music2 className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              {t === 'catalog' ? 'Music' : 'My device'}
             </button>
           ))}
         </div>
 
-        {tab === 'library' ? (
+        {tab === 'catalog' ? (
           <>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search songs, artists, moods…"
+                placeholder="Search songs and artists…"
                 className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
 
-            <ul className="max-h-[46vh] space-y-1 overflow-y-auto scrollbar-thin pr-1">
-              {filtered.map((t) => {
-                const isPlaying = playingId === t.id;
-                return (
-                  <li key={t.id}>
-                    <button
-                      onClick={() => pickFromLibrary(t)}
-                      className="group flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      {/* Cover + play/pause overlay */}
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          preview(t);
-                        }}
-                        className={cn(
-                          'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-lg shadow-sm',
-                          t.cover,
-                        )}
+            {/* Browse shelves — hidden while searching, as in Instagram. */}
+            {!searching && (categories ?? []).length > 0 && (
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
+                {(categories ?? []).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={cn(
+                      'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition',
+                      c === category
+                        ? 'bg-brand-gradient text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300',
+                    )}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {offline && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                Couldn’t reach the music catalogue — showing the built-in tracks.
+              </p>
+            )}
+
+            {isLoading ? (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            ) : (
+              <ul className="max-h-[46vh] space-y-1 overflow-y-auto scrollbar-thin pr-1">
+                {list.map((t) => {
+                  const isPlaying = playingId === t.id;
+                  return (
+                    <li key={t.id}>
+                      <button
+                        onClick={() => pickTrack(t)}
+                        className="group flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
                       >
-                        <span className={cn('transition', isPlaying && 'opacity-0')}>{t.emoji}</span>
+                        {/* Cover art + play/pause overlay. Tapping the art plays
+                            the clip; tapping the row picks the song. */}
                         <span
-                          className={cn(
-                            'absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 text-white transition',
-                            isPlaying
-                              ? 'opacity-100'
-                              : 'opacity-0 group-hover:opacity-100',
-                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            preview(t);
+                          }}
+                          className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-sm"
                         >
-                          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          {t.artworkUrl ? (
+                            <img
+                              src={t.artworkUrl}
+                              alt=""
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Music2 className="h-5 w-5 text-white" />
+                          )}
+                          <span
+                            className={cn(
+                              'absolute inset-0 flex items-center justify-center bg-black/45 text-white transition',
+                              isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                            )}
+                          >
+                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          </span>
                         </span>
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {t.title}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {t.title}
+                          </span>
+                          <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                            {t.artist}
+                            {t.genre ? ` · ${t.genre}` : ''}
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                          {t.artist} · {t.genre}
+                        <span className="shrink-0 text-xs tabular-nums text-slate-400">
+                          {fmt(t.durationMs)}
                         </span>
-                      </span>
-                      <span className="shrink-0 text-xs tabular-nums text-slate-400">
-                        {fmt(t.durationMs)}
-                      </span>
-                    </button>
+                      </button>
+                    </li>
+                  );
+                })}
+                {list.length === 0 && (
+                  <li className="py-8 text-center text-sm text-slate-400">
+                    No songs found for “{debouncedQuery}”.
                   </li>
-                );
-              })}
-              {filtered.length === 0 && (
-                <li className="py-8 text-center text-sm text-slate-400">No tracks found.</li>
-              )}
-            </ul>
+                )}
+              </ul>
+            )}
           </>
         ) : (
           <div className="py-4">

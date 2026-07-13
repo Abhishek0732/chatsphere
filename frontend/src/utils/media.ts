@@ -9,13 +9,17 @@
  *  - blob:/data: previews (freshly picked, not yet uploaded)  → returned as-is.
  *  - Legacy absolute MinIO URLs ("http://host:9000/bucket/…") → rewritten to the
  *    same-origin "/media/bucket/…" path so old messages keep working.
+ *  - Any OTHER absolute URL (e.g. a catalogue song's preview clip or its cover
+ *    art, which live on an external CDN) → returned untouched. Rewriting those
+ *    to /media would point them at our own storage, where they don't exist.
  */
 export function mediaSrc(url?: string | null): string {
   if (!url) return '';
   if (url.startsWith('/') || url.startsWith('blob:') || url.startsWith('data:')) return url;
   try {
     const u = new URL(url);
-    return `/media${u.pathname}`;
+    const isMinio = u.port === '9000' || u.pathname.startsWith('/chatsphere-media/');
+    return isMinio ? `/media${u.pathname}` : url;
   } catch {
     return url;
   }
