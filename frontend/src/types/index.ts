@@ -77,6 +77,8 @@ export interface StatusItem {
   createdAt: string;
   viewed: boolean;
   viewCount: number;
+  /** People @mentioned in the caption/text. */
+  mentions?: User[];
 }
 
 export interface StatusUser {
@@ -100,6 +102,8 @@ export interface CreateStatusPayload {
   musicTitle?: string;
   musicArtist?: string;
   musicDurationMs?: number;
+  /** Ids of the contacts @mentioned in the caption/text. */
+  mentions?: number[];
 }
 
 export interface StatusReplyPayload {

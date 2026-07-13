@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { mediaSrc } from '@/utils/media';
 import { useAuthStore } from '@/store/authStore';
+import { StatusText } from './StatusText';
 import type { MusicSelection } from './musicLibrary';
 
 /** Must match StatusViewer, or the preview would lie about the timing. */
@@ -17,6 +18,8 @@ export interface StatusDraft {
   caption?: string;
   bgColor?: string;
   music: MusicSelection | null;
+  /** Display names tagged in the text, so the preview highlights them too. */
+  mentionNames?: string[];
 }
 
 /**
@@ -139,7 +142,7 @@ export function StatusPreview({
         )}
         {draft.type === 'TEXT' && (
           <p className="max-w-lg px-8 text-center text-2xl font-semibold leading-snug text-white">
-            {draft.caption}
+            <StatusText text={draft.caption ?? ''} names={draft.mentionNames ?? []} />
           </p>
         )}
 
@@ -157,7 +160,9 @@ export function StatusPreview({
 
       <div className="px-4 pb-6 pt-3">
         {draft.type !== 'TEXT' && draft.caption && (
-          <p className="mb-3 text-center text-sm text-white">{draft.caption}</p>
+          <p className="mb-3 text-center text-sm text-white">
+            <StatusText text={draft.caption} names={draft.mentionNames ?? []} />
+          </p>
         )}
         {draft.music && (
           <div className="mx-auto mb-4 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">

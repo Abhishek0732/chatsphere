@@ -18,7 +18,9 @@ public final class StatusDtos {
             String musicUrl,
             String musicTitle,
             String musicArtist,
-            Integer musicDurationMs) {}
+            Integer musicDurationMs,
+            /** Ids of the contacts @mentioned in the caption/text. */
+            List<Long> mentions) {}
 
     /** Reply to a status: a free-text message, an emoji reaction, or both. */
     public record StatusReplyRequest(String text, String emoji) {}
@@ -38,7 +40,9 @@ public final class StatusDtos {
             Integer musicDurationMs,
             Instant createdAt,
             boolean viewed,
-            long viewCount) {}
+            long viewCount,
+            /** The people @mentioned in this status, resolved for rendering. */
+            List<UserDto> mentions) {}
 
     /** All of one user's active statuses, grouped. */
     public record StatusUserDto(UserDto user, boolean me, boolean allViewed, List<StatusItemDto> items) {}

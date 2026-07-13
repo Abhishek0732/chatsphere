@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Music2, Send, Trash2, X } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   useReplyToStatus,
   useStatusViewers,
 } from '@/hooks/useStatus';
+import { StatusText } from './StatusText';
 import type { StatusUser } from '@/types';
 
 const IMAGE_MS = 5000;
@@ -63,6 +64,10 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
 
   const user = users[userIndex];
   const item = user?.items[itemIndex];
+  const mentionNames = useMemo(
+    () => (item?.mentions ?? []).map((m) => m.displayName),
+    [item?.mentions],
+  );
 
   const { data: viewers } = useStatusViewers(
     item?.id ?? null,
@@ -263,7 +268,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
         )}
         {item.type === 'TEXT' && (
           <p className="max-w-lg px-8 text-center text-2xl font-semibold leading-snug text-white">
-            {item.caption}
+            <StatusText text={item.caption ?? ''} names={mentionNames} />
           </p>
         )}
       </div>
@@ -271,7 +276,9 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
       {/* Caption + seen-by / reply bar */}
       <div className="px-4 pb-6 pt-3">
         {item.type !== 'TEXT' && item.caption && (
-          <p className="mb-3 text-center text-sm text-white">{item.caption}</p>
+          <p className="mb-3 text-center text-sm text-white">
+            <StatusText text={item.caption} names={mentionNames} />
+          </p>
         )}
         {item.musicUrl && item.musicTitle && (
           <div className="mx-auto mb-3 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">

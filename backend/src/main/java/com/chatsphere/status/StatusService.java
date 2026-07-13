@@ -93,8 +93,74 @@ public class StatusService {
             Integer dur = req.musicDurationMs();
             s.setMusicDurationMs(dur != null && dur > 0 ? dur : null);
         }
+        s.setMentions(encodeMentions(userId, req.mentions()));
         s.setExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
-        return toItem(statusRepository.save(s), true, 0);
+        Status saved = statusRepository.save(s);
+
+        notifyMentioned(userId, saved);
+        return toItem(saved, true, 0, mentionUsers(List.of(saved)));
+    }
+
+    /** Ids a client may tag in one status. Bounds the stored CSV. */
+    private static final int MAX_MENTIONS = 32;
+
+    /**
+     * Keep only people who are actually the author's contacts — a client can't
+     * tag (and so notify) a stranger by hand-crafting the request.
+     */
+    private String encodeMentions(Long authorId, List<Long> mentions) {
+        if (mentions == null || mentions.isEmpty()) return null;
+        Set<Long> contacts = contactRepository.findByOwnerIdOrderByIdDesc(authorId).stream()
+                .map(c -> c.getContactUserId())
+                .collect(Collectors.toSet());
+        String csv = mentions.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .filter(contacts::contains)
+                .limit(MAX_MENTIONS)
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
+        return csv.isEmpty() ? null : csv;
+    }
+
+    private static List<Long> decodeMentions(String csv) {
+        if (csv == null || csv.isBlank()) return List.of();
+        List<Long> ids = new ArrayList<>();
+        for (String part : csv.split(",")) {
+            try {
+                ids.add(Long.valueOf(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // skip
+            }
+        }
+        return ids;
+    }
+
+    /** Tell the tagged people — being mentioned is the point of tagging. */
+    private void notifyMentioned(Long authorId, Status s) {
+        List<Long> ids = decodeMentions(s.getMentions());
+        if (ids.isEmpty()) return;
+        String author = userRepository.findById(authorId)
+                .map(User::getDisplayName).orElse("Someone");
+        String preview = s.getCaption() == null || s.getCaption().isBlank()
+                ? "mentioned you in their status"
+                : "mentioned you in their status: " + s.getCaption();
+        for (Long uid : ids) {
+            if (Objects.equals(uid, authorId)) continue;
+            // refId stays null: a status id is not a conversation id, and the
+            // client turns a non-null ref into a "open this chat" link.
+            notificationService.notifyUser(uid, "STATUS_MENTION", author, preview, null);
+        }
+    }
+
+    /** All mentioned users across these statuses, in ONE query (no N+1 in the feed). */
+    private Map<Long, User> mentionUsers(List<Status> statuses) {
+        Set<Long> ids = statuses.stream()
+                .flatMap(s -> decodeMentions(s.getMentions()).stream())
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
     }
 
     /** Statuses from me + my contacts + everyone I share a conversation with. */
@@ -121,6 +187,8 @@ public class StatusService {
                 .map(StatusView::getStatusId).collect(Collectors.toSet());
         Map<Long, User> users = userRepository.findAllById(visible).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
+        // Everyone mentioned across the whole feed, in one query.
+        Map<Long, User> mentioned = mentionUsers(statuses);
 
         Map<Long, List<Status>> byUser = new LinkedHashMap<>();
         for (Status s : statuses) {
@@ -142,7 +210,7 @@ public class StatusService {
                 boolean viewed = isMe || viewedByMe.contains(s.getId());
                 if (!viewed) allViewed = false;
                 long count = isMe ? viewRepository.countByStatusId(s.getId()) : 0;
-                items.add(toItem(s, viewed, count));
+                items.add(toItem(s, viewed, count, mentioned));
             }
             result.add(new StatusUserDto(UserDto.from(u), isMe, allViewed, items));
         }
@@ -324,10 +392,15 @@ public class StatusService {
         };
     }
 
-    private StatusItemDto toItem(Status s, boolean viewed, long count) {
+    private StatusItemDto toItem(Status s, boolean viewed, long count, Map<Long, User> mentioned) {
+        List<UserDto> mentions = decodeMentions(s.getMentions()).stream()
+                .map(mentioned::get)
+                .filter(Objects::nonNull)
+                .map(UserDto::from)
+                .toList();
         return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), s.getCaption(),
                 s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
-                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count);
+                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count, mentions);
     }
 
     private static boolean isBlank(String s) {

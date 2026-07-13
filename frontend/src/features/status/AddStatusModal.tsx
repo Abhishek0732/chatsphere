@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Eye, Image as ImageIcon, Music2, Type, Video, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +8,8 @@ import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { mediaSrc } from '@/utils/media';
 import { useCreateStatus } from '@/hooks/useStatus';
+import { useContacts } from '@/hooks/useContacts';
+import { MentionField, mentionsIn } from '@/components/ui/MentionField';
 import { MusicPicker } from './MusicPicker';
 import { StatusPreview, type StatusDraft } from './StatusPreview';
 import type { MusicSelection } from './musicLibrary';
@@ -28,6 +30,7 @@ interface Media {
 
 export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateStatus();
+  const { data: contacts } = useContacts();
   const [mode, setMode] = useState<'media' | 'text'>('media');
   const [media, setMedia] = useState<Media | null>(null);
   const [caption, setCaption] = useState('');
@@ -40,6 +43,12 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
 
   const mediaInput = useRef<HTMLInputElement>(null);
 
+  // @mentions: you can tag your contacts in a status, as in Instagram/WhatsApp.
+  // The map remembers what each inserted "@Name" tags, so a mention the user
+  // deletes from the text is dropped on post.
+  const tagged = useRef<Map<string, number>>(new Map());
+  const people = useMemo(() => (contacts ?? []).map((c) => c.user), [contacts]);
+
   const reset = () => {
     setMedia(null);
     setCaption('');
@@ -47,6 +56,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     setMusic(null);
     setPreviewOpen(false);
     setMode('media');
+    tagged.current.clear();
   };
 
   const close = () => {
@@ -80,14 +90,19 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     : {};
 
   const post = () => {
+    // Only tags still present in the posted text count.
+    const ids = mentionsIn(body, tagged.current);
+    const mentions = ids.length > 0 ? ids : undefined;
+
     const payload =
       mode === 'text'
-        ? { type: 'TEXT' as const, caption: text.trim(), bgColor: bg, ...musicFields }
+        ? { type: 'TEXT' as const, caption: body, bgColor: bg, mentions, ...musicFields }
         : media
           ? {
               type: media.type,
               mediaUrl: media.url,
-              caption: caption.trim() || undefined,
+              caption: body || undefined,
+              mentions,
               ...musicFields,
             }
           : null;
@@ -99,14 +114,19 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const canPost = mode === 'text' ? text.trim().length > 0 : !!media;
 
   // What the preview renders — the same values that get posted.
+  const body = mode === 'text' ? text.trim() : caption.trim();
+  const mentionNames = people
+    .filter((p) => body.includes(`@${p.displayName}`))
+    .map((p) => p.displayName);
   const draft: StatusDraft =
     mode === 'text'
-      ? { type: 'TEXT', caption: text.trim(), bgColor: bg, music }
+      ? { type: 'TEXT', caption: body, bgColor: bg, music, mentionNames }
       : {
           type: media?.type ?? 'IMAGE',
           mediaUrl: media?.url,
-          caption: caption.trim() || undefined,
+          caption: body || undefined,
           music,
+          mentionNames,
         };
 
   return (
@@ -181,10 +201,13 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
               className="flex min-h-44 items-center justify-center rounded-2xl p-5"
               style={{ backgroundImage: bg }}
             >
-              <textarea
+              <MentionField
+                multiline
                 value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Type a status…"
+                onChange={setText}
+                people={people}
+                tagged={tagged}
+                placeholder="Type a status… use @ to mention"
                 rows={3}
                 className="w-full resize-none bg-transparent text-center text-lg font-semibold text-white placeholder:text-white/70 focus:outline-none"
               />
@@ -208,10 +231,12 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
 
         {/* Caption (media only) */}
         {mode === 'media' && media && (
-          <input
+          <MentionField
             value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Add a caption…"
+            onChange={setCaption}
+            people={people}
+            tagged={tagged}
+            placeholder="Add a caption… use @ to mention"
             className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
         )}

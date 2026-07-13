@@ -47,6 +47,10 @@ public class Status {
     @Column(name = "music_duration_ms")
     private Integer musicDurationMs;
 
+    /** Ids of the users @mentioned in the caption/text, as a CSV (e.g. "3,7"). */
+    @Column(length = 512)
+    private String mentions;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
