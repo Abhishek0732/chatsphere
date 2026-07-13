@@ -2,8 +2,6 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicOnlyRoute } from './PublicOnlyRoute';
-import { AppLayout } from '@/layouts/AppLayout';
-import { ChatShell } from '@/layouts/ChatShell';
 import { Spinner } from '@/components/ui/Spinner';
 // Login/Register and the empty-chat placeholder are the first paint — keep them
 // eager so there's no loading flash before auth.
@@ -14,6 +12,12 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { AddByQrPage } from '@/pages/AddByQrPage';
 import { InvitePage } from '@/pages/InvitePage';
 import { EmptyChatPage } from '@/pages/EmptyChatPage';
+
+// The authenticated shell is lazy too. It was eager, and it statically pulls in
+// the STOMP + SockJS client, the call stack and the conversation list — so an
+// anonymous visitor downloaded and parsed all of it just to see a login form.
+const AppLayout = lazy(() => import('@/layouts/AppLayout').then((m) => ({ default: m.AppLayout })));
+const ChatShell = lazy(() => import('@/layouts/ChatShell').then((m) => ({ default: m.ChatShell })));
 
 // Everything else is code-split into its own chunk, so the initial bundle stays
 // small and heavy screens (calls, settings, profile) load only when visited.

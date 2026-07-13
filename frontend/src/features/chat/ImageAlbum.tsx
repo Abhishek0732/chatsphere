@@ -36,8 +36,12 @@ function ImageAlbumInner({
   onForward?: (message: Message) => void;
 }) {
   const openGallery = useImageViewer((s) => s.openGallery);
-  const revealed = useMediaRevealStore((s) => s.revealed);
+  // Select a boolean, not the whole map: subscribing to `s.revealed` re-rendered
+  // every album in the thread whenever any one of them was revealed.
   const reveal = useMediaRevealStore((s) => s.reveal);
+  const allRevealed = useMediaRevealStore((s) =>
+    messages.every((m) => m.id <= 0 || Boolean(s.revealed[m.id])),
+  );
   const galleryImages = messages.map((m) => ({ name: m.content || 'Photo', src: m.attachmentUrl }));
 
   const count = messages.length;
@@ -48,7 +52,7 @@ function ImageAlbumInner({
 
   const [galleryOpen, setGalleryOpen] = useState(false);
 
-  const gated = !mine && messages.some((m) => m.id > 0 && !revealed[m.id]);
+  const gated = !mine && !allRevealed;
   const revealAll = () => messages.forEach((m) => m.id > 0 && reveal(m.id));
 
   const tile = (m: Message, i: number, className: string) => {

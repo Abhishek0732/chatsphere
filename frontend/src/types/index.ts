@@ -137,7 +137,10 @@ export interface ConversationSummary {
   avatarUrl?: string;
   lastMessage?: Message | null;
   unreadCount: number;
+  /** DIRECT: both participants. GROUP: empty — fetch the roster with useGroup(). */
   members: User[];
+  /** True member count, even when `members` is empty (groups). */
+  memberCount: number;
   updatedAt: string;
 }
 

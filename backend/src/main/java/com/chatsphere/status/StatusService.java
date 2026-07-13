@@ -190,6 +190,19 @@ public class StatusService {
         // Everyone mentioned across the whole feed, in one query.
         Map<Long, User> mentioned = mentionUsers(statuses);
 
+        // View counts for MY statuses, in ONE grouped query. This used to be a
+        // COUNT(*) per status inside the render loop.
+        List<Long> myStatusIds = statuses.stream()
+                .filter(s -> Objects.equals(s.getUserId(), me))
+                .map(Status::getId)
+                .toList();
+        Map<Long, Long> viewCounts = new HashMap<>();
+        if (!myStatusIds.isEmpty()) {
+            for (Object[] row : viewRepository.countByStatusIdIn(myStatusIds)) {
+                viewCounts.put((Long) row[0], (Long) row[1]);
+            }
+        }
+
         Map<Long, List<Status>> byUser = new LinkedHashMap<>();
         for (Status s : statuses) {
             byUser.computeIfAbsent(s.getUserId(), k -> new ArrayList<>()).add(s);
@@ -209,7 +222,7 @@ public class StatusService {
             for (Status s : e.getValue()) {
                 boolean viewed = isMe || viewedByMe.contains(s.getId());
                 if (!viewed) allViewed = false;
-                long count = isMe ? viewRepository.countByStatusId(s.getId()) : 0;
+                long count = isMe ? viewCounts.getOrDefault(s.getId(), 0L) : 0;
                 items.add(toItem(s, viewed, count, mentioned));
             }
             result.add(new StatusUserDto(UserDto.from(u), isMe, allViewed, items));

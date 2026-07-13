@@ -52,6 +52,14 @@ public class Conversation {
     @Column(name = "created_by")
     private Long createdBy;
 
+    /**
+     * Newest non-deleted message, denormalised. Deriving it per chat-list load
+     * ("id IN (SELECT MAX(id) ... GROUP BY conversation_id)") took >40s on a
+     * 2M-message database; reading it from here is a primary-key lookup.
+     */
+    @Column(name = "last_message_id")
+    private Long lastMessageId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

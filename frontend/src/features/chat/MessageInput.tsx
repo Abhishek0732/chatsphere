@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useConversation } from '@/hooks/useConversations';
+import { useGroup } from '@/hooks/useGroups';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
@@ -84,9 +85,11 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const mentionTokens = useRef<Map<string, number[]>>(new Map());
   const isGroup = conversation?.type === 'GROUP';
 
+  // Group rosters are fetched per-group (the chat list no longer carries them).
+  const { data: group } = useGroup(isGroup ? conversationId : null);
   const groupMembers = useMemo(
-    () => (conversation?.members ?? []).filter((m) => m.id !== myId),
-    [conversation?.members, myId],
+    () => (group?.members ?? []).map((m) => m.user).filter((u) => u.id !== myId),
+    [group?.members, myId],
   );
 
   const candidates = useMemo<MentionCandidate[]>(() => {

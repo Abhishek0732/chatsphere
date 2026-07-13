@@ -11,6 +11,15 @@ public interface StatusViewRepository extends JpaRepository<StatusView, Long> {
 
     long countByStatusId(Long statusId);
 
+    /** View counts for MANY statuses in one query (the feed used to COUNT per status). */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT v.statusId, COUNT(v) FROM StatusView v
+            WHERE v.statusId IN :ids
+            GROUP BY v.statusId
+            """)
+    java.util.List<Object[]> countByStatusIdIn(
+            @org.springframework.data.repository.query.Param("ids") java.util.Collection<Long> ids);
+
     List<StatusView> findByStatusIdOrderByViewedAtDesc(Long statusId);
 
     /** Views by one viewer across a set of statuses (to compute "seen" flags). */

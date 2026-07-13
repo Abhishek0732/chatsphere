@@ -49,7 +49,7 @@ export function ContactInfoPanel({
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
 
-  const subtitle = other?.about || (other?.username ? `@${other.username}` : `${conversation.members.length} members`);
+  const subtitle = other?.about || (other?.username ? `@${other.username}` : `${conversation.memberCount ?? conversation.members.length} members`);
 
   return (
     <aside className="fixed inset-0 z-40 flex h-full w-full shrink-0 flex-col overflow-y-auto border-white/5 bg-surface-container-lowest cs-scroll lg:static lg:z-auto lg:w-80 lg:border-l">

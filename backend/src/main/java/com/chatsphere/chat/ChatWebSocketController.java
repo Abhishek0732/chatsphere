@@ -16,10 +16,20 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Handles inbound STOMP frames destined for /app/**. */
 @Controller
 public class ChatWebSocketController {
+
+    /**
+     * userId -> display name, for typing frames. Bounded by the number of users
+     * who have typed on this instance since boot; a rename is picked up on the
+     * next restart, which is an acceptable trade for removing a DB hit per
+     * keystroke on the busiest frame in the system.
+     */
+    private final Map<Long, String> displayNames = new ConcurrentHashMap<>();
 
     private final ChatService chatService;
     private final ChatBroadcaster broadcaster;
@@ -58,13 +68,19 @@ public class ChatWebSocketController {
         List<Long> deliverable = blockService.filterDeliverable(senderId, members);
         broadcaster.sendMessageToMembers(dto, deliverable);
         eventPublisher.publishMessage(dto);
+        // Async: the notification fan-out (a row + a push per recipient) must not
+        // sit between the sender pressing Enter and their message appearing.
         notificationService.notifyNewMessage(dto, deliverable, senderId);
     }
 
     @MessageMapping("chat.typing")
     public void typing(@Payload TypingCommand cmd, Principal principal) {
         Long uid = userId(principal);
-        String name = userRepository.findById(uid).map(User::getDisplayName).orElse("Someone");
+        // Typing is the highest-frequency frame in the app (several per second per
+        // active chatter). This used to hit the DB for the display name on EVERY
+        // keystroke frame — at scale that was the top query against `users`.
+        String name = displayNames.computeIfAbsent(uid, id ->
+                userRepository.findById(id).map(User::getDisplayName).orElse("Someone"));
         broadcaster.broadcastTyping(new TypingEvent(cmd.conversationId(), uid, name, cmd.typing()));
     }
 

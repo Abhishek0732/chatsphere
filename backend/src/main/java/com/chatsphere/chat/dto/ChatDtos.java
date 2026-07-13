@@ -48,7 +48,14 @@ public final class ChatDtos {
             String avatarUrl,
             MessageDto lastMessage,
             long unreadCount,
+            /**
+             * DIRECT: both participants (the client resolves the other person's
+             * name/avatar from this). GROUP: empty — a 500-member roster has no
+             * business in a list of 350 chats; the thread fetches it on demand.
+             */
             List<UserDto> members,
+            /** Always the true member count, even when `members` is empty. */
+            int memberCount,
             Instant updatedAt) {}
 
     public record CreateDirectRequest(@NotNull Long targetUserId) {}

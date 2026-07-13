@@ -113,16 +113,38 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public List<ContactRequestDto> incomingRequests(Long userId) {
-        return requestRepository.findByRecipientIdAndStatusOrderByIdDesc(userId, Status.PENDING).stream()
-                .map(cr -> toRequestDto(cr, cr.getSenderId(), "INCOMING"))
-                .toList();
+        List<ContactRequest> rows =
+                requestRepository.findByRecipientIdAndStatusOrderByIdDesc(userId, Status.PENDING);
+        return toRequestDtos(rows, ContactRequest::getSenderId, "INCOMING");
     }
 
     @Transactional(readOnly = true)
     public List<ContactRequestDto> outgoingRequests(Long userId) {
-        return requestRepository.findBySenderIdAndStatusOrderByIdDesc(userId, Status.PENDING).stream()
-                .map(cr -> toRequestDto(cr, cr.getRecipientId(), "OUTGOING"))
-                .toList();
+        List<ContactRequest> rows =
+                requestRepository.findBySenderIdAndStatusOrderByIdDesc(userId, Status.PENDING);
+        return toRequestDtos(rows, ContactRequest::getRecipientId, "OUTGOING");
+    }
+
+    /**
+     * Build the DTOs with a fixed number of round-trips. Each row used to cost a
+     * findById + a Redis isOnline + a lastSeen query — three per request.
+     */
+    private List<ContactRequestDto> toRequestDtos(List<ContactRequest> rows,
+                                                  java.util.function.Function<ContactRequest, Long> other,
+                                                  String direction) {
+        if (rows.isEmpty()) return List.of();
+        List<Long> ids = rows.stream().map(other).toList();
+        Map<Long, User> users = userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Set<Long> online = presenceService.onlineAmong(ids);
+        Map<Long, java.time.Instant> lastSeen = presenceService.lastSeenAmong(ids);
+        return rows.stream().map(cr -> {
+            User u = users.get(other.apply(cr));
+            UserDto dto = u == null ? null
+                    : UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId()));
+            return new ContactRequestDto(cr.getId(), dto, direction, cr.getStatus().name(),
+                    cr.getCreatedAt());
+        }).toList();
     }
 
     @Transactional

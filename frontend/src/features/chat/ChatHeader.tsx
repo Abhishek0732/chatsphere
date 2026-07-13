@@ -156,7 +156,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
   } else if (someoneTyping) {
     subtitle = typingLabel;
   } else if (conversation.type === 'GROUP') {
-    subtitle = `${conversation.members.length} members`;
+    subtitle = `${conversation.memberCount ?? conversation.members.length} members`;
   } else if (presence?.online) {
     subtitle = 'online';
   } else {

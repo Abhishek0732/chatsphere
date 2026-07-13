@@ -19,6 +19,7 @@ import { MessageInput } from './MessageInput';
 import { ForwardModal } from './ForwardModal';
 import { TypingBubble } from './TypingBubble';
 import { GroupInfoModal } from '@/features/groups/GroupInfoModal';
+import { useGroup } from '@/hooks/useGroups';
 import { useIsBlocked } from '@/hooks/useBlocks';
 import { otherMember } from './utils';
 import type { Message } from '@/types';
@@ -107,18 +108,21 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const clearTyping = useChatStore((s) => s.clearTyping);
   const { messages, isLoading, loadOlder, loadingOlder, hasMore } = useMessages(conversationId);
   const rows = useMemo(() => buildRows(messages), [messages]);
-  const avatarBySender = useMemo(
-    () => new Map((conversation?.members ?? []).map((m) => [m.id, m.avatarUrl])),
-    [conversation?.members],
-  );
   const isGroup = conversation?.type === 'GROUP';
+  // The chat LIST no longer ships group rosters (a 500-member group has no
+  // business in a list of 350 chats). The thread fetches the roster it needs —
+  // one cached request per group opened.
+  const { data: group } = useGroup(isGroup ? conversationId : null);
+  const groupMembers = useMemo(() => (group?.members ?? []).map((m) => m.user), [group?.members]);
+  const people = isGroup ? groupMembers : (conversation?.members ?? []);
+  const avatarBySender = useMemo(
+    () => new Map(people.map((m) => [m.id, m.avatarUrl])),
+    [people],
+  );
   // Names an @mention can spell here — memoized so memoized bubbles keep their props.
   const mentionNames = useMemo(
-    () =>
-      isGroup
-        ? mentionNamesOf((conversation?.members ?? []).map((m) => m.displayName))
-        : NO_MENTION_NAMES,
-    [isGroup, conversation?.members],
+    () => (isGroup ? mentionNamesOf(groupMembers.map((m) => m.displayName)) : NO_MENTION_NAMES),
+    [isGroup, groupMembers],
   );
   const markRead = useMarkRead();
 

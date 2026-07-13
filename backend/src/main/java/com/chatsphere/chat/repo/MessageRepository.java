@@ -114,16 +114,25 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
                      @Param("userId") Long userId,
                      @Param("lastReadId") Long lastReadId);
 
-    @Query("""
-            SELECT m FROM Message m
-            WHERE m.deleted = false
-              AND m.conversationId IN (
-                  SELECT cm.conversationId FROM ConversationMember cm WHERE cm.userId = :userId
+    /**
+     * Message search. Uses the FULLTEXT index on messages.content (ft_msg_content,
+     * created in V1 and until now completely unused): the old JPQL
+     * {@code LOWER(content) LIKE '%q%'} has a leading wildcard, so NO index could
+     * ever serve it and every search scanned every message in the database.
+     *
+     * Native query, because JPQL cannot express MATCH ... AGAINST.
+     */
+    @Query(value = """
+            SELECT /*+ MAX_EXECUTION_TIME(3000) */ m.* FROM messages m
+            WHERE m.deleted = 0
+              AND m.conversation_id IN (
+                  SELECT cm.conversation_id FROM conversation_members cm WHERE cm.user_id = :userId
               )
-              AND LOWER(m.content) LIKE LOWER(CONCAT('%', :q, '%'))
+              AND MATCH(m.content) AGAINST (:q IN BOOLEAN MODE)
             ORDER BY m.id DESC
-            """)
+            LIMIT :limit
+            """, nativeQuery = true)
     List<Message> searchInUserConversations(@Param("q") String q,
                                             @Param("userId") Long userId,
-                                            Pageable pageable);
+                                            @Param("limit") int limit);
 }

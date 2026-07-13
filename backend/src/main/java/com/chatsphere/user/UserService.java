@@ -25,13 +25,18 @@ public class UserService {
                 .orElseThrow(() -> ApiException.notFound("User not found: " + id));
     }
 
+    /** Directory search, hard-capped — an unbounded LIKE '%q%' over every user is a full scan. */
     @Transactional(readOnly = true)
     public List<User> search(String query, Long excludeUserId) {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        return userRepository.search(query.trim(), excludeUserId);
+        return userRepository.search(query.trim(), excludeUserId,
+                org.springframework.data.domain.PageRequest.of(0, SEARCH_LIMIT));
     }
+
+    /** Nobody scrolls past this, and it bounds the work a single query can cause. */
+    private static final int SEARCH_LIMIT = 30;
 
     /** The current user's QR token + the payload their QR image should encode. */
     @Transactional(readOnly = true)

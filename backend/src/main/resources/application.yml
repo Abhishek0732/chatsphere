@@ -9,9 +9,15 @@ spring:
     hikari:
       # Default is 10 — a hard concurrency ceiling. Size to the DB's capacity;
       # override per instance via env when scaling horizontally.
-      maximum-pool-size: ${DB_POOL_SIZE:20}
-      minimum-idle: 5
+      # Sized against Tomcat's worker threads: too small and requests queue behind
+      # the pool, too large and MySQL is the one that queues. Keep
+      # (replicas x pool-size) below the server's max_connections.
+      maximum-pool-size: ${DB_POOL_SIZE:50}
+      minimum-idle: 10
       connection-timeout: 10000
+      # Don't let a leaked connection be held forever.
+      max-lifetime: 900000
+      leak-detection-threshold: 20000
   jpa:
     hibernate:
       ddl-auto: none
@@ -34,6 +40,9 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      # A stalled Redis must fail fast, not hang presence on every heartbeat.
+      timeout: 2s
+      connect-timeout: 2s
   task:
     scheduling:
       # Ring-timeout timers + the missed-call sweeper share this pool.
@@ -78,6 +87,21 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    threads:
+      # Worker threads for HTTP. Left at defaults these silently cap throughput.
+      max: ${TOMCAT_MAX_THREADS:200}
+      min-spare: 20
+    # Each WebSocket/SockJS connection holds a connection slot; the default 8192
+    # is a hard ceiling on concurrent users per instance.
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:20000}
+    accept-count: 200
+  compression:
+    # Conversation lists and message pages are JSON — compressing them is the
+    # cheapest latency win available on a mobile network.
+    enabled: true
+    mime-types: application/json,text/plain,text/css,text/javascript,application/javascript
+    min-response-size: 1024
 
 management:
   endpoints:

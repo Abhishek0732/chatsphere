@@ -117,13 +117,6 @@ public class ChatService {
     public List<ConversationSummaryDto> listConversations(Long userId) {
         List<Conversation> conversations = conversationRepository.findAllForUser(userId);
         if (conversations.isEmpty()) return List.of();
-        // Viewers with active blocks keep the per-conversation path — block-window
-        // filtering of the last-message preview is per-viewer and rare.
-        if (blockService.hasAnyBlocks(userId)) {
-            List<ConversationSummaryDto> result = new ArrayList<>();
-            for (Conversation c : conversations) result.add(toSummary(c, userId));
-            return result;
-        }
         return listConversationsBatched(userId, conversations);
     }
 
@@ -138,20 +131,68 @@ public class ChatService {
         Map<Long, List<ConversationMember>> membersByConv = memberRepository.findByConversationIdIn(convIds)
                 .stream().collect(Collectors.groupingBy(ConversationMember::getConversationId));
 
-        Set<Long> userIds = membersByConv.values().stream().flatMap(List::stream)
-                .map(ConversationMember::getUserId).collect(Collectors.toSet());
+        // Latest message per conversation: read the denormalised pointer and fetch
+        // those rows by primary key. Deriving it with
+        // "id IN (SELECT MAX(id) ... GROUP BY conversation_id)" took >40 SECONDS
+        // on a 2M-message database — the chat list simply never loaded.
+        List<Long> lastIds = conversations.stream()
+                .map(Conversation::getLastMessageId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, Message> latestByConv = lastIds.isEmpty() ? Map.of()
+                : messageRepository.findAllById(lastIds).stream()
+                        .filter(m -> !m.isDeleted())
+                        .collect(Collectors.toMap(Message::getConversationId, m -> m, (a, b) -> a));
+
+        // Load only the users this list actually RENDERS: the other party in each
+        // direct chat, plus whoever sent each preview message. Loading every member
+        // of every group (and their presence) made the work scale with total
+        // membership — one 500-member group cost 500 user rows and 500 presence
+        // lookups to draw a single row in the list.
+        Set<Long> directMemberIds = conversations.stream()
+                .filter(c -> c.getType() == Conversation.Type.DIRECT)
+                .flatMap(c -> membersByConv.getOrDefault(c.getId(), List.of()).stream())
+                .map(ConversationMember::getUserId)
+                .collect(Collectors.toSet());
+        Set<Long> userIds = new HashSet<>(directMemberIds);
+        latestByConv.values().forEach(m -> userIds.add(m.getSenderId()));
+
         Map<Long, User> users = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
-        Set<Long> online = presenceService.onlineAmong(userIds);
-        Map<Long, java.time.Instant> lastSeen = presenceService.lastSeenAmong(userIds);
+        // Presence is only shown for direct chats in this list.
+        Set<Long> online = presenceService.onlineAmong(directMemberIds);
+        Map<Long, java.time.Instant> lastSeen = presenceService.lastSeenAmong(directMemberIds);
 
-        Map<Long, Message> latestByConv = messageRepository.findLatestPerConversation(convIds)
-                .stream().collect(Collectors.toMap(Message::getConversationId, m -> m));
-
-        Map<Long, Long> unreadByConv = new HashMap<>();
-        for (Object[] row : messageRepository.countUnreadPerConversation(userId, convIds)) {
-            unreadByConv.put((Long) row[0], (Long) row[1]);
+        // Unread counts. Counting is proportional to the number of unread rows, so
+        // don't ask about conversations that CANNOT have any: if the newest message
+        // is at or below my read/clear floor, the answer is 0 without touching the
+        // messages table. In practice most of a user's chats are fully read.
+        List<Long> maybeUnread = new ArrayList<>();
+        for (Conversation c : conversations) {
+            Long lastId = c.getLastMessageId();
+            if (lastId == null) continue;
+            ConversationMember vm = viewerMember(membersByConv.get(c.getId()), userId);
+            long floor = 0L;
+            if (vm != null) {
+                long read = vm.getLastReadMessageId() == null ? 0L : vm.getLastReadMessageId();
+                long cleared = vm.getClearedUpToMessageId() == null ? 0L : vm.getClearedUpToMessageId();
+                floor = Math.max(read, cleared);
+            }
+            if (lastId > floor) maybeUnread.add(c.getId());
         }
+        Map<Long, Long> unreadByConv = new HashMap<>();
+        if (!maybeUnread.isEmpty()) {
+            for (Object[] row : messageRepository.countUnreadPerConversation(userId, maybeUnread)) {
+                unreadByConv.put((Long) row[0], (Long) row[1]);
+            }
+        }
+
+        // Blocks are per-viewer and hide messages sent during a block window. Load
+        // the windows ONCE (not per conversation), and only fall back to a per-
+        // conversation scan for the conversations actually affected — blocking
+        // someone used to drop this whole list onto an 8-query-per-chat path.
+        List<BlockService.BlockWindow> windows = blockService.blockWindows(userId);
+        Set<Long> blockedIds = windows.isEmpty() ? Set.of() : blockService.blockedUserIds(userId);
 
         // Visible last message per conversation (respect this viewer's clear floor).
         List<Message> visibleLast = new ArrayList<>();
@@ -160,6 +201,15 @@ public class ChatService {
             long clearedFloor = vm == null || vm.getClearedUpToMessageId() == null
                     ? 0L : vm.getClearedUpToMessageId();
             Message last = latestByConv.get(c.getId());
+            if (last != null && !windows.isEmpty()
+                    && BlockService.isHidden(windows, last.getSenderId(), last.getCreatedAt())) {
+                // Only this conversation's preview is affected — find the newest
+                // message that isn't inside a block window.
+                last = messageRepository.findPage(c.getId(), null, clearedFloor, PageRequest.of(0, 30))
+                        .stream()
+                        .filter(m -> !BlockService.isHidden(windows, m.getSenderId(), m.getCreatedAt()))
+                        .findFirst().orElse(null);
+            }
             if (last != null && last.getId() > clearedFloor) visibleLast.add(last);
         }
         Map<Long, MessageDto> lastDtoByConv = new HashMap<>();
@@ -170,11 +220,16 @@ public class ChatService {
         List<ConversationSummaryDto> result = new ArrayList<>(conversations.size());
         for (Conversation c : conversations) {
             List<ConversationMember> members = membersByConv.getOrDefault(c.getId(), List.of());
-            List<UserDto> memberDtos = members.stream()
-                    .map(m -> users.get(m.getUserId()))
-                    .filter(Objects::nonNull)
-                    .map(u -> UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId())))
-                    .toList();
+            // Only DIRECT chats need their members inline (to resolve the other
+            // person). Shipping every group's roster made this response scale with
+            // total membership rather than with what the user can actually see.
+            List<UserDto> memberDtos = c.getType() == Conversation.Type.DIRECT
+                    ? members.stream()
+                        .map(m -> users.get(m.getUserId()))
+                        .filter(Objects::nonNull)
+                        .map(u -> UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId())))
+                        .toList()
+                    : List.of();
 
             String name = c.getName();
             String avatar = c.getAvatarUrl();
@@ -184,13 +239,15 @@ public class ChatService {
                         .findFirst().map(users::get).orElse(null);
                 if (other != null) {
                     name = other.getDisplayName();
-                    avatar = other.getAvatarUrl(); // this path only runs when the viewer has no blocks
+                    // Hide a blocked user's picture (was an isBlocked() query per chat).
+                    avatar = blockedIds.contains(other.getId()) ? null : other.getAvatarUrl();
                 }
             }
 
             result.add(new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(),
                     name, avatar, lastDtoByConv.get(c.getId()),
-                    unreadByConv.getOrDefault(c.getId(), 0L), memberDtos, c.getUpdatedAt()));
+                    unreadByConv.getOrDefault(c.getId(), 0L), memberDtos, members.size(),
+                    c.getUpdatedAt()));
         }
         return result;
     }
@@ -290,7 +347,7 @@ public class ChatService {
         long unread = messageRepository.countUnread(c.getId(), viewerId, floor);
 
         return new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(), name, avatar,
-                lastDto, unread, memberDtos, c.getUpdatedAt());
+                lastDto, unread, memberDtos, members.size(), c.getUpdatedAt());
     }
 
     @Transactional(readOnly = true)
@@ -347,8 +404,12 @@ public class ChatService {
         }
         Message saved = messageRepository.save(m);
 
-        // touch conversation so it sorts to the top
-        conversationRepository.findById(cmd.conversationId()).ifPresent(conversationRepository::save);
+        // Point the conversation at its newest message (and touch updated_at so it
+        // sorts to the top). The chat list reads this instead of deriving MAX(id).
+        conversationRepository.findById(cmd.conversationId()).ifPresent(c -> {
+            c.setLastMessageId(saved.getId());
+            conversationRepository.save(c);
+        });
         return saved;
     }
 
@@ -408,7 +469,10 @@ public class ChatService {
         m.setStatusRefCaption(statusCaption);
         m.setStatusRefBgColor(statusBgColor);
         Message saved = messageRepository.save(m);
-        conversationRepository.findById(conversationId).ifPresent(conversationRepository::save);
+        conversationRepository.findById(conversationId).ifPresent(c -> {
+            c.setLastMessageId(saved.getId());
+            conversationRepository.save(c);
+        });
         return saved;
     }
 
@@ -424,7 +488,19 @@ public class ChatService {
         m.setDeleted(true);
         m.setContent(null);
         m.setAttachmentUrl(null);
-        return messageRepository.save(m);
+        Message saved = messageRepository.save(m);
+
+        // If the deleted message was the conversation's preview, move the pointer
+        // back to the newest surviving message (indexed, so this is a single seek).
+        conversationRepository.findById(m.getConversationId()).ifPresent(c -> {
+            if (Objects.equals(c.getLastMessageId(), saved.getId())) {
+                Message prev = messageRepository
+                        .findTopByConversationIdAndDeletedFalseOrderByIdDesc(c.getId());
+                c.setLastMessageId(prev == null ? null : prev.getId());
+                conversationRepository.save(c);
+            }
+        });
+        return saved;
     }
 
     @Transactional

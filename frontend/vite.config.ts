@@ -63,6 +63,7 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
           realtime: ['@stomp/stompjs', 'sockjs-client'],
+          icons: ['lucide-react'],
         },
       },
     },

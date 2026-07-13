@@ -71,7 +71,7 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
     ? presence?.online
       ? 'online'
       : formatLastSeen(presence?.lastSeen ?? other.lastSeen)
-    : `${conversation.members.length} members`;
+    : `${conversation.memberCount ?? conversation.members.length} members`;
 
   const tabs: { key: Tab; label: string; count: number; icon: typeof ImageIcon }[] = [
     { key: 'media', label: 'Media', count: media.length, icon: ImageIcon },
