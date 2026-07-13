@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Camera, Mic, Paperclip, Pencil, Reply, SendHorizonal, Smile, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { AtSign, Camera, Mic, Paperclip, Pencil, Reply, SendHorizonal, Smile, Trash2, X } from 'lucide-react';
+import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSendMessage } from '@/hooks/useSendMessage';
+import { useConversation } from '@/hooks/useConversations';
+import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
 import { uploadMedia, uploadSizeError } from '@/api/media';
@@ -15,11 +18,32 @@ import type { MessageType } from '@/types';
 
 const TYPING_STOP_MS = 2500;
 
+/** Max people offered in the @mention picker at once. */
+const MENTION_LIMIT = 8;
+
+/**
+ * The `@…` the caret is currently sitting in, if any. Matches an `@` that starts
+ * a word, followed by at most two words — enough to type "@John D" and still be
+ * matching "John Doe", while a finished sentence stops matching.
+ */
+const MENTION_RE = /(?:^|\s)@([^\s@]{0,24}(?:\s[^\s@]{0,24})?)$/;
+
 interface PendingAttachment {
   url: string;
   fileName: string;
   type: MessageType;
   size: number;
+}
+
+/** One row of the @mention picker. `ids` is who gets tagged when it's chosen. */
+interface MentionCandidate {
+  key: string;
+  /** Literal text inserted into the message, e.g. "@John Doe". */
+  token: string;
+  label: string;
+  subtitle?: string;
+  avatarUrl?: string;
+  ids: number[];
 }
 
 /** mm:ss for the recording timer. */
@@ -31,6 +55,8 @@ function formatDuration(totalSeconds: number): string {
 
 export function MessageInput({ conversationId }: { conversationId: number }) {
   const send = useSendMessage();
+  const conversation = useConversation(conversationId);
+  const myId = useAuthStore((s) => s.user?.id);
   const draft = useChatStore((s) => s.drafts[conversationId] ?? '');
   const setDraft = useChatStore((s) => s.setDraft);
   const clearDraft = useChatStore((s) => s.clearDraft);
@@ -46,8 +72,98 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const typingRef = useRef(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingRef = useRef(false);
+
+  // ── @mentions (group chats) ──
+  // `mention` is the @-fragment the caret sits in; `mentionTokens` remembers what
+  // each inserted token tags, so on send we can map the text back to user ids and
+  // drop any mention the user has since deleted.
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionTokens = useRef<Map<string, number[]>>(new Map());
+  const isGroup = conversation?.type === 'GROUP';
+
+  const groupMembers = useMemo(
+    () => (conversation?.members ?? []).filter((m) => m.id !== myId),
+    [conversation?.members, myId],
+  );
+
+  const candidates = useMemo<MentionCandidate[]>(() => {
+    if (!isGroup || !mention) return [];
+    const q = mention.query.trim().toLowerCase();
+    const people = groupMembers
+      .filter((m) => !q || m.displayName.toLowerCase().includes(q))
+      .slice(0, MENTION_LIMIT)
+      .map((m) => ({
+        key: String(m.id),
+        token: `@${m.displayName}`,
+        label: m.displayName,
+        avatarUrl: m.avatarUrl,
+        ids: [m.id],
+      }));
+    // "@All" notifies the whole group, as WhatsApp does.
+    const everyone =
+      groupMembers.length > 1 && (!q || 'all'.startsWith(q) || 'everyone'.startsWith(q))
+        ? [
+            {
+              key: 'all',
+              token: '@All',
+              label: 'Everyone',
+              subtitle: `Notify all ${groupMembers.length} members`,
+              ids: groupMembers.map((m) => m.id),
+            },
+          ]
+        : [];
+    return [...everyone, ...people];
+  }, [isGroup, mention, groupMembers]);
+
+  const mentionOpen = candidates.length > 0;
+
+  /** Open/close the picker based on where the caret is. */
+  const detectMention = (value: string, caret: number) => {
+    if (!isGroup) return;
+    const match = MENTION_RE.exec(value.slice(0, caret));
+    if (!match) {
+      setMention(null);
+      return;
+    }
+    setMention({ start: caret - match[1].length - 1, query: match[1] });
+    setMentionIndex(0);
+  };
+
+  /** Replace the @fragment with the chosen name and remember who it tags. */
+  const insertMention = (c: MentionCandidate) => {
+    if (!mention) return;
+    const before = draft.slice(0, mention.start);
+    const after = draft.slice(mention.start + 1 + mention.query.length);
+    mentionTokens.current.set(c.token, c.ids);
+    setDraft(conversationId, `${before}${c.token} ${after}`);
+    setMention(null);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        const pos = before.length + c.token.length + 1;
+        el.setSelectionRange(pos, pos);
+      }
+    });
+  };
+
+  /** Ids still actually mentioned in the text the user is about to send. */
+  const mentionsIn = (text: string): number[] | undefined => {
+    const ids = new Set<number>();
+    mentionTokens.current.forEach((memberIds, token) => {
+      if (text.includes(token)) memberIds.forEach((id) => ids.add(id));
+    });
+    return ids.size > 0 ? [...ids] : undefined;
+  };
+
+  // Drop mention bookkeeping when switching conversations.
+  useEffect(() => {
+    mentionTokens.current.clear();
+    setMention(null);
+  }, [conversationId]);
 
   // Voice-message recording.
   const [recording, setRecording] = useState(false);
@@ -195,6 +311,8 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
 
     if (!text && attachments.length === 0) return;
 
+    const mentions = mentionsIn(text);
+
     if (attachments.length > 0) {
       // Each attachment sends as its own message. The typed text rides along as
       // the caption of the first one; the reply-target attaches to the first too.
@@ -205,13 +323,16 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           type: att.type,
           attachmentUrl: att.url,
           replyTo: i === 0 ? replyTo : null,
+          mentions: i === 0 ? mentions : undefined,
         });
       });
       setAttachments([]);
     } else {
-      send({ conversationId, content: text, type: 'TEXT', replyTo });
+      send({ conversationId, content: text, type: 'TEXT', replyTo, mentions });
     }
 
+    mentionTokens.current.clear();
+    setMention(null);
     clearDraft(conversationId);
     clearReplyTo(conversationId);
     stopTyping();
@@ -219,6 +340,29 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // While the @mention picker is up it owns the arrows, Enter/Tab and Escape.
+    if (mentionOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % candidates.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + candidates.length) % candidates.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(candidates[mentionIndex] ?? candidates[0]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMention(null);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -302,6 +446,52 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       {emojiOpen && !recording && (
         <div className="absolute bottom-full left-3 z-50 mb-2">
           <EmojiPicker onSelect={insertEmoji} onClose={() => setEmojiOpen(false)} />
+        </div>
+      )}
+
+      {/* @mention picker — appears above the composer while typing "@…". */}
+      {mentionOpen && !recording && (
+        <div className="absolute bottom-full left-3 right-3 z-50 mb-2 max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-surface-container/95 shadow-2xl backdrop-blur-xl">
+          <p className="flex items-center gap-1.5 border-b border-white/5 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
+            <AtSign className="h-3.5 w-3.5" /> Mention
+          </p>
+          <ul className="max-h-56 overflow-y-auto cs-scroll">
+            {candidates.map((c, i) => (
+              <li key={c.key}>
+                <button
+                  type="button"
+                  // mousedown, not click: the textarea must not lose the caret first.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    insertMention(c);
+                  }}
+                  onMouseEnter={() => setMentionIndex(i)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
+                    i === mentionIndex ? 'bg-white/10' : 'hover:bg-white/5',
+                  )}
+                >
+                  {c.key === 'all' ? (
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+                      <AtSign className="h-4 w-4" />
+                    </span>
+                  ) : (
+                    <Avatar name={c.label} src={c.avatarUrl} size="sm" className="h-8 w-8 shrink-0" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-on-surface">
+                      {c.label}
+                    </span>
+                    {c.subtitle && (
+                      <span className="block truncate text-xs text-on-surface-variant">
+                        {c.subtitle}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {editing && (
@@ -435,6 +625,12 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
               onChange={(e) => {
                 setDraft(conversationId, e.target.value);
                 signalTyping();
+                detectMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+              }}
+              // Moving the caret (click / arrows) can enter or leave an @fragment.
+              onSelect={(e) => {
+                const el = e.currentTarget;
+                detectMention(el.value, el.selectionStart ?? el.value.length);
               }}
               onKeyDown={onKeyDown}
               className="min-h-[2rem] flex-1 resize-none overflow-y-hidden bg-transparent px-2 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"

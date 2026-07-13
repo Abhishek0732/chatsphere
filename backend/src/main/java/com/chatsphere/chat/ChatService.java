@@ -338,6 +338,7 @@ public class ChatService {
         m.setContent(cmd.content());
         m.setType(parseType(cmd.type()));
         m.setAttachmentUrl(cmd.attachmentUrl());
+        m.setMentions(encodeMentions(cmd.conversationId(), cmd.mentions()));
         if (cmd.replyToId() != null) {
             // Only accept a reply target that belongs to the same conversation.
             messageRepository.findById(cmd.replyToId())
@@ -349,6 +350,41 @@ public class ChatService {
         // touch conversation so it sorts to the top
         conversationRepository.findById(cmd.conversationId()).ifPresent(conversationRepository::save);
         return saved;
+    }
+
+    /** Ids a client may tag in one message. Bounds the stored CSV. */
+    private static final int MAX_MENTIONS = 64;
+
+    /**
+     * Turn the client's @mention ids into the CSV stored on the row. Only real
+     * members of the conversation survive, so a client can't tag an outsider (or
+     * spam the column) by hand-crafting the frame.
+     */
+    private String encodeMentions(Long conversationId, List<Long> mentions) {
+        if (mentions == null || mentions.isEmpty()) return null;
+        Set<Long> members = new HashSet<>(memberUserIds(conversationId));
+        String csv = mentions.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .filter(members::contains)
+                .limit(MAX_MENTIONS)
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
+        return csv.isEmpty() ? null : csv;
+    }
+
+    /** Parse the stored CSV back into ids; tolerant of anything malformed. */
+    private static List<Long> decodeMentions(String csv) {
+        if (csv == null || csv.isBlank()) return List.of();
+        List<Long> ids = new ArrayList<>();
+        for (String part : csv.split(",")) {
+            try {
+                ids.add(Long.valueOf(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // skip
+            }
+        }
+        return ids;
     }
 
     /**
@@ -442,6 +478,44 @@ public class ChatService {
     }
 
     /**
+     * "Message info" for one of my own messages: which members have read it and
+     * which haven't. A member has read the message when their read pointer has
+     * moved past it — so this is two queries (members + their users), never a
+     * per-recipient lookup. Only the sender may ask, as in WhatsApp.
+     */
+    @Transactional(readOnly = true)
+    public MessageInfoDto messageInfo(Long userId, Long conversationId, Long messageId) {
+        assertMember(conversationId, userId);
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        if (!Objects.equals(m.getConversationId(), conversationId)) {
+            throw ApiException.notFound("Message not found");
+        }
+        if (!Objects.equals(m.getSenderId(), userId)) {
+            throw ApiException.forbidden("You can only see info for your own messages");
+        }
+
+        List<ConversationMember> members = memberRepository.findByConversationId(conversationId);
+        Set<Long> otherIds = members.stream()
+                .map(ConversationMember::getUserId)
+                .filter(id -> !Objects.equals(id, userId))
+                .collect(Collectors.toSet());
+        Map<Long, User> users = userRepository.findAllById(otherIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        List<UserDto> readBy = new ArrayList<>();
+        List<UserDto> pending = new ArrayList<>();
+        for (ConversationMember cm : members) {
+            User u = users.get(cm.getUserId());
+            if (u == null) continue; // me, or a user that no longer exists
+            Long lastRead = cm.getLastReadMessageId();
+            boolean read = lastRead != null && lastRead >= messageId;
+            (read ? readBy : pending).add(UserDto.from(u));
+        }
+        return new MessageInfoDto(readBy, pending);
+    }
+
+    /**
      * A page of shared media for a conversation (info panel), newest first,
      * cursor-paginated so a chat with lots of media loads incrementally rather
      * than all at once. Single indexed query, capped page size.
@@ -487,7 +561,8 @@ public class ChatService {
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 content, m.getType().name(), attachmentUrl,
                 m.getCreatedAt(), status, tempId, deleted, replyTo,
-                reactions, m.isPinned(), m.getEditedAt(), statusRef);
+                reactions, m.isPinned(), m.getEditedAt(), statusRef,
+                deleted ? List.of() : decodeMentions(m.getMentions()));
     }
 
     /**

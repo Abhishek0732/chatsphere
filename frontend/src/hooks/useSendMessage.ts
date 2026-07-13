@@ -11,6 +11,8 @@ export interface OutgoingMessage {
   type?: MessageType;
   attachmentUrl?: string;
   replyTo?: ReplyPreview | null;
+  /** Ids of the users @mentioned in the text (group chats). */
+  mentions?: number[];
 }
 
 /**
@@ -21,7 +23,7 @@ export function useSendMessage() {
   const user = useAuthStore((s) => s.user);
 
   return useCallback(
-    ({ conversationId, content, type = 'TEXT', attachmentUrl, replyTo }: OutgoingMessage) => {
+    ({ conversationId, content, type = 'TEXT', attachmentUrl, replyTo, mentions }: OutgoingMessage) => {
       if (!user) return;
       const trimmed = content.trim();
       if (!trimmed && !attachmentUrl) return;
@@ -39,6 +41,7 @@ export function useSendMessage() {
         status: 'SENT',
         tempId,
         replyTo: replyTo ?? null,
+        mentions,
       };
 
       upsertMessage(optimistic);
@@ -51,6 +54,7 @@ export function useSendMessage() {
         attachmentUrl,
         replyToId: replyTo?.id,
         tempId,
+        mentions,
       });
 
       if (!ok) {

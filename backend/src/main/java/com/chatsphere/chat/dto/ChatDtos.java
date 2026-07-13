@@ -27,7 +27,9 @@ public final class ChatDtos {
             List<ReactionDto> reactions,
             boolean pinned,
             Instant editedAt,
-            StatusRef statusRef) {}
+            StatusRef statusRef,
+            /** Ids of the users @mentioned in this message (group chats). */
+            List<Long> mentions) {}
 
     /** An emoji and the ids of everyone who reacted with it. */
     public record ReactionDto(String emoji, List<Long> userIds) {}
@@ -58,7 +60,8 @@ public final class ChatDtos {
             String type,
             String attachmentUrl,
             Long replyToId,
-            String tempId) {}
+            String tempId,
+            List<Long> mentions) {}
 
     public record TypingCommand(@NotNull Long conversationId, boolean typing) {}
 
@@ -82,6 +85,9 @@ public final class ChatDtos {
     /** A single line of an exported chat transcript (text-only). */
     public record ExportMessageDto(String senderName, String type, String content,
                                    java.time.Instant createdAt, boolean deleted) {}
+
+    /** WhatsApp-style "Message info": who has seen one of my messages, and who hasn't. */
+    public record MessageInfoDto(List<UserDto> readBy, List<UserDto> pending) {}
 
     /** A shared media/attachment item for the contact info panel. */
     public record MediaItemDto(Long id, String type, String attachmentUrl, String content,

@@ -67,6 +67,12 @@ public class ChatController {
         return chatService.conversationMedia(SecurityUtils.currentUserId(), id, kind, before, limit);
     }
 
+    /** Who has seen one of my messages ("Message info"). Sender-only. */
+    @GetMapping("/{id}/messages/{messageId}/info")
+    public MessageInfoDto messageInfo(@PathVariable Long id, @PathVariable Long messageId) {
+        return chatService.messageInfo(SecurityUtils.currentUserId(), id, messageId);
+    }
+
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);

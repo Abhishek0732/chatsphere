@@ -38,6 +38,10 @@ public class Message {
     @Column(name = "reply_to_message_id")
     private Long replyToMessageId;
 
+    /** Ids of the users @mentioned in this message, as a CSV (e.g. "3,7"). */
+    @Column(length = 512)
+    private String mentions;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

@@ -59,15 +59,19 @@ public class NotificationService {
             case "FILE" -> "📎 Attachment";
             default -> message.content() == null ? "" : message.content();
         };
+        List<Long> mentions = message.mentions() == null ? List.of() : message.mentions();
         for (Long memberId : memberIds) {
             if (Objects.equals(memberId, senderId)) {
                 continue;
             }
+            // Being @mentioned is called out in the notification itself, so it
+            // reads differently from an ordinary group message.
+            String body = mentions.contains(memberId) ? "@ mentioned you: " + preview : preview;
             Notification n = new Notification();
             n.setUserId(memberId);
             n.setType("MESSAGE");
             n.setTitle(message.senderName());
-            n.setBody(preview.length() > 200 ? preview.substring(0, 200) : preview);
+            n.setBody(body.length() > 200 ? body.substring(0, 200) : body);
             n.setRefId(message.conversationId());
             Notification saved = repository.save(n);
             pushToUser(memberId, NotificationDto.from(saved));
