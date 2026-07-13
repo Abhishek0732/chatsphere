@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Pin, PinOff } from 'lucide-react';
-import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
+import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonThread } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { useMessages } from '@/hooks/useMessages';
 import { useConversation, useMarkRead } from '@/hooks/useConversations';
@@ -296,7 +297,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
         )}
 
         {isLoading ? (
-          <FullPageSpinner />
+          <SkeletonThread />
         ) : messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-slate-400">
             No messages yet. Say hello!

@@ -21,6 +21,7 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { uploadMedia, uploadSizeError } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
+import { Skeleton, SkeletonList } from '@/components/ui/Skeleton';
 
 interface GroupInfoModalProps {
   open: boolean;
@@ -111,8 +112,12 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
   return (
     <Modal open={open} onClose={onClose} title="Group info">
       {isLoading || !group ? (
-        <div className="flex justify-center py-8">
-          <Spinner />
+        <div className="space-y-5">
+          <div className="flex flex-col items-center gap-2">
+            <Skeleton className="h-20 w-20 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <SkeletonList rows={5} />
         </div>
       ) : (
         <div className="space-y-5">

@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { Spinner } from '@/components/ui/Spinner';
 import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlocks';
+import { SkeletonList } from '@/components/ui/Skeleton';
 
 export function BlockedUsersModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: blocked, isLoading } = useBlockedUsers();
@@ -11,9 +12,7 @@ export function BlockedUsersModal({ open, onClose }: { open: boolean; onClose: (
   return (
     <Modal open={open} onClose={onClose} title="Blocked contacts">
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Spinner className="h-6 w-6" />
-        </div>
+        <SkeletonList rows={4} />
       ) : (blocked ?? []).length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-on-surface-variant">

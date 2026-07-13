@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, SquarePen } from 'lucide-react';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { Logo } from '@/components/ui/Logo';
 import { useConversations } from '@/hooks/useConversations';
 import { socketService } from '@/services/socket';
@@ -116,9 +116,7 @@ export function ConversationList() {
 
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-4 cs-scroll">
         {isLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner />
-          </div>
+          <SkeletonList rows={8} />
         ) : filtered.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-on-surface-variant">{emptyText}</p>
         ) : (

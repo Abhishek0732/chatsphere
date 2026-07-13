@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicOnlyRoute } from './PublicOnlyRoute';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonAppShell } from '@/components/ui/Skeleton';
 // Login/Register and the empty-chat placeholder are the first paint — keep them
 // eager so there's no loading flash before auth.
 import { LoginPage } from '@/pages/LoginPage';
@@ -42,12 +42,13 @@ const NotFoundPage = lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
 
+/**
+ * Shown while a code-split screen loads. The authenticated shell is lazy, so
+ * this is what stands between the login redirect and the app appearing — a
+ * spinner (or worse, an empty page) made that gap feel like a stall.
+ */
 function RouteFallback() {
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      <Spinner className="h-6 w-6" />
-    </div>
-  );
+  return <SkeletonAppShell />;
 }
 
 export function AppRoutes() {

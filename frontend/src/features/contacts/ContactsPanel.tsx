@@ -30,6 +30,7 @@ import { StatusBar } from '@/features/status/StatusBar';
 import { AddStatusModal } from '@/features/status/AddStatusModal';
 import { StatusPrivacyModal } from '@/features/status/StatusPrivacyModal';
 import type { Contact } from '@/types';
+import { SkeletonList } from '@/components/ui/Skeleton';
 
 // Memoized row that subscribes to ONLY its own user's presence, so a presence
 // change for one user re-renders just that row — not the whole contact list.
@@ -234,9 +235,7 @@ export function ContactsPanel() {
         </h2>
 
         {isLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner />
-          </div>
+          <SkeletonList rows={7} />
         ) : (contacts ?? []).length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-slate-400">
             No contacts yet. Tap “Add” to find people.

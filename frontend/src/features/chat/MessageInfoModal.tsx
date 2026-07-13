@@ -7,6 +7,7 @@ import { getMessageInfo } from '@/api/conversations';
 import { queryKeys } from '@/api/queryKeys';
 import { fileNameFromUrl, formatTime } from '@/utils/format';
 import type { Message, User } from '@/types';
+import { SkeletonList } from '@/components/ui/Skeleton';
 
 function preview(m: Message): string {
   if (m.type === 'IMAGE') return m.content ? `📷 ${m.content}` : '📷 Photo';
@@ -65,9 +66,7 @@ export function MessageInfoModal({
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-6">
-          <Spinner className="h-5 w-5" />
-        </div>
+        <SkeletonList rows={4} />
       ) : (
         <div className="space-y-4">
           <section>

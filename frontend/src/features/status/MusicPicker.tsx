@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Music2, Pause, Play, Search, Upload } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { cn } from '@/utils/cn';
 import { mediaSrc } from '@/utils/media';
 import { uploadMedia, uploadSizeError } from '@/api/media';
@@ -214,9 +215,7 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
             )}
 
             {isLoading ? (
-              <div className="flex justify-center py-10">
-                <Spinner />
-              </div>
+              <SkeletonList rows={6} />
             ) : (
               <ul className="max-h-[46vh] space-y-1 overflow-y-auto scrollbar-thin pr-1">
                 {list.map((t) => {

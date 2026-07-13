@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
 import { mediaSrc, mediaThumb } from '@/utils/media';
+import { cn } from '@/utils/cn';
 
 /**
  * An <img> that loads the stored thumbnail and silently falls back to the
@@ -21,12 +22,14 @@ export function ThumbImage({
   const thumb = mediaThumb(url);
 
   const [src, setSrc] = useState(thumb ?? full);
+  const [loaded, setLoaded] = useState(false);
   /** True once we've given up on the thumbnail and are showing the original. */
   const usingFull = useRef(!thumb);
 
   // A new url (e.g. the user changed their photo) starts again at the thumbnail.
   useEffect(() => {
     setSrc(thumb ?? full);
+    setLoaded(false);
     usingFull.current = !thumb;
   }, [thumb, full]);
 
@@ -36,6 +39,13 @@ export function ThumbImage({
       src={src}
       loading={props.loading ?? 'lazy'}
       decoding={props.decoding ?? 'async'}
+      // Shimmer underneath until the pixels arrive, so an image area is never
+      // a blank hole while it loads.
+      className={cn(props.className, !loaded && 'shimmer')}
+      onLoad={(e) => {
+        setLoaded(true);
+        props.onLoad?.(e);
+      }}
       onError={(e) => {
         if (!usingFull.current && full && full !== src) {
           // No thumbnail stored — quietly use the original. This is not an error.

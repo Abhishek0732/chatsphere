@@ -8,6 +8,7 @@ import { useCallHistory } from '@/hooks/useCalls';
 import { socketService } from '@/services/socket';
 import { cn } from '@/utils/cn';
 import type { CallHistoryItem } from '@/types';
+import { SkeletonList } from '@/components/ui/Skeleton';
 
 function isMissed(item: CallHistoryItem): boolean {
   return item.status === 'MISSED' || (!item.outgoing && item.status === 'CANCELLED');
@@ -101,9 +102,7 @@ export function CallsPanel() {
 
       <main className="mx-auto max-w-lg space-y-2.5 px-5 pt-3">
         {isLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner className="h-6 w-6" />
-          </div>
+          <SkeletonList rows={7} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-on-surface-variant">

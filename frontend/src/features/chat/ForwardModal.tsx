@@ -9,6 +9,7 @@ import { useConversations } from '@/hooks/useConversations';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { toast } from '@/store/toastStore';
 import type { Message } from '@/types';
+import { SkeletonList } from '@/components/ui/Skeleton';
 
 interface ForwardModalProps {
   message: Message | null;
@@ -82,9 +83,7 @@ export function ForwardModal({ message, onClose }: ForwardModalProps) {
       }
     >
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Spinner className="h-6 w-6" />
-        </div>
+        <SkeletonList rows={5} />
       ) : !conversations || conversations.length === 0 ? (
         <p className="py-8 text-center text-sm text-on-surface-variant">No conversations available.</p>
       ) : (

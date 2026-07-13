@@ -10,6 +10,7 @@ import { downloadFile } from '@/utils/download';
 import { fileNameFromUrl } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import type { MediaItem } from '@/types';
+import { SkeletonGrid } from '@/components/ui/Skeleton';
 
 const PAGE = 30;
 const URL_RE = /(https?:\/\/[^\s]+)/i;
@@ -67,9 +68,7 @@ export function ConversationMediaSection({
 
       <div ref={scrollRef} onScroll={onScroll} className="-mx-1 max-h-[45vh] overflow-y-auto px-1 cs-scroll">
         {gallery.isLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner className="h-6 w-6" />
-          </div>
+          <SkeletonGrid tiles={9} />
         ) : items.length === 0 ? (
           <p className="py-10 text-center text-sm text-on-surface-variant">No {tab} shared yet.</p>
         ) : tab === 'media' ? (
