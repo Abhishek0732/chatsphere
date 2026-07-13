@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Image as ImageIcon, Music2, Type, Video, X } from 'lucide-react';
+import { Eye, Image as ImageIcon, Music2, Type, Video, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -9,6 +9,7 @@ import { toast } from '@/store/toastStore';
 import { mediaSrc } from '@/utils/media';
 import { useCreateStatus } from '@/hooks/useStatus';
 import { MusicPicker } from './MusicPicker';
+import { StatusPreview, type StatusDraft } from './StatusPreview';
 import type { MusicSelection } from './musicLibrary';
 
 const TEXT_BGS = [
@@ -34,6 +35,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const [bg, setBg] = useState(TEXT_BGS[0]);
   const [music, setMusic] = useState<MusicSelection | null>(null);
   const [musicOpen, setMusicOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const mediaInput = useRef<HTMLInputElement>(null);
@@ -43,6 +45,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     setCaption('');
     setText('');
     setMusic(null);
+    setPreviewOpen(false);
     setMode('media');
   };
 
@@ -94,6 +97,17 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   };
 
   const canPost = mode === 'text' ? text.trim().length > 0 : !!media;
+
+  // What the preview renders — the same values that get posted.
+  const draft: StatusDraft =
+    mode === 'text'
+      ? { type: 'TEXT', caption: text.trim(), bgColor: bg, music }
+      : {
+          type: media?.type ?? 'IMAGE',
+          mediaUrl: media?.url,
+          caption: caption.trim() || undefined,
+          music,
+        };
 
   return (
     <Modal open={open} onClose={close} title="Add to status">
@@ -234,15 +248,51 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
 
         <MusicPicker open={musicOpen} onClose={() => setMusicOpen(false)} onSelect={setMusic} />
 
+        {/* With a song attached, Preview is the primary action — you can't tell
+            whether a track works from its title alone, so play it first. */}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>
-          <Button onClick={post} disabled={!canPost || uploading} loading={create.isPending}>
-            Post status
-          </Button>
+          {music ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={post}
+                disabled={!canPost || uploading}
+                loading={create.isPending}
+              >
+                Post
+              </Button>
+              <Button onClick={() => setPreviewOpen(true)} disabled={!canPost || uploading}>
+                <Eye className="mr-1.5 h-4 w-4" /> Preview
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setPreviewOpen(true)}
+                disabled={!canPost || uploading}
+              >
+                <Eye className="mr-1.5 h-4 w-4" /> Preview
+              </Button>
+              <Button onClick={post} disabled={!canPost || uploading} loading={create.isPending}>
+                Post status
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      {previewOpen && canPost && (
+        <StatusPreview
+          draft={draft}
+          posting={create.isPending}
+          onEdit={() => setPreviewOpen(false)}
+          onPost={post}
+        />
+      )}
     </Modal>
   );
 }
