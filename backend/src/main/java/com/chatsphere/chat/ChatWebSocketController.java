@@ -17,6 +17,8 @@ import org.springframework.stereotype.Controller;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Handles inbound STOMP frames destined for /app/**. */
@@ -59,14 +61,27 @@ public class ChatWebSocketController {
     public void send(@Payload SendMessageCommand cmd, Principal principal) {
         Long senderId = userId(principal);
         Message saved = persistWithRetry(senderId, cmd);
-        MessageDto dto = chatService.toMessageDto(saved, cmd.tempId());
+        // A message that was just created cannot have reactions, and its sender's
+        // name is cached — so this costs no queries.
+        MessageDto dto = chatService.freshDto(saved, cmd.tempId());
 
         List<Long> members = chatService.memberUserIds(cmd.conversationId());
         // Don't deliver to members who have blocked the sender (they simply
         // won't receive the message, live or via notification). The sender is
         // always kept so their own echo still arrives.
         List<Long> deliverable = blockService.filterDeliverable(senderId, members);
-        broadcaster.sendMessageToMembers(dto, deliverable);
+
+        // Only push a live frame to members who are actually CONNECTED. In a
+        // 500-member group most people are offline at any moment, and we were
+        // pushing to all of them: 200 people posting into one big group produced
+        // ~198,000 socket deliveries, most of which had nobody to arrive at.
+        // Offline members lose nothing — the message is in the database and they
+        // get a notification row, so it is all there when they next open the app.
+        Set<Long> online = presenceService.onlineAmong(deliverable);
+        List<Long> live = deliverable.stream()
+                .filter(id -> online.contains(id) || Objects.equals(id, senderId))
+                .toList();
+        broadcaster.sendMessageToMembers(dto, live);
         eventPublisher.publishMessage(dto);
         // Async: the notification fan-out (a row + a push per recipient) must not
         // sit between the sender pressing Enter and their message appearing.

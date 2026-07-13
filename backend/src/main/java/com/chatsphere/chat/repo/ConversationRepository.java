@@ -11,6 +11,22 @@ import java.util.Optional;
 public interface ConversationRepository extends JpaRepository<Conversation, Long> {
 
     /**
+     * Point the conversation at its newest message and float it to the top of the
+     * chat list. GREATEST keeps it monotonic: two messages committing at the same
+     * moment cannot move the pointer backwards.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = """
+            UPDATE conversations
+               SET last_message_id = GREATEST(COALESCE(last_message_id, 0), :messageId),
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE id = :conversationId
+            """, nativeQuery = true)
+    void advanceLastMessage(
+            @org.springframework.data.repository.query.Param("conversationId") Long conversationId,
+            @org.springframework.data.repository.query.Param("messageId") Long messageId);
+
+    /**
      * Take the conversation's row lock BEFORE writing a message into it.
      *
      * Inserting a message takes a shared lock on this row (the foreign key check);

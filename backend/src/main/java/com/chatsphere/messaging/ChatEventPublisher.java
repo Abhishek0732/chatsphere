@@ -24,6 +24,12 @@ public class ChatEventPublisher {
         this.messagesTopic = props.kafka().topics().messages();
     }
 
+    /**
+     * Off the send path. The only consumer of this topic writes a log line, so
+     * serialising the message and handing it to Kafka in front of the person
+     * waiting for their message to appear buys nothing.
+     */
+    @org.springframework.scheduling.annotation.Async
     public void publishMessage(MessageDto message) {
         try {
             kafkaTemplate.send(messagesTopic, String.valueOf(message.conversationId()), message);

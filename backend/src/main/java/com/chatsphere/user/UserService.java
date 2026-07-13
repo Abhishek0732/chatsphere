@@ -14,9 +14,12 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final com.chatsphere.common.cache.HotPathCache cache;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository,
+                       com.chatsphere.common.cache.HotPathCache cache) {
         this.userRepository = userRepository;
+        this.cache = cache;
     }
 
     @Transactional(readOnly = true)
@@ -119,6 +122,8 @@ public class UserService {
         if (req.protectAvatar() != null) {
             user.setProtectAvatar(req.protectAvatar());
         }
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        cache.invalidateUser(userId); // a rename must not be served from cache
+        return saved;
     }
 }

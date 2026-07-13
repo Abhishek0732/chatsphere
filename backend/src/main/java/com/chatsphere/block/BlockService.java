@@ -17,6 +17,30 @@ public class BlockService {
     private final BlockRepository blockRepository;
     private final UserRepository userRepository;
 
+    /** senderId -> who currently blocks them. Blocks change rarely; messages don't. */
+    private final java.util.Map<Long, java.util.Map.Entry<java.time.Instant, java.util.Set<Long>>> blockerCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.time.Duration BLOCKER_TTL = java.time.Duration.ofSeconds(60);
+
+    /** Blocking/unblocking must take effect at once, not a minute later. */
+    public void invalidateBlockCache(Long a, Long b) {
+        blockerCache.remove(a);
+        blockerCache.remove(b);
+    }
+
+    /** Cached: this query ran on EVERY message sent, for every sender. */
+    private java.util.Set<Long> blockersOf(Long senderId) {
+        var hit = blockerCache.get(senderId);
+        if (hit != null && java.time.Instant.now().isBefore(hit.getKey())) {
+            return hit.getValue();
+        }
+        java.util.Set<Long> ids = Set.copyOf(blockRepository.findActiveBlockerIds(senderId));
+        if (blockerCache.size() > 50_000) blockerCache.clear();
+        blockerCache.put(senderId,
+                java.util.Map.entry(java.time.Instant.now().plus(BLOCKER_TTL), ids));
+        return ids;
+    }
+
     public BlockService(BlockRepository blockRepository, UserRepository userRepository) {
         this.blockRepository = blockRepository;
         this.userRepository = userRepository;
@@ -36,6 +60,7 @@ public class BlockService {
 
     @Transactional
     public void block(Long actorId, Long targetId) {
+        invalidateBlockCache(actorId, targetId);
         if (Objects.equals(actorId, targetId)) {
             throw ApiException.badRequest("You cannot block yourself");
         }
@@ -51,6 +76,7 @@ public class BlockService {
 
     @Transactional
     public void unblock(Long actorId, Long targetId) {
+        invalidateBlockCache(actorId, targetId);
         // Close the active block window (keep the row so messages sent during
         // the block stay hidden forever).
         blockRepository.findFirstByBlockerIdAndBlockedIdAndUnblockedAtIsNull(actorId, targetId)
@@ -116,7 +142,7 @@ public class BlockService {
      */
     @Transactional(readOnly = true)
     public List<Long> filterDeliverable(Long senderId, List<Long> memberIds) {
-        Set<Long> blockedSender = Set.copyOf(blockRepository.findActiveBlockerIds(senderId));
+        Set<Long> blockedSender = blockersOf(senderId);
         if (blockedSender.isEmpty()) {
             return memberIds;
         }

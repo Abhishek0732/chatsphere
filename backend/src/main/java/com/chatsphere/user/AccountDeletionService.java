@@ -40,13 +40,16 @@ public class AccountDeletionService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbc;
+    private final com.chatsphere.common.cache.HotPathCache cache;
 
     public AccountDeletionService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
-                                  JdbcTemplate jdbc) {
+                                  JdbcTemplate jdbc,
+                                  com.chatsphere.common.cache.HotPathCache cache) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jdbc = jdbc;
+        this.cache = cache;
     }
 
     /**
@@ -109,6 +112,9 @@ public class AccountDeletionService {
         user.setInviteCode(null);
         userRepository.save(user);
 
+        // The send path checks a cached "is this person deleted" flag — clear it, or
+        // messages to them would still go through for a few minutes.
+        cache.invalidateUser(userId);
         log.info("account {} deleted and anonymised", userId);
     }
 }

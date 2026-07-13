@@ -4,6 +4,10 @@ import com.chatsphere.user.User;
 
 import java.time.Instant;
 
+/**
+ * A user as the client sees them. {@code deleted} is true once the account has
+ * been closed — the client uses it to stop offering a composer in that chat.
+ */
 public record UserDto(
         Long id,
         String username,
@@ -14,7 +18,6 @@ public record UserDto(
         Boolean online,
         Instant lastSeen,
         boolean protectAvatar,
-        /** True when this account has been deleted — you can't message them. */
         boolean deleted) {
 
     public static UserDto from(User u) {

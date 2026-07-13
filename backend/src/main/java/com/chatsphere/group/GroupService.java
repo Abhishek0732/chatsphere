@@ -35,6 +35,7 @@ public class GroupService {
     private final ContactRepository contactRepository;
     private final GroupInviteRepository inviteRepository;
     private final NotificationService notificationService;
+    private final com.chatsphere.common.cache.HotPathCache cache;
 
     public GroupService(ConversationRepository conversationRepository,
                         ConversationMemberRepository memberRepository,
@@ -42,7 +43,9 @@ public class GroupService {
                         UserRepository userRepository,
                         ContactRepository contactRepository,
                         GroupInviteRepository inviteRepository,
-                        NotificationService notificationService) {
+                        NotificationService notificationService,
+                        com.chatsphere.common.cache.HotPathCache cache) {
+        this.cache = cache;
         this.conversationRepository = conversationRepository;
         this.memberRepository = memberRepository;
         this.chatService = chatService;
@@ -264,6 +267,7 @@ public class GroupService {
             assertAdmin(groupId, actorId);
         }
         memberRepository.deleteByConversationIdAndUserId(groupId, targetUserId);
+        cache.invalidateMembers(groupId); // the cached roster is now wrong
     }
 
     private Conversation getGroup(Long groupId) {

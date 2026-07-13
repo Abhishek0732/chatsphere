@@ -42,6 +42,8 @@ public class ChatService {
     private final PresenceService presenceService;
     private final BlockService blockService;
     private final MessageReactionRepository reactionRepository;
+    private final com.chatsphere.common.cache.HotPathCache cache;
+    private final PostSendWork postSend;
 
     public ChatService(ConversationRepository conversationRepository,
                        ConversationMemberRepository memberRepository,
@@ -50,7 +52,11 @@ public class ChatService {
                        UserRepository userRepository,
                        PresenceService presenceService,
                        BlockService blockService,
-                       MessageReactionRepository reactionRepository) {
+                       MessageReactionRepository reactionRepository,
+                       com.chatsphere.common.cache.HotPathCache cache,
+                       PostSendWork postSend) {
+        this.cache = cache;
+        this.postSend = postSend;
         this.conversationRepository = conversationRepository;
         this.memberRepository = memberRepository;
         this.messageRepository = messageRepository;
@@ -67,13 +73,12 @@ public class ChatService {
      */
     private void assertCounterpartAlive(Conversation conv, Long senderId) {
         if (conv.getType() != Conversation.Type.DIRECT) return;
-        List<Long> others = memberRepository.findByConversationId(conv.getId()).stream()
-                .map(ConversationMember::getUserId)
+        List<Long> others = cache.memberIds(conv.getId()).stream()
                 .filter(id -> !Objects.equals(id, senderId))
                 .toList();
         if (others.isEmpty()) return;
-        boolean deleted = userRepository.findAllById(others).stream()
-                .anyMatch(u -> u.getDeletedAt() != null);
+        boolean deleted = cache.briefs(others).values().stream()
+                .anyMatch(com.chatsphere.common.cache.HotPathCache.UserBrief::deleted);
         if (deleted) {
             throw ApiException.badRequest("This account has been deleted");
         }
@@ -118,7 +123,9 @@ public class ChatService {
         m.setConversationId(conversationId);
         m.setUserId(userId);
         m.setRole(role);
-        return memberRepository.save(m);
+        ConversationMember saved = memberRepository.save(m);
+        cache.invalidateMembers(conversationId);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -128,10 +135,9 @@ public class ChatService {
         }
     }
 
-    @Transactional(readOnly = true)
+    /** Cached: this was queried three separate times for every single message. */
     public List<Long> memberUserIds(Long conversationId) {
-        return memberRepository.findByConversationId(conversationId).stream()
-                .map(ConversationMember::getUserId).toList();
+        return cache.memberIds(conversationId);
     }
 
     @Transactional(readOnly = true)
@@ -404,11 +410,11 @@ public class ChatService {
 
     @Transactional
     public Message persistMessage(Long senderId, SendMessageCommand cmd) {
-        assertMember(cmd.conversationId(), senderId);
-        // Lock the conversation row FIRST. See findByIdForUpdate: without this,
-        // two concurrent sends into the same chat deadlock on a shared->exclusive
-        // lock upgrade and one of them is rolled back — a lost message.
-        Conversation conv = conversationRepository.findByIdForUpdate(cmd.conversationId())
+        // Membership comes from the cache — this was an exists() query per message.
+        if (!cache.memberIds(cmd.conversationId()).contains(senderId)) {
+            throw ApiException.forbidden("You are not a member of this conversation");
+        }
+        Conversation conv = conversationRepository.findById(cmd.conversationId())
                 .orElseThrow(() -> ApiException.notFound("Conversation not found"));
         assertCounterpartAlive(conv, senderId);
         Message m = new Message();
@@ -426,14 +432,35 @@ public class ChatService {
         }
         Message saved = messageRepository.save(m);
 
-        // Point the conversation at its newest message (and touch updated_at so it
-        // sorts to the top). The chat list reads this instead of deriving MAX(id).
-        conv.setLastMessageId(saved.getId());
-        conversationRepository.save(conv);
-        // One UPDATE bumps the unread badge for every recipient, whatever the group
-        // size — so the chat list never has to count messages.
-        memberRepository.incrementUnread(cmd.conversationId(), senderId);
+        // Everything else happens AFTER the commit, on another thread.
+        //
+        // The send transaction is now a single INSERT. It used to also take the
+        // conversation's row lock (SELECT ... FOR UPDATE) and UPDATE that row plus
+        // one row per member — so every sender in a chat queued behind every other
+        // sender, and the fsync-per-commit cost was paid three times over. None of
+        // that is needed for the message to be delivered.
+        //
+        // The conversation pointer is advanced with GREATEST(), so two messages
+        // landing at once can never move it backwards.
+        afterCommit(() -> postSend.finish(cmd.conversationId(), senderId, saved.getId()));
         return saved;
+    }
+
+    /** Run something once the message is safely committed — never before. */
+    private void afterCommit(Runnable task) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager
+                .isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override
+                                public void afterCommit() {
+                                    task.run();
+                                }
+                            });
+        } else {
+            task.run();
+        }
     }
 
     /** Ids a client may tag in one message. Bounds the stored CSV. */
@@ -861,6 +888,28 @@ public class ChatService {
     public MessageDto toMessageDto(Message m, String tempId) {
         User sender = userRepository.findById(m.getSenderId()).orElse(null);
         return toMessageDto(m, sender, "SENT", tempId);
+    }
+
+    /**
+     * DTO for a message that was just created — the hot path.
+     *
+     * A brand-new message cannot have reactions, so querying for them is pointless,
+     * and the sender's name comes from the cache. That removes two queries from
+     * every single send; only a reply (rare) still costs a lookup.
+     */
+    @Transactional(readOnly = true)
+    public MessageDto freshDto(Message m, String tempId) {
+        var brief = cache.brief(m.getSenderId());
+        String senderName = brief != null ? brief.displayName() : "Unknown";
+        ReplyPreview replyTo = m.getReplyToMessageId() == null
+                ? null : buildReplyPreview(m.getReplyToMessageId());
+        StatusRef statusRef = m.getStatusRefType() == null ? null
+                : new StatusRef(m.getStatusRefId(), m.getStatusRefType(), m.getStatusRefMediaUrl(),
+                        m.getStatusRefCaption(), m.getStatusRefBgColor());
+        return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
+                m.getContent(), m.getType().name(), m.getAttachmentUrl(), m.getCreatedAt(),
+                "SENT", tempId, false, replyTo, List.of(), m.isPinned(), m.getEditedAt(),
+                statusRef, decodeMentions(m.getMentions()));
     }
 
     private Map<Long, User> loadSenders(List<Message> messages) {

@@ -4,9 +4,8 @@ import com.chatsphere.chat.dto.ChatDtos.MessageDeletedEvent;
 import com.chatsphere.chat.dto.ChatDtos.MessageDto;
 import com.chatsphere.chat.dto.ChatDtos.ReadEvent;
 import com.chatsphere.chat.dto.ChatDtos.TypingEvent;
+import com.chatsphere.common.cache.HotPathCache;
 import com.chatsphere.common.realtime.StompRelay;
-import com.chatsphere.user.User;
-import com.chatsphere.user.UserRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -24,16 +23,18 @@ import java.util.List;
 public class ChatBroadcaster {
 
     private final StompRelay relay;
-    private final UserRepository userRepository;
+    private final HotPathCache cache;
 
-    public ChatBroadcaster(StompRelay relay, UserRepository userRepository) {
+    public ChatBroadcaster(StompRelay relay, HotPathCache cache) {
         this.relay = relay;
-        this.userRepository = userRepository;
+        this.cache = cache;
     }
 
-    /** STOMP principal names for these user ids (one query, not one per member). */
+    /** STOMP principal names, from cache — this was a query on every message. */
     private List<String> usernames(List<Long> userIds) {
-        return userRepository.findAllById(userIds).stream().map(User::getUsername).toList();
+        return cache.briefs(userIds).values().stream()
+                .map(HotPathCache.UserBrief::username)
+                .toList();
     }
 
     public void sendMessageToMembers(MessageDto message, List<Long> memberUserIds) {

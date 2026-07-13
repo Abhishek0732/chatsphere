@@ -71,15 +71,29 @@ public class NotificationService {
     @Async
     @Transactional
     public void notifyNewMessage(MessageDto message, List<Long> memberIds, Long senderId) {
+        List<Long> mentions = message.mentions() == null ? List.of() : message.mentions();
         String preview = switch (message.type()) {
             case "IMAGE" -> "📷 Photo";
             case "FILE" -> "📎 Attachment";
             default -> message.content() == null ? "" : message.content();
         };
-        List<Long> mentions = message.mentions() == null ? List.of() : message.mentions();
-
+        // WHO actually gets a notification ROW.
+        //
+        // Every group message used to write one row PER MEMBER: a single message
+        // into a 500-member group meant 499 INSERTs, so a busy group buried the
+        // database in writes and delivery slowed to seconds. It was also the wrong
+        // behaviour — no chat app lists every group message in a notification
+        // centre; it shows an unread badge on the chat, and notifies you when you
+        // are MENTIONED.
+        //
+        // So: a direct message notifies the person it was sent to, and a group
+        // message notifies only the people it @mentions. Everyone else still sees
+        // the message instantly (the live socket frame), the unread badge on the
+        // chat, and the OS notification — none of which need a row here.
+        boolean group = memberIds.size() > 2;
         List<Long> recipients = memberIds.stream()
                 .filter(id -> !Objects.equals(id, senderId))
+                .filter(id -> !group || mentions.contains(id))
                 .toList();
         if (recipients.isEmpty()) return;
 

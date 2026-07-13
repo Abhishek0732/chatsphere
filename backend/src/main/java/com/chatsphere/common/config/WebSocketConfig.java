@@ -34,8 +34,37 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setUserDestinationPrefix("/user");
     }
 
+    /**
+     * The inbound channel is where every chat.send is executed, and each one does
+     * blocking database work. Left at the default (2 x cores, unbounded queue) it
+     * was the bottleneck: with 400 people chatting at once, messages queued behind
+     * a handful of threads and took over 3 SECONDS to arrive.
+     */
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(authInterceptor);
+        registration.taskExecutor()
+                .corePoolSize(32)
+                .maxPoolSize(64)
+                // Bounded: if we ever fall this far behind, fail fast rather than
+                // grow an invisible in-memory backlog until the JVM dies.
+                .queueCapacity(10_000);
+    }
+
+    /** Fan-out to clients. Same reasoning — the default pool is far too small. */
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        registration.taskExecutor()
+                .corePoolSize(32)
+                .maxPoolSize(64)
+                .queueCapacity(20_000);
+    }
+
+    @Override
+    public void configureWebSocketTransport(
+            org.springframework.web.socket.config.annotation.WebSocketTransportRegistration registration) {
+        registration.setMessageSizeLimit(256 * 1024);      // a long message + metadata
+        registration.setSendBufferSizeLimit(2 * 1024 * 1024);
+        registration.setSendTimeLimit(20_000);             // a slow mobile client
     }
 }
