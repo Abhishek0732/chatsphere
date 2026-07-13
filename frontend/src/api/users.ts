@@ -57,6 +57,11 @@ export async function rotateMyInvite(): Promise<InviteInfo> {
   return data;
 }
 
+/** Delete my account for good (password re-entry required). */
+export async function deleteMyAccount(password: string): Promise<void> {
+  await api.delete('/users/me', { data: { password } });
+}
+
 export async function getUser(id: number): Promise<User> {
   const { data } = await api.get<User>(`/users/${id}`);
   return data;

@@ -20,6 +20,7 @@ import {
   Share2,
   ShieldCheck,
   User,
+  Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -37,6 +38,7 @@ import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { BlockedUsersModal } from './BlockedUsersModal';
 import { InviteFriendsModal } from './InviteFriendsModal';
+import { DeleteAccountModal } from './DeleteAccountModal';
 import { QrModal } from '@/features/contacts/QrModal';
 
 type SettingKey = 'appearance' | 'privacy' | 'notifications';
@@ -112,6 +114,7 @@ export function SettingsPanel() {
   // link carried the raw QR token in the URL, which is a long-lived secret and
   // has no business being pasted into someone's chat window.
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
@@ -262,6 +265,14 @@ export function SettingsPanel() {
             onClick={() => logout.mutate()}
             right={<span />}
           />
+          <Row
+            icon={<Trash2 className="h-5 w-5" />}
+            title="Delete Account"
+            subtitle="Permanently close this account"
+            danger
+            onClick={() => setDeleteOpen(true)}
+            right={<span />}
+          />
         </Section>
       </main>
 
@@ -362,6 +373,7 @@ export function SettingsPanel() {
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       <BlockedUsersModal open={blockedOpen} onClose={() => setBlockedOpen(false)} />
       <InviteFriendsModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <DeleteAccountModal open={deleteOpen} onClose={() => setDeleteOpen(false)} />
       <QrModal open={qrOpen} onClose={() => setQrOpen(false)} />
     </div>
   );

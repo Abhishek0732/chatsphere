@@ -96,6 +96,11 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(req.usernameOrEmail(), req.password()));
         User user = userRepository.findByUsernameOrEmail(req.usernameOrEmail(), req.usernameOrEmail())
                 .orElseThrow(() -> ApiException.unauthorized("Invalid credentials"));
+        if (user.getDeletedAt() != null) {
+            // The account was deleted. It can never be signed into again, and the
+            // username/email stay reserved so they cannot be registered afresh.
+            throw ApiException.unauthorized("This account has been deleted");
+        }
         return issueTokens(user);
     }
 

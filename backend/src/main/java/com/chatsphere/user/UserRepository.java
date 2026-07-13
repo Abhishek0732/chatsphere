@@ -39,6 +39,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = """
             SELECT /*+ MAX_EXECUTION_TIME(2000) */ u.* FROM users u
             WHERE u.id <> :excludeId
+              AND u.deleted_at IS NULL
               AND MATCH(u.username, u.display_name, u.email) AGAINST (:q IN BOOLEAN MODE)
             LIMIT :limit
             """, nativeQuery = true)
@@ -53,6 +54,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = """
             SELECT u.* FROM users u
             WHERE u.id <> :excludeId
+              AND u.deleted_at IS NULL
               AND (u.username LIKE CONCAT(:q, '%')
                    OR u.display_name LIKE CONCAT(:q, '%'))
             LIMIT :limit

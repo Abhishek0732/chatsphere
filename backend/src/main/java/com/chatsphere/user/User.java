@@ -49,6 +49,14 @@ public class User {
     @Column(name = "qr_token", nullable = false, unique = true, length = 64)
     private String qrToken;
 
+    /**
+     * Set when the account is deleted. The row survives (their old messages point
+     * at it, and their username/email stay reserved so nobody can re-register
+     * them), but the account is closed and anonymised.
+     */
+    @Column(name = "deleted_at")
+    private java.time.Instant deletedAt;
+
     /** Short code behind the shareable "add me" link (/i/<code>). Rotatable. */
     @Column(name = "invite_code", unique = true, length = 16)
     private String inviteCode;

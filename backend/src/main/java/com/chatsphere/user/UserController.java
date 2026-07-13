@@ -2,11 +2,13 @@ package com.chatsphere.user;
 
 import com.chatsphere.common.security.SecurityUtils;
 import com.chatsphere.presence.PresenceService;
+import com.chatsphere.user.dto.DeleteAccountRequest;
 import com.chatsphere.user.dto.InviteDto;
 import com.chatsphere.user.dto.QrDto;
 import com.chatsphere.user.dto.UpdateProfileRequest;
 import com.chatsphere.user.dto.UserDto;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,8 +19,12 @@ public class UserController {
 
     private final UserService userService;
     private final PresenceService presenceService;
+    private final AccountDeletionService accountDeletionService;
 
-    public UserController(UserService userService, PresenceService presenceService) {
+    public UserController(UserService userService,
+                          PresenceService presenceService,
+                          AccountDeletionService accountDeletionService) {
+        this.accountDeletionService = accountDeletionService;
         this.userService = userService;
         this.presenceService = presenceService;
     }
@@ -41,6 +47,18 @@ public class UserController {
     @PostMapping("/me/qr/rotate")
     public QrDto rotateQr() {
         return userService.rotateQr(SecurityUtils.currentUserId());
+    }
+
+    /**
+     * Delete my account, for good. The person's messages stay in other people's
+     * chats (as "Deleted user") — one person's decision must not tear holes in
+     * someone else's history — but the account is closed, anonymised, and its
+     * username/email are retired so they can never be registered again.
+     */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@Valid @RequestBody DeleteAccountRequest req) {
+        accountDeletionService.deleteOwnAccount(SecurityUtils.currentUserId(), req.password());
+        return ResponseEntity.noContent().build();
     }
 
     /** The short code behind my shareable invite link (/i/<code>). */
