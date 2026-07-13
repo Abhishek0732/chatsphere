@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
+  acceptGroupInvite,
   addGroupMembers,
   createGroup,
+  declineGroupInvite,
   getGroup,
+  getGroupInvites,
   removeGroupMember,
   setGroupMemberRole,
   updateGroup,
@@ -13,7 +16,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
-import type { ConversationSummary } from '@/types';
+import type { AddMembersResult, ConversationSummary } from '@/types';
 
 export function useGroup(id: number | null) {
   return useQuery({
@@ -52,13 +55,68 @@ export function useUpdateGroup(id: number) {
   });
 }
 
+/**
+ * Add people to a group. Contacts join right away; anyone else only gets an
+ * invite, so the toast must say which actually happened rather than claiming
+ * everyone was added.
+ */
 export function useAddGroupMembers(id: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userIds: number[]) => addGroupMembers(id, userIds),
-    onSuccess: () => {
+    onSuccess: (result: AddMembersResult) => {
       void qc.invalidateQueries({ queryKey: queryKeys.group(id) });
-      toast({ title: 'Members added', variant: 'success' });
+      void qc.invalidateQueries({ queryKey: queryKeys.conversations });
+
+      const parts: string[] = [];
+      if (result.added.length) parts.push(`${result.added.length} added`);
+      if (result.invited.length) parts.push(`${result.invited.length} invited`);
+      const invitedNames = result.invited.map((u) => u.displayName).join(', ');
+      toast({
+        title: parts.join(' · ') || 'No changes',
+        description: invitedNames
+          ? `${invitedNames} will join once they accept the invite.`
+          : undefined,
+        variant: 'success',
+      });
+    },
+    onError: () => toast({ title: 'Could not add members', variant: 'error' }),
+  });
+}
+
+/** Group invites waiting on me (someone who isn't my contact added me). */
+export function useGroupInvites() {
+  return useQuery({
+    queryKey: queryKeys.groupInvites,
+    queryFn: getGroupInvites,
+  });
+}
+
+export function useAcceptGroupInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: number) => acceptGroupInvite(inviteId),
+    onSuccess: (conversation: ConversationSummary) => {
+      // Only now am I a member — the group appears in my chat list.
+      qc.setQueryData<ConversationSummary[]>(queryKeys.conversations, (prev) => [
+        conversation,
+        ...(prev ?? []).filter((c) => c.id !== conversation.id),
+      ]);
+      void qc.invalidateQueries({ queryKey: queryKeys.groupInvites });
+      void qc.invalidateQueries({ queryKey: queryKeys.conversations });
+      toast({ title: `You joined ${conversation.name ?? 'the group'}`, variant: 'success' });
+    },
+    onError: () => toast({ title: 'Could not join the group', variant: 'error' }),
+  });
+}
+
+export function useDeclineGroupInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: number) => declineGroupInvite(inviteId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.groupInvites });
+      toast({ title: 'Invite declined', variant: 'default' });
     },
   });
 }

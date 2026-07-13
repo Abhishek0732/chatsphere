@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ConversationSummary, GroupDetail } from '@/types';
+import type { AddMembersResult, ConversationSummary, GroupDetail, GroupInvite } from '@/types';
 
 export interface CreateGroupPayload {
   name: string;
@@ -24,8 +24,28 @@ export async function updateGroup(
   await api.put(`/groups/${id}`, payload);
 }
 
-export async function addGroupMembers(id: number, userIds: number[]): Promise<void> {
-  await api.post(`/groups/${id}/members`, { userIds });
+/**
+ * Add people to a group. Contacts join immediately; everyone else is only
+ * invited — the result says which happened to whom.
+ */
+export async function addGroupMembers(id: number, userIds: number[]): Promise<AddMembersResult> {
+  const { data } = await api.post<AddMembersResult>(`/groups/${id}/members`, { userIds });
+  return data;
+}
+
+/** Group invites waiting on me. */
+export async function getGroupInvites(): Promise<GroupInvite[]> {
+  const { data } = await api.get<GroupInvite[]>('/groups/invites');
+  return data;
+}
+
+export async function acceptGroupInvite(inviteId: number): Promise<ConversationSummary> {
+  const { data } = await api.post<ConversationSummary>(`/groups/invites/${inviteId}/accept`);
+  return data;
+}
+
+export async function declineGroupInvite(inviteId: number): Promise<void> {
+  await api.post(`/groups/invites/${inviteId}/decline`);
 }
 
 export async function removeGroupMember(id: number, userId: number): Promise<void> {

@@ -22,6 +22,7 @@ import {
   useIncomingRequests,
 } from '@/hooks/useContacts';
 import { useOpenDirect } from '@/hooks/useConversations';
+import { useAcceptGroupInvite, useDeclineGroupInvite, useGroupInvites } from '@/hooks/useGroups';
 import { useChatStore } from '@/store/chatStore';
 import { AddContactModal } from './AddContactModal';
 import { CreateGroupModal } from '@/features/groups/CreateGroupModal';
@@ -65,8 +66,11 @@ const ContactRow = memo(function ContactRow({
 export function ContactsPanel() {
   const { data: contacts, isLoading } = useContacts();
   const { data: requests } = useIncomingRequests();
+  const { data: groupInvites } = useGroupInvites();
   const acceptRequest = useAcceptRequest();
   const declineRequest = useDeclineRequest();
+  const acceptGroupInvite = useAcceptGroupInvite();
+  const declineGroupInvite = useDeclineGroupInvite();
   const deleteContact = useDeleteContact();
   const openDirect = useOpenDirect();
 
@@ -78,6 +82,8 @@ export function ContactsPanel() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const incoming = requests ?? [];
+  const invites = groupInvites ?? [];
+  const invitesBusy = acceptGroupInvite.isPending || declineGroupInvite.isPending;
 
   // Close the 3-dot menu when clicking outside of it.
   useEffect(() => {
@@ -140,6 +146,48 @@ export function ContactsPanel() {
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* Status / stories row */}
         <StatusBar />
+
+        {/* Group invites — someone who isn't a contact tried to add me to a group;
+            I join only when I accept. */}
+        {invites.length > 0 && (
+          <section className="border-b border-slate-200 dark:border-slate-800">
+            <h2 className="flex items-center gap-2 px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Group invites
+              <span className="rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                {invites.length}
+              </span>
+            </h2>
+            <ul className="divide-y divide-slate-100 py-1 dark:divide-slate-800">
+              {invites.map((inv) => (
+                <li key={inv.id} className="flex items-center gap-3 px-4 py-3">
+                  <Avatar name={inv.groupName} src={inv.groupAvatarUrl} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{inv.groupName}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {inv.inviter.displayName} invited you to join
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => acceptGroupInvite.mutate(inv.id)}
+                    disabled={invitesBusy}
+                    aria-label="Join group"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-white transition hover:bg-brand-700 disabled:opacity-50"
+                  >
+                    <Check className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => declineGroupInvite.mutate(inv.id)}
+                    disabled={invitesBusy}
+                    aria-label="Decline group invite"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {incoming.length > 0 && (
           <section className="border-b border-slate-200 dark:border-slate-800">

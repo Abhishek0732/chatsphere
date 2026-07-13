@@ -32,9 +32,30 @@ public class GroupController {
         return groupService.update(SecurityUtils.currentUserId(), id, req);
     }
 
+    /**
+     * Add people to a group. Your contacts join immediately; anyone else is sent
+     * an invite and joins only once they accept.
+     */
     @PostMapping("/{id}/members")
-    public GroupDetailDto addMembers(@PathVariable Long id, @Valid @RequestBody AddMembersRequest req) {
+    public AddMembersResult addMembers(@PathVariable Long id, @Valid @RequestBody AddMembersRequest req) {
         return groupService.addMembers(SecurityUtils.currentUserId(), id, req);
+    }
+
+    /** Group invites waiting on me. */
+    @GetMapping("/invites")
+    public java.util.List<GroupInviteDto> invites() {
+        return groupService.myInvites(SecurityUtils.currentUserId());
+    }
+
+    @PostMapping("/invites/{inviteId}/accept")
+    public ConversationSummaryDto acceptInvite(@PathVariable Long inviteId) {
+        return groupService.acceptInvite(SecurityUtils.currentUserId(), inviteId);
+    }
+
+    @PostMapping("/invites/{inviteId}/decline")
+    public ResponseEntity<Void> declineInvite(@PathVariable Long inviteId) {
+        groupService.declineInvite(SecurityUtils.currentUserId(), inviteId);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/members/{userId}/role")

@@ -27,4 +27,20 @@ public final class GroupDtos {
                                  List<GroupMemberDto> members, Long createdBy) {}
 
     public record UpdateMemberRoleRequest(@NotBlank String role) {}
+
+    /**
+     * Outcome of adding people to a group: contacts join straight away, while
+     * anyone else is only invited and joins when they accept.
+     */
+    public record AddMembersResult(GroupDetailDto group,
+                                   List<UserDto> added,
+                                   List<UserDto> invited) {}
+
+    /** A pending "join this group" invite, as shown to the invitee. */
+    public record GroupInviteDto(Long id,
+                                 Long groupId,
+                                 String groupName,
+                                 String groupAvatarUrl,
+                                 UserDto inviter,
+                                 java.time.Instant createdAt) {}
 }

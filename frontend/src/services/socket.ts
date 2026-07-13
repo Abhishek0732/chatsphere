@@ -574,10 +574,18 @@ class SocketService {
       void queryClient.invalidateQueries({ queryKey: queryKeys.contactRequestsOutgoing });
       // The direct conversation is created on accept — pull it into the chat list.
       void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    } else if (notification.type === 'GROUP_INVITE') {
+      // Someone who isn't my contact wants to add me to a group: it waits for me.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.groupInvites });
+    } else if (notification.type === 'GROUP') {
+      // Added to a group / someone joined — refresh the chat list.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     }
 
     const isContact =
-      notification.type === 'CONTACT_REQUEST' || notification.type === 'CONTACT_ACCEPTED';
+      notification.type === 'CONTACT_REQUEST' ||
+      notification.type === 'CONTACT_ACCEPTED' ||
+      notification.type === 'GROUP_INVITE';
     toast({
       title: notification.title,
       description: notification.body,
