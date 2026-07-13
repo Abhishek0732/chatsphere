@@ -95,6 +95,10 @@ chatsphere:
     mail-from: ${APP_MAIL_FROM:ChatSphere <no-reply@chatsphere.local>}
     # Require OTP email verification during signup. Disable for tests/seeding.
     require-email-verification: ${APP_REQUIRE_EMAIL_VERIFICATION:true}
+  music:
+    # Storefront the status music catalogue searches — decides which songs are
+    # "trending" and which regional music (Bollywood/Punjabi/…) is returned.
+    country: ${MUSIC_COUNTRY:IN}
   jwt:
     secret: ${CHATSPHERE_JWT_SECRET:change-me-super-secret-key-at-least-256-bits-long-for-hs256-signing!!}
     access-ttl-min: ${CHATSPHERE_JWT_ACCESS_TTL_MIN:30}

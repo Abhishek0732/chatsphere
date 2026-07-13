@@ -143,6 +143,7 @@ services:
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://${PUBLIC_HOST}:${FRONTEND_PORT}}
       APP_MAIL_FROM: ${APP_MAIL_FROM:-ChatSphere <no-reply@chatsphere.local>}
+      MUSIC_COUNTRY: ${MUSIC_COUNTRY:-IN}
       # Media plane: native peer-to-peer WebRTC (no SFU). The backend only hands
       # the browser ICE servers so the two peers can find a path to each other.
       TURN_ENABLED: "true"
