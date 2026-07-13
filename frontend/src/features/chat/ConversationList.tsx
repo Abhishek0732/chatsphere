@@ -41,7 +41,9 @@ export function ConversationList() {
     return sorted.filter((c) => {
       if (filter === 'unread' && c.unreadCount === 0) return false;
       if (filter === 'groups' && c.type !== 'GROUP') return false;
-      if (q && !c.name.toLowerCase().includes(q)) return false;
+      // Never assume a name exists: a direct chat whose counterpart deleted their
+      // account had a null name, and this line took the whole app down with it.
+      if (q && !(c.name ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
   }, [sorted, term, filter]);

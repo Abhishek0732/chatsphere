@@ -61,6 +61,24 @@ public class ChatService {
         this.reactionRepository = reactionRepository;
     }
 
+    /**
+     * You cannot message someone who has deleted their account. Their history
+     * stays visible, but the conversation is read-only from now on.
+     */
+    private void assertCounterpartAlive(Conversation conv, Long senderId) {
+        if (conv.getType() != Conversation.Type.DIRECT) return;
+        List<Long> others = memberRepository.findByConversationId(conv.getId()).stream()
+                .map(ConversationMember::getUserId)
+                .filter(id -> !Objects.equals(id, senderId))
+                .toList();
+        if (others.isEmpty()) return;
+        boolean deleted = userRepository.findAllById(others).stream()
+                .anyMatch(u -> u.getDeletedAt() != null);
+        if (deleted) {
+            throw ApiException.badRequest("This account has been deleted");
+        }
+    }
+
     /** Deterministic key for a 1:1 conversation regardless of who initiates. */
     private static String directKey(Long a, Long b) {
         long lo = Math.min(a, b);
@@ -73,8 +91,11 @@ public class ChatService {
         if (Objects.equals(meId, targetUserId)) {
             throw ApiException.badRequest("Cannot start a conversation with yourself");
         }
-        userRepository.findById(targetUserId)
+        User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> ApiException.notFound("User not found: " + targetUserId));
+        if (target.getDeletedAt() != null) {
+            throw ApiException.badRequest("This account has been deleted");
+        }
 
         String key = directKey(meId, targetUserId);
         return conversationRepository.findByDirectKey(key).orElseGet(() -> {
@@ -228,6 +249,11 @@ public class ChatService {
                     name = other.getDisplayName();
                     // Hide a blocked user's picture (was an isBlocked() query per chat).
                     avatar = blockedIds.contains(other.getId()) ? null : other.getAvatarUrl();
+                } else {
+                    // The counterpart is gone (deleted account). Never return a null
+                    // name — the client renders it directly, and null took the whole
+                    // chat list down.
+                    name = "Deleted user";
                 }
             }
 
@@ -297,6 +323,8 @@ public class ChatService {
                 // Hide the other user's picture if the viewer has blocked them.
                 avatar = blockService.isBlocked(viewerId, other.getId())
                         ? null : other.getAvatarUrl();
+            } else {
+                name = "Deleted user"; // counterpart's account was deleted
             }
         }
 
@@ -382,6 +410,7 @@ public class ChatService {
         // lock upgrade and one of them is rolled back — a lost message.
         Conversation conv = conversationRepository.findByIdForUpdate(cmd.conversationId())
                 .orElseThrow(() -> ApiException.notFound("Conversation not found"));
+        assertCounterpartAlive(conv, senderId);
         Message m = new Message();
         m.setConversationId(cmd.conversationId());
         m.setSenderId(senderId);

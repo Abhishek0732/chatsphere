@@ -63,7 +63,7 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
     e.preventDefault();
     e.stopPropagation();
     setMenuOpen(false);
-    const label = conversation.type === 'GROUP' ? 'this group' : conversation.name;
+    const label = conversation.type === 'GROUP' ? 'this group' : (conversation.name ?? 'this chat');
     setConfirm({
       title: 'Clear chat',
       message: `Clear all messages with ${label}? The chat stays in your list.`,
@@ -102,7 +102,7 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
       >
         <div className="relative">
           <Avatar
-            name={conversation.name}
+            name={conversation.name ?? 'Deleted user'}
             src={conversation.avatarUrl}
             size="lg"
             guarded={!!other?.protectAvatar}

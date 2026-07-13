@@ -13,6 +13,8 @@ export interface User {
   lastSeen?: string;
   /** When true, other clients block download + deter screenshots of this photo. */
   protectAvatar?: boolean;
+  /** This account was deleted — they can't be messaged. */
+  deleted?: boolean;
 }
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'FILE';

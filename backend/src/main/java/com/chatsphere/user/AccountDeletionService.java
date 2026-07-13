@@ -69,7 +69,15 @@ public class AccountDeletionService {
         // Their own data. Everything here belongs solely to them, so it goes.
         jdbc.update("DELETE FROM contacts WHERE owner_id = ? OR contact_user_id = ?", userId, userId);
         jdbc.update("DELETE FROM contact_requests WHERE sender_id = ? OR recipient_id = ?", userId, userId);
-        jdbc.update("DELETE FROM conversation_members WHERE user_id = ?", userId);
+        // Leave DIRECT chats alone: removing the membership leaves the other person
+        // with a one-sided conversation that has no counterpart — the chat loses its
+        // name and avatar entirely. They keep a normal 1:1 chat with "Deleted user".
+        // Only group memberships go, so the person is out of every group.
+        jdbc.update("""
+                DELETE cm FROM conversation_members cm
+                JOIN conversations c ON c.id = cm.conversation_id
+                WHERE cm.user_id = ? AND c.type = 'GROUP'
+                """, userId);
         jdbc.update("DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?", userId, userId);
         jdbc.update("DELETE FROM statuses WHERE user_id = ?", userId);          // views cascade
         jdbc.update("DELETE FROM status_views WHERE viewer_id = ?", userId);

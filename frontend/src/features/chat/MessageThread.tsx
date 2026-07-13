@@ -367,7 +367,17 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
         <div ref={bottomRef} />
       </div>
 
-      <MessageInput conversationId={conversationId} />
+      {other?.deleted ? (
+        // Their account is gone: the history stays readable, but there is nobody
+        // left to receive a reply, so don't offer a composer that can only fail.
+        <div className="shrink-0 border-t border-white/5 bg-surface px-4 py-4 text-center">
+          <p className="text-sm text-on-surface-variant">
+            This account has been deleted. You can no longer send messages here.
+          </p>
+        </div>
+      ) : (
+        <MessageInput conversationId={conversationId} />
+      )}
       </div>
 
       {infoOpen && conversation.type === 'DIRECT' && (
