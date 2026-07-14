@@ -464,12 +464,36 @@ Two things here are less obvious than they look, and both were real bugs:
   went. In that window the app happily published into a dead socket — so the messages
   were neither sent nor queued. The send path now also trusts `navigator.onLine`, and
   the socket flips itself to disconnected on the browser's `offline` event.
-- **The outbox flushes ONE AT A TIME, waiting for each echo.** The server does *not*
-  guarantee ordering within a burst: its WebSocket inbound channel is a thread pool, so
-  two frames sent back-to-back on the same connection can be persisted concurrently and
-  land in the wrong order. Firing a queued backlog all at once visibly **shuffled the
-  user's messages**. (The same race exists in principle for very fast normal typing —
-  see §14.)
+- **The outbox flushes ONE AT A TIME, waiting for each echo.** This was originally a
+  workaround for the server reordering a burst; that is now fixed properly on the server
+  (§9.8), so this is belt-and-braces — it also means a flush can't run ahead of itself
+  after a dropped echo. Keep it.
+
+### 9.8 One connection's messages are persisted in the order they were typed
+
+The inbound WebSocket channel is a **thread pool**. Two messages sent back-to-back on the
+same connection are therefore handed to two different threads and race each other to the
+`INSERT` — and the loser can get the **lower id**. A conversation is ordered by id, so the
+messages were then stored, and displayed *forever*, in the wrong order. It is easy to
+reproduce: paste two lines quickly, or let an offline outbox drain.
+
+The fix is in two small pieces:
+
+- `common/config/InboundSequenceInterceptor` stamps every `chat.send` with its arrival
+  position, per connection. A channel interceptor's `preSend` runs on the thread that
+  **received** the frame, which is strictly ordered — the last point where the true order
+  is still known.
+- `chat/SessionOrdering` makes the handler wait until every earlier message from the
+  **same connection** has been written.
+
+This only ever makes a sender wait behind *themselves*. Different people and different
+connections are never serialised against each other, so throughput is untouched (a 20-
+message burst still lands in ~260ms). The wait is bounded at 500ms: if the frame ahead of
+us died, we go anyway — a message slightly out of order is bad, a message that never
+arrives is far worse.
+
+Only `chat.send` is stamped. Typing and read receipts are not ordered against anything,
+and stamping them would make a message wait behind a keystroke.
 
 ## 11. Security model
 
@@ -572,12 +596,6 @@ your typecheck.
 
 ## 14. Known gaps
 
-- **Message ordering within a burst is not guaranteed by the server.** The WebSocket
-  inbound channel is a thread pool, so two frames sent back-to-back on one connection can
-  be persisted concurrently and get ids in the wrong order. The outbox works around it by
-  flushing one message at a time (§10b), but very fast normal typing can still, in
-  principle, land out of order. The proper fix is server-side: sequence per conversation,
-  or order by a client-supplied sequence number rather than by insert id.
 - No CI. `make test` exists and passes; nothing runs it automatically on push.
 - **No end-to-end encryption.** Messages are readable in the database. That is fine for
   this project — but never claim otherwise in the README without doing the work.

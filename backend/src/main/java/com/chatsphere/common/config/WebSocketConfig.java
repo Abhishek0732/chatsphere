@@ -12,10 +12,14 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthChannelInterceptor authInterceptor;
+    private final InboundSequenceInterceptor sequenceInterceptor;
     private final AppProperties props;
 
-    public WebSocketConfig(WebSocketAuthChannelInterceptor authInterceptor, AppProperties props) {
+    public WebSocketConfig(WebSocketAuthChannelInterceptor authInterceptor,
+                           InboundSequenceInterceptor sequenceInterceptor,
+                           AppProperties props) {
         this.authInterceptor = authInterceptor;
+        this.sequenceInterceptor = sequenceInterceptor;
         this.props = props;
     }
 
@@ -42,7 +46,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(authInterceptor);
+        // The sequence interceptor runs on the RECEIVING thread, before the pool
+        // below gets its hands on the frame — the last point at which the true
+        // arrival order of one connection's messages is still known.
+        registration.interceptors(authInterceptor, sequenceInterceptor);
         registration.taskExecutor()
                 .corePoolSize(32)
                 .maxPoolSize(64)

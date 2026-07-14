@@ -3,12 +3,14 @@ package com.chatsphere.chat;
 import com.chatsphere.block.BlockService;
 import com.chatsphere.chat.domain.Message;
 import com.chatsphere.chat.dto.ChatDtos.*;
+import com.chatsphere.common.config.InboundSequenceInterceptor;
 import com.chatsphere.common.security.UserPrincipal;
 import com.chatsphere.messaging.ChatEventPublisher;
 import com.chatsphere.notification.NotificationService;
 import com.chatsphere.presence.PresenceService;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.security.core.Authentication;
@@ -40,6 +42,7 @@ public class ChatWebSocketController {
     private final ChatEventPublisher eventPublisher;
     private final UserRepository userRepository;
     private final BlockService blockService;
+    private final SessionOrdering ordering;
 
     public ChatWebSocketController(ChatService chatService,
                                    ChatBroadcaster broadcaster,
@@ -47,7 +50,8 @@ public class ChatWebSocketController {
                                    NotificationService notificationService,
                                    ChatEventPublisher eventPublisher,
                                    UserRepository userRepository,
-                                   BlockService blockService) {
+                                   BlockService blockService,
+                                   SessionOrdering ordering) {
         this.chatService = chatService;
         this.broadcaster = broadcaster;
         this.presenceService = presenceService;
@@ -55,11 +59,31 @@ public class ChatWebSocketController {
         this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
         this.blockService = blockService;
+        this.ordering = ordering;
     }
 
     @MessageMapping("chat.send")
-    public void send(@Payload SendMessageCommand cmd, Principal principal) {
+    public void send(@Payload SendMessageCommand cmd,
+                     Principal principal,
+                     @Header(name = InboundSequenceInterceptor.SEQ_HEADER, required = false) Long seq,
+                     @Header(name = "simpSessionId", required = false) String sessionId) {
         Long senderId = userId(principal);
+        // Wait until every earlier message from THIS connection has been written.
+        // Without this, two messages sent back-to-back race each other on the inbound
+        // thread pool and the loser can get the lower id — so a conversation ordered
+        // by id shows them swapped, permanently. This only ever makes a sender wait
+        // behind themselves; different people never block each other.
+        ordering.awaitTurn(sessionId, seq);
+        try {
+            doSend(cmd, senderId);
+        } finally {
+            // Hand the turn on even if the send blew up, or every later message from
+            // this connection would sit here until the timeout.
+            ordering.complete(sessionId, seq);
+        }
+    }
+
+    private void doSend(SendMessageCommand cmd, Long senderId) {
         Message saved = persistWithRetry(senderId, cmd);
         // A message that was just created cannot have reactions, and its sender's
         // name is cached — so this costs no queries.

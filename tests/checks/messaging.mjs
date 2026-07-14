@@ -107,7 +107,25 @@ export const checks = [
 
         assertEqual(landed.length, N, `messages persisted out of ${N} sent`);
         assertEqual(new Set(landed.map((m) => m.id)).size, N, 'distinct persisted message ids');
-        ctx.note(`all ${N} persisted in ${elapsed}ms`);
+
+        // ORDER. A conversation is ordered by message id, and the inbound channel is
+        // a thread pool — so two messages sent back to back used to race to the
+        // INSERT and the loser could get the LOWER id. The result: a burst (a paste,
+        // a fast typist, an offline outbox draining) was stored, and displayed
+        // forever, shuffled. The ids must ascend in the order they were sent.
+        const ids = landed.map((m) => m.id);
+        const ascending = [...ids].sort((a, b) => a - b);
+        const swapped = ids.findIndex((id, i) => id !== ascending[i]);
+        assert(
+          swapped === -1,
+          swapped === -1
+            ? 'burst persisted in send order'
+            : `OUT OF ORDER: message #${swapped + 1} of the burst was stored before an ` +
+                `earlier one (ids ${ids.slice(0, 6).join(', ')}…). The conversation would ` +
+                `show these messages shuffled, permanently.`,
+        );
+
+        ctx.note(`all ${N} persisted in send order in ${elapsed}ms`);
       } finally {
         // Bin them whether we passed or failed — a red run must not leave 20
         // messages behind for the next one to trip over.
