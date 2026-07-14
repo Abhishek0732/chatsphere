@@ -215,6 +215,39 @@ export function isEnvelope(text: string | null | undefined): boolean {
   return !!text && text.startsWith(`${ENVELOPE_VERSION}.`) && text.split('.').length === 3;
 }
 
+// ── attachments ──────────────────────────────────────────────────────────────
+// A file is encrypted with the same conversation key as the text. The stored object
+// is `iv(12 bytes) || ciphertext` — raw bytes, no envelope string, because this is a
+// binary blob in object storage rather than a database column. The IV travels with
+// the file, which is fine: an IV is not a secret, it just has to be unique.
+
+const IV_BYTES = 12;
+
+/** Encrypt file bytes for upload. What reaches storage is indistinguishable from noise. */
+export async function encryptBytes(data: ArrayBuffer, key: CryptoKey): Promise<Blob> {
+  const iv = randomBytes(IV_BYTES);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  return new Blob([iv, new Uint8Array(ct)], { type: 'application/octet-stream' });
+}
+
+/** Decrypt a downloaded attachment. Null when it cannot be read. */
+export async function decryptBytes(
+  blob: ArrayBuffer,
+  key: CryptoKey,
+): Promise<ArrayBuffer | null> {
+  if (blob.byteLength <= IV_BYTES) return null;
+  const bytes = new Uint8Array(blob);
+  try {
+    return await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: bytes.slice(0, IV_BYTES) },
+      key,
+      bytes.slice(IV_BYTES),
+    );
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Decrypt one message. Returns null if it cannot be read — a message from before
  * the peer rotated their key, say. The caller shows a placeholder rather than

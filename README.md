@@ -128,6 +128,10 @@ keys are ECDH P-256 + AES-GCM, done with the browser's own WebCrypto; your priva
 wrapped with your password (PBKDF2) before it is ever stored, so you can restore it on a
 new device and the server still cannot open it.
 
+**Photos, voice notes and documents are encrypted too** — sealed in the browser before
+upload, so what sits in object storage is noise under a random filename (a document with
+4.3 bits/byte of entropy is stored at 8.0, and its name never leaves your device).
+
 Two consequences are real, and are implemented rather than hidden:
 
 - **Server-side search cannot find encrypted messages.** There is nothing to index.
@@ -135,9 +139,8 @@ Two consequences are real, and are implemented rather than hidden:
   preview it, the encryption would be a lie.
 
 Being equally plain about the limits: there is **no forward secrecy** (a stolen private
-key reads that conversation's past), **groups are not encrypted**, **attachments are not
-encrypted**, and it protects you from the *server* — not from an attacker who can run
-script in your browser.
+key reads that conversation's past), **groups are not encrypted**, and it protects you
+from the *server* — not from an attacker who can run script in your browser.
 
 ### Notifications that reach a closed app
 

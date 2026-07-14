@@ -67,10 +67,39 @@ export function useDecryptedMessages(messages: Message[], conversationId: number
         if (!m.encrypted || m.deleted) return m;
         const plain = byKey[cacheKey(m)];
         if (plain === undefined) return { ...m, content: '' }; // still decrypting
-        return { ...m, content: plain ?? UNREADABLE };
+        if (plain === null) return { ...m, content: UNREADABLE };
+
+        // An attachment's body carries the caption plus the real filename and mime
+        // type — none of which exist anywhere outside this ciphertext, because the
+        // object in storage is random bytes under a random key.
+        if (m.type !== 'TEXT' && m.attachmentUrl) {
+          const meta = parseAttachmentBody(plain);
+          if (meta) {
+            return {
+              ...m,
+              content: meta.c ?? '',
+              attachmentName: meta.n || m.attachmentName,
+              attachmentMime: meta.m || m.attachmentMime,
+            };
+          }
+        }
+        return { ...m, content: plain };
       }),
     [messages, byKey],
   );
+}
+
+/** `{c: caption, n: name, m: mime}` — the sealed metadata of an encrypted attachment. */
+function parseAttachmentBody(plain: string): { c?: string; n?: string; m?: string } | null {
+  if (!plain.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(plain) as { c?: string; n?: string; m?: string };
+    return parsed && typeof parsed === 'object' && ('n' in parsed || 'c' in parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -129,10 +158,24 @@ export function useDecryptedPreviews(conversations: ConversationSummary[]): Conv
           ...c,
           lastMessage: {
             ...last,
-            content: plain === undefined ? '' : (plain ?? '🔒 Encrypted message'),
+            content:
+              plain === undefined ? '' : plain === null ? '🔒 Encrypted message' : preview(last, plain),
           },
         };
       }),
     [conversations, byKey],
   );
+}
+
+/**
+ * One line for the sidebar. An attachment's decrypted body is JSON (caption + real
+ * filename), so show the caption — or a "📷 Photo" style label — rather than dumping
+ * the raw JSON into the chat list.
+ */
+function preview(last: Message, plain: string): string {
+  if (last.type === 'TEXT' || !last.attachmentUrl) return plain;
+  const meta = parseAttachmentBody(plain);
+  const caption = meta?.c || '';
+  if (caption) return caption;
+  return last.type === 'IMAGE' ? '📷 Photo' : `📎 ${meta?.n || 'Attachment'}`;
 }

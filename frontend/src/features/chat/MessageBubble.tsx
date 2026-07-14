@@ -27,6 +27,7 @@ import { toast } from '@/store/toastStore';
 import { downloadFile } from '@/utils/download';
 import { copyText } from '@/utils/clipboard';
 import { mediaSrc } from '@/utils/media';
+import { useAttachmentSrc } from '@/hooks/useAttachmentSrc';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
 import { MessageText } from './MessageText';
@@ -109,6 +110,20 @@ function MessageBubbleInner({
   const canAct = sent && !message.deleted;
   const hasAttachment =
     (message.type === 'IMAGE' || message.type === 'FILE') && Boolean(message.attachmentUrl);
+
+  // An ENCRYPTED attachment cannot be handed to <img src>: the object in storage is
+  // iv||ciphertext. It is fetched, decrypted in the browser and turned into a blob:
+  // URL. For the same reason its kind cannot be sniffed from the URL (which is a
+  // random .enc key) — the real mime type comes out of the encrypted body.
+  const { src: attachSrc, loading: attachLoading } = useAttachmentSrc(message);
+  const attachMime = message.attachmentMime ?? '';
+  const isAudioAttachment = message.encrypted
+    ? attachMime.startsWith('audio/')
+    : isAudioUrl(message.attachmentUrl);
+  const isVideoAttachment = message.encrypted
+    ? attachMime.startsWith('video/')
+    : isVideoUrl(message.attachmentUrl);
+  const attachName = message.attachmentName || fileNameFromUrl(message.attachmentUrl);
   const canCopy = Boolean(message.content);
   // WhatsApp-style: your own text messages are editable for 15 minutes after
   // sending (read state no longer matters — a read message can still be edited).
@@ -203,8 +218,10 @@ function MessageBubbleInner({
   };
 
   const handleDownload = () => {
-    if (message.attachmentUrl) {
-      void downloadFile(message.attachmentUrl, fileNameFromUrl(message.attachmentUrl));
+    // Download the DECRYPTED bytes (attachSrc is a blob: URL), under the real
+    // filename — which only exists inside the encrypted message.
+    if (attachSrc) {
+      void downloadFile(attachSrc, attachName);
     }
     setMenuOpen(false);
   };
@@ -359,16 +376,23 @@ function MessageBubbleInner({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => openViewer(message.content || 'Photo', message.attachmentUrl)}
+                    onClick={() => attachSrc && openViewer(message.content || 'Photo', attachSrc)}
                     className="-mx-2.5 -mt-1.5 mb-1.5 block w-[calc(min(75vw,18rem)_+_1.25rem)] max-w-[calc(100%_+_1.25rem)] overflow-hidden rounded-2xl"
                   >
-                    <img
-                      src={mediaSrc(message.attachmentUrl)}
-                      alt={message.content || 'image'}
-                      loading="lazy"
-                      decoding="async"
-                      className="max-h-96 w-full cursor-pointer object-cover"
-                    />
+                    {attachSrc ? (
+                      <img
+                        src={attachSrc}
+                        alt={message.content || 'image'}
+                        loading="lazy"
+                        decoding="async"
+                        className="max-h-96 w-full cursor-pointer object-cover"
+                      />
+                    ) : (
+                      // Decrypting (or undecryptable): never a broken image.
+                      <div className="shimmer flex h-48 w-full items-center justify-center rounded-2xl text-xs text-on-surface-variant">
+                        {attachLoading ? '' : '🔒 Photo can’t be read on this device'}
+                      </div>
+                    )}
                   </button>
                 )}
                 {/* Caption typed alongside the image. */}
@@ -384,7 +408,7 @@ function MessageBubbleInner({
               </>
             )}
 
-            {message.type === 'FILE' && message.attachmentUrl && isAudioUrl(message.attachmentUrl) && (
+            {message.type === 'FILE' && message.attachmentUrl && isAudioAttachment && (
               <>
                 {gateMedia ? (
                   <MediaDownloadTile
@@ -395,7 +419,7 @@ function MessageBubbleInner({
                 ) : (
                   /* Inline audio / voice-message player. */
                   <audio
-                    src={mediaSrc(message.attachmentUrl)}
+                    src={attachSrc ?? undefined}
                     controls
                     preload="metadata"
                     className="mb-1 w-56 max-w-full"
@@ -415,7 +439,7 @@ function MessageBubbleInner({
 
             {message.type === 'FILE' &&
               message.attachmentUrl &&
-              isVideoUrl(message.attachmentUrl) && (
+              isVideoAttachment && (
               <>
                 {gateMedia ? (
                   <MediaDownloadTile
@@ -426,7 +450,7 @@ function MessageBubbleInner({
                 ) : (
                   /* Inline video player — play directly in the chat (WhatsApp-style). */
                   <video
-                    src={mediaSrc(message.attachmentUrl)}
+                    src={attachSrc ?? undefined}
                     controls
                     preload="metadata"
                     playsInline
@@ -447,14 +471,12 @@ function MessageBubbleInner({
 
             {message.type === 'FILE' &&
               message.attachmentUrl &&
-              !isVideoUrl(message.attachmentUrl) &&
-              !isAudioUrl(message.attachmentUrl) && (
+              !isVideoAttachment &&
+              !isAudioAttachment && (
               <>
                 <button
                   type="button"
-                  onClick={() =>
-                    void downloadFile(message.attachmentUrl!, fileNameFromUrl(message.attachmentUrl))
-                  }
+                  onClick={() => attachSrc && void downloadFile(attachSrc, attachName)}
                   className={cn(
                     'mb-1 flex w-full items-center gap-2 rounded-lg p-2 text-left',
                     mine ? 'bg-brand-700/40' : 'bg-white/10',
@@ -462,7 +484,7 @@ function MessageBubbleInner({
                 >
                   <FileText className="h-6 w-6 shrink-0" />
                   <span className="min-w-0 flex-1 truncate text-sm">
-                    {fileNameFromUrl(message.attachmentUrl)}
+                    {attachName}
                   </span>
                   <Download className="h-4 w-4 shrink-0" />
                 </button>

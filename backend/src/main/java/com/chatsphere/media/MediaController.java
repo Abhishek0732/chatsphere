@@ -15,7 +15,10 @@ public class MediaController {
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public MediaService.UploadResult upload(@RequestParam("file") MultipartFile file) {
-        return mediaService.upload(file);
+    public MediaService.UploadResult upload(
+            @RequestParam("file") MultipartFile file,
+            /** The body is already ciphertext (an attachment in an encrypted chat). */
+            @RequestParam(value = "encrypted", defaultValue = "false") boolean encrypted) {
+        return mediaService.upload(file, encrypted);
     }
 }

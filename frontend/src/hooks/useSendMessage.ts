@@ -14,6 +14,9 @@ export interface OutgoingMessage {
   content: string;
   type?: MessageType;
   attachmentUrl?: string;
+  /** Real filename/type of an attachment — sealed INSIDE the message when encrypted. */
+  attachmentName?: string;
+  attachmentMime?: string;
   replyTo?: ReplyPreview | null;
   /** Ids of the users @mentioned in the text (group chats). */
   mentions?: number[];
@@ -36,6 +39,8 @@ export function useSendMessage() {
       content,
       type = 'TEXT',
       attachmentUrl,
+      attachmentName,
+      attachmentMime,
       replyTo,
       mentions,
     }: OutgoingMessage) => {
@@ -51,13 +56,20 @@ export function useSendMessage() {
       const peerId = directPeerId(conversationId, user.id);
       let wireContent = trimmed;
       let encrypted = false;
-      if (peerId != null && trimmed) {
-        const sealed = await encryptFor(peerId, trimmed).catch(() => null);
+      if (peerId != null && (trimmed || attachmentUrl)) {
+        // For an attachment, the body carries the caption AND the real filename and
+        // mime type. They must not travel in the clear: the object in storage is
+        // random bytes under a random key precisely so nothing about the file leaks,
+        // and "salary-2026.pdf" in a URL would give the whole game away.
+        const payload = attachmentUrl
+          ? JSON.stringify({ c: trimmed, n: attachmentName ?? '', m: attachmentMime ?? '' })
+          : trimmed;
+        const sealed = await encryptFor(peerId, payload).catch(() => null);
         if (sealed) {
           wireContent = sealed;
           encrypted = true;
           // Show what they typed, not the ciphertext the echo will bring back.
-          decryptedAccessors.put(tempId, trimmed);
+          decryptedAccessors.put(tempId, payload);
         }
       }
 
@@ -75,6 +87,8 @@ export function useSendMessage() {
         replyTo: replyTo ?? null,
         mentions,
         encrypted,
+        attachmentName,
+        attachmentMime,
       };
 
       upsertMessage(optimistic);

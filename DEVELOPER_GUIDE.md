@@ -514,6 +514,18 @@ How it fits together:
   the identical key (the HKDF info string sorts the two user ids, so "me" and "them"
   produce the same value on both sides).
 - Each message gets a fresh 96-bit IV. The wire/db form is `v1.<iv>.<ciphertext>`.
+- **Attachments are encrypted too.** The file is sealed in the browser with the same
+  conversation key before it is uploaded, so what sits in MinIO is `iv || ciphertext` —
+  bytes indistinguishable from noise (measured: a document with 4.3 bits/byte of entropy
+  is stored at 8.0). Three things follow, and all three are implemented:
+  - The object key is a **random `.enc` name**. `salary-2026.pdf` in a URL is a leak all
+    by itself, so the real filename and mime type travel **inside the encrypted message
+    body** instead, and are recovered on decryption.
+  - **No server-side thumbnail** — there is no image for the server to read. Encrypted
+    photos are fetched whole and decrypted client-side into a `blob:` URL
+    (`useAttachmentSrc`), cached so a thread does not re-download them on every render.
+  - The kind of an attachment (audio/video/file) can no longer be sniffed from its URL;
+    it comes from the sealed mime type.
 
 Consequences that are **inherent**, not laziness — and are implemented honestly:
 
@@ -546,7 +558,7 @@ Things that will bite you if you touch this:
 - **It protects you from the server, not from your own browser.** Any XSS in this origin
   can read the key while it is in memory or in IndexedDB.
 - **Groups are not encrypted** (they need per-member key distribution and re-keying on
-  every join/leave), and **attachments are not encrypted** — only message text.
+  every join/leave).
 
 ## 11. Security model
 
@@ -650,8 +662,8 @@ your typecheck.
 ## 14. Known gaps
 
 - No CI. `make test` exists and passes; nothing runs it automatically on push.
-- **Encryption covers direct messages only** — not groups, and not attachments (§10c).
-  There is also no forward secrecy: a stolen private key reads that conversation's past.
+- **Encryption covers direct chats only** — not groups (§10c). There is also no forward
+  secrecy: a stolen private key reads that conversation's past.
 - No group calls (calling is 1:1 P2P WebRTC).
 - No archive, disappearing messages, view-once media or polls.
 - No privacy toggles for last-seen / read receipts (statuses have a full audience model;

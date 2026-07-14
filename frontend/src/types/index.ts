@@ -34,6 +34,13 @@ export interface Message {
   tempId?: string;
   /** True when `content` is ciphertext only the two participants can read. */
   encrypted?: boolean;
+  /**
+   * Recovered by DECRYPTING an encrypted attachment's message body. The real
+   * filename and mime type never leave the browser in the clear — the object in
+   * storage is random bytes under a random key — so they live in here instead.
+   */
+  attachmentName?: string;
+  attachmentMime?: string;
   /** Client-only flag: message failed to send. */
   failed?: boolean;
   /**

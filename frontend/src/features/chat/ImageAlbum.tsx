@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { mediaSrc } from '@/utils/media';
 import { ThumbImage } from '@/components/ui/ThumbImage';
+import { useAttachmentSrcs } from '@/hooks/useAttachmentSrc';
 import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/format';
 import { useImageViewer } from '@/store/imageViewerStore';
@@ -43,7 +44,14 @@ function ImageAlbumInner({
   const allRevealed = useMediaRevealStore((s) =>
     messages.every((m) => m.id <= 0 || Boolean(s.revealed[m.id])),
   );
-  const galleryImages = messages.map((m) => ({ name: m.content || 'Photo', src: m.attachmentUrl }));
+  // An encrypted photo cannot be shown from its URL — the object is ciphertext. Each
+  // one is fetched and decrypted here (cached), and the gallery gets the decrypted
+  // blob: URLs too, so opening a photo full-screen works the same way.
+  const srcs = useAttachmentSrcs(messages);
+  const galleryImages = messages.map((m) => ({
+    name: m.content || 'Photo',
+    src: srcs[m.id] ?? (m.encrypted ? undefined : m.attachmentUrl),
+  }));
 
   const count = messages.length;
   const shown = messages.slice(0, MAX_TILES);
@@ -72,11 +80,24 @@ function ImageAlbumInner({
           }
           className="block h-full w-full"
         >
-          <ThumbImage
-            url={m.attachmentUrl}
-            alt=""
-            className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
-          />
+          {m.encrypted ? (
+            // Decrypted in the browser; a shimmer (never a broken image) until it is.
+            srcs[m.id] ? (
+              <img
+                src={srcs[m.id] as string}
+                alt=""
+                className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
+              />
+            ) : (
+              <div className="shimmer h-full w-full" />
+            )
+          ) : (
+            <ThumbImage
+              url={m.attachmentUrl}
+              alt=""
+              className={cn('h-full w-full object-cover', gated && 'scale-110 blur-xl')}
+            />
+          )}
           {isMoreTile && (
             <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">
               +{extra}

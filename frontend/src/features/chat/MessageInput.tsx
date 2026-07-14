@@ -10,6 +10,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
 import { uploadMedia, uploadSizeError } from '@/api/media';
+import { compressImage } from '@/utils/imageCompress';
+import { encryptFileFor } from '@/services/e2ee';
+import { directPeerId } from '@/utils/conversation';
 import { toast } from '@/store/toastStore';
 import { isVideoUrl } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
@@ -34,6 +37,10 @@ interface PendingAttachment {
   fileName: string;
   type: MessageType;
   size: number;
+  /** The file was sealed before upload (encrypted chat) — storage holds only noise. */
+  encrypted?: boolean;
+  /** Real mime type. It travels inside the encrypted message, not in the URL. */
+  mimeType?: string;
 }
 
 /** One row of the @mention picker. `ids` is who gets tagged when it's chosen. */
@@ -267,9 +274,28 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
     try {
       const uploaded = await Promise.all(
         list.map(async (file) => {
-          const result = await uploadMedia(file);
-          const type: MessageType = result.contentType.startsWith('image/') ? 'IMAGE' : 'FILE';
-          return { url: result.url, fileName: result.fileName, type, size: result.size };
+          // In an encrypted chat the FILE ITSELF is encrypted before it is uploaded.
+          // Otherwise the message text would be unreadable to us while the photo sat
+          // in the object store for anyone with access to read — which would make the
+          // padlock a lie.
+          const peerId = myId != null ? directPeerId(conversationId, myId) : null;
+          const sealed = peerId != null ? await encryptFileFor(peerId, await compressImage(file)) : null;
+
+          const type: MessageType = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+          const result = sealed
+            ? await uploadMedia(sealed, undefined, { encrypted: true })
+            : await uploadMedia(file);
+
+          return {
+            url: result.url,
+            // Keep the REAL name/type locally: they go inside the encrypted message,
+            // never into the URL or the upload response.
+            fileName: file.name,
+            mimeType: file.type,
+            encrypted: !!sealed,
+            type,
+            size: result.size,
+          };
         }),
       );
       setAttachments((prev) => [...prev, ...uploaded]);
@@ -325,6 +351,8 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           content: i === 0 ? text : '',
           type: att.type,
           attachmentUrl: att.url,
+          attachmentName: att.fileName,
+          attachmentMime: att.mimeType,
           replyTo: i === 0 ? replyTo : null,
           mentions: i === 0 ? mentions : undefined,
         });
@@ -413,8 +441,20 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
         const file = new File([blob], `voice-message-${Date.now()}.${ext}`, { type });
         setUploading(true);
         try {
-          const result = await uploadMedia(file);
-          send({ conversationId, content: '', type: 'FILE', attachmentUrl: result.url, replyTo });
+          const peerId = myId != null ? directPeerId(conversationId, myId) : null;
+          const sealed = peerId != null ? await encryptFileFor(peerId, file) : null;
+          const result = sealed
+            ? await uploadMedia(sealed, undefined, { encrypted: true })
+            : await uploadMedia(file);
+          send({
+            conversationId,
+            content: '',
+            type: 'FILE',
+            attachmentUrl: result.url,
+            attachmentName: file.name,
+            attachmentMime: type,
+            replyTo,
+          });
           clearReplyTo(conversationId);
         } catch {
           toast({ title: 'Could not send voice message', variant: 'error' });

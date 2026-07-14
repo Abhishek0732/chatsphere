@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { getConversationMedia, type MediaKind } from '@/api/conversations';
 import { mediaSrc } from '@/utils/media';
+import { useAttachmentSrcs } from '@/hooks/useAttachmentSrc';
 import { downloadFile } from '@/utils/download';
 import { fileNameFromUrl } from '@/utils/format';
 import { ConversationMediaSection } from './ConversationMediaSection';
@@ -36,6 +37,9 @@ export function ConversationMediaPreview({ conversationId }: { conversationId: n
     queryFn: () => getConversationMedia(conversationId, 'docs', undefined, 3),
   });
 
+  // Decrypt whatever is encrypted (a no-op for plaintext media).
+  const srcs = useAttachmentSrcs(media);
+
   const empty = media.length === 0 && links.length === 0 && docs.length === 0;
   const initialTab: MediaKind = media.length ? 'media' : links.length ? 'links' : 'docs';
 
@@ -64,18 +68,27 @@ export function ConversationMediaPreview({ conversationId }: { conversationId: n
                   type="button"
                   onClick={() =>
                     openGallery(
-                      media.map((x) => ({ name: x.content || 'Photo', src: x.attachmentUrl })),
+                      media.map((x) => ({
+                        name: x.content || 'Photo',
+                        src: srcs[x.id] ?? (x.encrypted ? undefined : x.attachmentUrl),
+                      })),
                       i,
                     )
                   }
                   className="aspect-square overflow-hidden rounded-lg glass-panel"
                 >
-                  <img
-                    src={mediaSrc(m.attachmentUrl)}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
-                  />
+                  {/* Shared media in an encrypted chat is ciphertext in the object
+                      store: it has to be decrypted here before it can be shown. */}
+                  {m.encrypted && !srcs[m.id] ? (
+                    <div className="shimmer h-full w-full" />
+                  ) : (
+                    <img
+                      src={srcs[m.id] ?? mediaSrc(m.attachmentUrl)}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                    />
+                  )}
                 </button>
               ))}
             </div>

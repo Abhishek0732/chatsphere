@@ -19,13 +19,18 @@ export function uploadSizeError(file: File): string | null {
 export async function uploadMedia(
   file: File,
   onProgress?: (percent: number) => void,
+  opts: { encrypted?: boolean } = {},
 ): Promise<MediaUploadResult> {
-  // Near-lossless downscale/re-encode for large photos — smaller body = faster
-  // upload. Non-photos and small images pass through unchanged.
-  const toSend = await compressImage(file);
+  // An encrypted body is ALREADY ciphertext — compressing it would corrupt it (and
+  // there is nothing to compress: it is indistinguishable from noise). The photo was
+  // compressed before it was sealed.
+  const toSend = opts.encrypted ? file : await compressImage(file);
 
   const form = new FormData();
   form.append('file', toSend);
+  // Tells the server not to name the object after the file and not to try to build a
+  // thumbnail from bytes it cannot read.
+  if (opts.encrypted) form.append('encrypted', 'true');
 
   const { data } = await api.post<MediaUploadResult>('/media/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },

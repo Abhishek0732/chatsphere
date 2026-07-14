@@ -3,8 +3,10 @@ import { e2eeAccessors } from '@/store/e2eeStore';
 import {
   createIdentity,
   cryptoAvailable,
+  decryptBytes,
   decryptMessage,
   deriveConversationKey,
+  encryptBytes,
   encryptMessage,
   isEnvelope,
   rewrapIdentity,
@@ -180,6 +182,9 @@ export async function forgetEncryption(): Promise<void> {
   myUserId = null;
   conversationKeys.clear();
   peerKeys.clear();
+  // Decrypted attachments are PLAINTEXT held in memory — do not leave them behind
+  // for whoever uses this browser next.
+  revokeObjectUrls();
   e2eeAccessors.setReady(false);
 }
 
@@ -232,4 +237,60 @@ export async function decryptFrom(peerId: number, envelope: string): Promise<str
   const key = await keyForPeer(peerId);
   if (!key) return null;
   return decryptMessage(envelope, key);
+}
+
+// ── attachments ──────────────────────────────────────────────────────────────
+
+/**
+ * Seal a file for a direct chat. What gets uploaded is `iv || ciphertext` — the
+ * object store holds bytes that are indistinguishable from noise, and (because the
+ * upload is flagged) it is stored under a random key with no filename in it and no
+ * thumbnail derived from it.
+ */
+export async function encryptFileFor(peerId: number, file: File): Promise<File | null> {
+  const key = await keyForPeer(peerId);
+  if (!key) return null;
+  const sealed = await encryptBytes(await file.arrayBuffer(), key);
+  // The real name and type travel inside the ENCRYPTED message, not here.
+  return new File([sealed], 'attachment.enc', { type: 'application/octet-stream' });
+}
+
+/**
+ * Fetch an encrypted attachment and decrypt it into a blob: URL the browser can
+ * render. Cached per URL — a photo in a thread would otherwise be downloaded and
+ * decrypted again on every single render.
+ */
+const objectUrls = new Map<string, string>();
+
+export async function decryptAttachment(
+  peerId: number,
+  url: string,
+  mimeType?: string,
+): Promise<string | null> {
+  const cached = objectUrls.get(url);
+  if (cached) return cached;
+
+  const key = await keyForPeer(peerId);
+  if (!key) return null;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const plain = await decryptBytes(await res.arrayBuffer(), key);
+    if (!plain) return null;
+
+    const objectUrl = URL.createObjectURL(
+      new Blob([plain], { type: mimeType || 'application/octet-stream' }),
+    );
+    objectUrls.set(url, objectUrl);
+    return objectUrl;
+  } catch {
+    return null;
+  }
+}
+
+/** Release the decrypted blobs (on logout — they are plaintext in memory). */
+function revokeObjectUrls(): void {
+  for (const url of objectUrls.values()) URL.revokeObjectURL(url);
+  objectUrls.clear();
 }
