@@ -98,7 +98,75 @@ public class StatusService {
         Status saved = statusRepository.save(s);
 
         notifyMentioned(userId, saved);
-        return toItem(saved, true, 0, mentionUsers(List.of(saved)));
+        return toItem(saved, true, 0, relatedUsers(List.of(saved)), false);
+    }
+
+    /**
+     * Add someone else's status to my own — WhatsApp's "Add to my status", offered
+     * to a person who was @mentioned in it.
+     *
+     * The copy is a normal status row that remembers where it came from, so it is
+     * credited to the original author, runs its own 24h clock, and survives the
+     * original expiring or being deleted.
+     */
+    @Transactional
+    public StatusItemDto addToMyStatus(Long me, Long statusId) {
+        Status src = statusRepository.findById(statusId)
+                .orElseThrow(() -> ApiException.notFound("Status not found"));
+        if (Objects.equals(src.getUserId(), me)) {
+            throw ApiException.badRequest("This is already your status");
+        }
+        // Only the tagged people may re-share it — that is the whole point of the
+        // permission. Anything else would let a viewer copy a status the author
+        // never offered them.
+        if (!decodeMentions(src.getMentions()).contains(me)) {
+            throw ApiException.forbidden("Only people mentioned in this status can add it");
+        }
+        if (src.getExpiresAt().isBefore(Instant.now())) {
+            throw ApiException.badRequest("This status has expired");
+        }
+        if (blockService.blockRelatedUserIds(me).contains(src.getUserId())
+                || !canSeeStatus(src.getUserId(), me)) {
+            throw ApiException.forbidden("You can't add this status");
+        }
+
+        // Adding a status that was itself added from someone else keeps pointing at
+        // the ORIGINAL, so credit never drifts and the "already added?" check below
+        // still recognises it.
+        Long rootId = src.getOriginalStatusId() != null ? src.getOriginalStatusId() : src.getId();
+        Long rootAuthor = src.getOriginalUserId() != null ? src.getOriginalUserId() : src.getUserId();
+        if (Objects.equals(rootAuthor, me)) {
+            throw ApiException.badRequest("This status is already yours");
+        }
+        if (statusRepository.existsByUserIdAndOriginalStatusId(me, rootId)) {
+            throw ApiException.badRequest("Already added to your status");
+        }
+
+        Status copy = new Status();
+        copy.setUserId(me);
+        copy.setType(src.getType());
+        copy.setMediaUrl(src.getMediaUrl());
+        copy.setCaption(src.getCaption());
+        copy.setBgColor(src.getBgColor());
+        copy.setMusicUrl(src.getMusicUrl());
+        copy.setMusicTitle(src.getMusicTitle());
+        copy.setMusicArtist(src.getMusicArtist());
+        copy.setMusicDurationMs(src.getMusicDurationMs());
+        // The tags travel with the caption purely so "@Alice" still renders as a
+        // tag in the copy. Nobody is notified a second time — being tagged in the
+        // original already told them.
+        copy.setMentions(src.getMentions());
+        copy.setOriginalStatusId(rootId);
+        copy.setOriginalUserId(rootAuthor);
+        copy.setExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
+        Status saved = statusRepository.save(copy);
+
+        // Tell the author their status was shared — one row, like any other.
+        String sharer = userRepository.findById(me).map(User::getDisplayName).orElse("Someone");
+        notificationService.notifyUser(rootAuthor, "STATUS_REPOST", sharer,
+                "added your status to theirs", null);
+
+        return toItem(saved, true, 0, relatedUsers(List.of(saved)), false);
     }
 
     /** Ids a client may tag in one status. Bounds the stored CSV. */
@@ -153,11 +221,17 @@ public class StatusService {
         }
     }
 
-    /** All mentioned users across these statuses, in ONE query (no N+1 in the feed). */
-    private Map<Long, User> mentionUsers(List<Status> statuses) {
-        Set<Long> ids = statuses.stream()
-                .flatMap(s -> decodeMentions(s.getMentions()).stream())
-                .collect(Collectors.toSet());
+    /**
+     * Every user these statuses refer to — the people they @mention, plus the
+     * original author of anything that was added from someone else's status — in
+     * ONE query, so neither feature puts an N+1 in the feed.
+     */
+    private Map<Long, User> relatedUsers(List<Status> statuses) {
+        Set<Long> ids = new HashSet<>();
+        for (Status s : statuses) {
+            ids.addAll(decodeMentions(s.getMentions()));
+            if (s.getOriginalUserId() != null) ids.add(s.getOriginalUserId());
+        }
         if (ids.isEmpty()) return Map.of();
         return userRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
@@ -187,8 +261,17 @@ public class StatusService {
                 .map(StatusView::getStatusId).collect(Collectors.toSet());
         Map<Long, User> users = userRepository.findAllById(visible).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
-        // Everyone mentioned across the whole feed, in one query.
-        Map<Long, User> mentioned = mentionUsers(statuses);
+        // Everyone the feed refers to (mentions + original authors), in one query.
+        Map<Long, User> related = relatedUsers(statuses);
+
+        // Which statuses have I already added to mine? My own statuses are part of
+        // this very feed, and a status only lives 24h — so the answer is already in
+        // memory and costs no query.
+        Set<Long> alreadyAdded = statuses.stream()
+                .filter(s -> Objects.equals(s.getUserId(), me))
+                .map(Status::getOriginalStatusId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         // View counts for MY statuses, in ONE grouped query. This used to be a
         // COUNT(*) per status inside the render loop.
@@ -223,7 +306,7 @@ public class StatusService {
                 boolean viewed = isMe || viewedByMe.contains(s.getId());
                 if (!viewed) allViewed = false;
                 long count = isMe ? viewCounts.getOrDefault(s.getId(), 0L) : 0;
-                items.add(toItem(s, viewed, count, mentioned));
+                items.add(toItem(s, viewed, count, related, canAdd(s, me, alreadyAdded)));
             }
             result.add(new StatusUserDto(UserDto.from(u), isMe, allViewed, items));
         }
@@ -405,15 +488,31 @@ public class StatusService {
         };
     }
 
-    private StatusItemDto toItem(Status s, boolean viewed, long count, Map<Long, User> mentioned) {
+    /**
+     * May {@code me} add this status to their own? Only if it isn't mine, it tags
+     * me, and I haven't added it already (which is also re-checked, authoritatively,
+     * in {@link #addToMyStatus}).
+     */
+    private boolean canAdd(Status s, Long me, Set<Long> alreadyAdded) {
+        if (Objects.equals(s.getUserId(), me)) return false;
+        if (!decodeMentions(s.getMentions()).contains(me)) return false;
+        Long root = s.getOriginalStatusId() != null ? s.getOriginalStatusId() : s.getId();
+        if (Objects.equals(s.getOriginalUserId(), me)) return false; // my own, shared back to me
+        return !alreadyAdded.contains(root);
+    }
+
+    private StatusItemDto toItem(Status s, boolean viewed, long count,
+                                 Map<Long, User> related, boolean canAdd) {
         List<UserDto> mentions = decodeMentions(s.getMentions()).stream()
-                .map(mentioned::get)
+                .map(related::get)
                 .filter(Objects::nonNull)
                 .map(UserDto::from)
                 .toList();
+        User origin = s.getOriginalUserId() == null ? null : related.get(s.getOriginalUserId());
         return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), s.getCaption(),
                 s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
-                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count, mentions);
+                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count, mentions,
+                origin == null ? null : UserDto.from(origin), canAdd);
     }
 
     private static boolean isBlank(String s) {

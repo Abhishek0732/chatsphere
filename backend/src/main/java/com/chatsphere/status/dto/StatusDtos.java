@@ -42,7 +42,14 @@ public final class StatusDtos {
             boolean viewed,
             long viewCount,
             /** The people @mentioned in this status, resolved for rendering. */
-            List<UserDto> mentions) {}
+            List<UserDto> mentions,
+            /** Set when this status was added from someone else's: who made it. */
+            UserDto originalUser,
+            /**
+             * Whether the viewer may add this status to their own — true only when
+             * they were @mentioned in it and haven't already added it.
+             */
+            boolean canAdd) {}
 
     /** All of one user's active statuses, grouped. */
     public record StatusUserDto(UserDto user, boolean me, boolean allViewed, List<StatusItemDto> items) {}

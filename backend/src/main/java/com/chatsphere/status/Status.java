@@ -51,6 +51,18 @@ public class Status {
     @Column(length = 512)
     private String mentions;
 
+    /**
+     * Set when this status was added from someone else's (they @mentioned me and
+     * I tapped "Add to my status"). Points at the ORIGINAL — re-sharing a re-share
+     * still credits the person who made it — and stays valid after the original
+     * expires or is deleted.
+     */
+    @Column(name = "original_status_id")
+    private Long originalStatusId;
+
+    @Column(name = "original_user_id")
+    private Long originalUserId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

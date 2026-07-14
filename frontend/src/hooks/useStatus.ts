@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  addStatusToMine,
   createStatus,
   deleteStatus,
   getStatusFeed,
@@ -30,6 +31,28 @@ export function useCreateStatus() {
       toast({ title: 'Status posted', variant: 'success' });
     },
     onError: () => toast({ title: 'Could not post status', variant: 'error' }),
+  });
+}
+
+/**
+ * Add a status I was @mentioned in to my own. The feed is invalidated because my
+ * own row in it gains an item — the same refetch posting a status does.
+ */
+export function useAddStatusToMine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => addStatusToMine(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.status });
+      toast({ title: 'Added to your status', variant: 'success' });
+    },
+    onError: (err) =>
+      toast({
+        title:
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          'Could not add to your status',
+        variant: 'error',
+      }),
   });
 }
 

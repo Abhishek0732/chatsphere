@@ -18,6 +18,12 @@ export async function createStatus(payload: CreateStatusPayload): Promise<Status
   return data;
 }
 
+/** Add a status I was @mentioned in to my own. */
+export async function addStatusToMine(id: number): Promise<StatusItem> {
+  const { data } = await api.post<StatusItem>(`/status/${id}/add`);
+  return data;
+}
+
 export async function markStatusViewed(id: number): Promise<void> {
   await api.post(`/status/${id}/view`);
 }

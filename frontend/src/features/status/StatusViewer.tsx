@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Music2, Send, Trash2, X } from 'lucide-react';
+import { Eye, Music2, Repeat2, Send, Trash2, X } from 'lucide-react';
 import { queryKeys } from '@/api/queryKeys';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
 import { mediaSrc } from '@/utils/media';
 import { formatListTimestamp } from '@/utils/format';
 import {
+  useAddStatusToMine,
   useMarkStatusViewed,
   useDeleteStatus,
   useReplyToStatus,
@@ -38,6 +39,10 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
   const [showViewers, setShowViewers] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replyFocused, setReplyFocused] = useState(false);
+  // Statuses added to mine during this viewing. `users` is a snapshot, so the
+  // server's canAdd flag won't change under us — this hides the button straight
+  // away instead of waiting for the feed to refetch on close.
+  const [added, setAdded] = useState<Set<number>>(new Set());
 
   const pausedRef = useRef(false);
   const holdRef = useRef(false);
@@ -52,6 +57,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
   const markViewed = useMarkStatusViewed();
   const deleteStatus = useDeleteStatus();
   const replyToStatus = useReplyToStatus();
+  const addToMine = useAddStatusToMine();
   const qc = useQueryClient();
 
   // Reconcile the feed with the server once, when the viewer unmounts — instead
@@ -280,6 +286,15 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
             <StatusText text={item.caption} names={mentionNames} />
           </p>
         )}
+        {/* A status someone added from another person's keeps the credit visible. */}
+        {item.originalUser && (
+          <div className="mx-auto mb-3 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">
+            <Repeat2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">
+              From <span className="font-medium">{item.originalUser.displayName}</span>’s status
+            </span>
+          </div>
+        )}
         {item.musicUrl && item.musicTitle && (
           <div className="mx-auto mb-3 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">
             <Music2 className="h-3.5 w-3.5 shrink-0 animate-pulse" />
@@ -299,6 +314,21 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
           </button>
         ) : (
           <div className="mx-auto w-full max-w-lg">
+            {/* Tagged in this status? Then you can put it on your own, like WhatsApp. */}
+            {item.canAdd && !added.has(item.id) && (
+              <button
+                onClick={() =>
+                  addToMine.mutate(item.id, {
+                    onSuccess: () => setAdded((s) => new Set(s).add(item.id)),
+                  })
+                }
+                disabled={addToMine.isPending}
+                className="mx-auto mb-3 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white/90 disabled:opacity-60"
+              >
+                <Repeat2 className="h-4 w-4" />
+                {addToMine.isPending ? 'Adding…' : 'Add to my status'}
+              </button>
+            )}
             {/* Quick emoji reactions (WhatsApp-style). */}
             <div className="mb-3 flex items-center justify-center gap-3">
               {REPLY_EMOJIS.map((e) => (

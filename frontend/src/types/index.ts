@@ -81,6 +81,10 @@ export interface StatusItem {
   viewCount: number;
   /** People @mentioned in the caption/text. */
   mentions?: User[];
+  /** Set when this status was added from someone else's: who originally posted it. */
+  originalUser?: User | null;
+  /** I was @mentioned in this status and haven't added it to mine yet. */
+  canAdd?: boolean;
 }
 
 export interface StatusUser {
