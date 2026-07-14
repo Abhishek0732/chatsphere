@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Pin, PinOff } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { EncryptionNotice } from './EncryptionNotice';
 import { SkeletonThread } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { useMessages } from '@/hooks/useMessages';
@@ -296,10 +297,17 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
           </div>
         )}
 
+        {/* Say plainly, at the top of the thread, that this chat is encrypted — the
+            padlock by the name is too easy to miss for something people are meant to
+            be able to trust. Renders only when it is actually true. */}
+        {!isLoading && conversation.type === 'DIRECT' && (
+          <EncryptionNotice peerId={otherMember(conversation, myId)?.id} />
+        )}
+
         {isLoading ? (
           <SkeletonThread />
         ) : messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+          <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
             No messages yet. Say hello!
           </div>
         ) : (

@@ -1,16 +1,18 @@
+import { useEffect, useState } from 'react';
 import {
   Ban,
   Bell,
   BellOff,
-  ChevronRight,
   Search,
-  Star,
   User as UserIcon,
   X,
+  Lock,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { useMuteStore } from '@/store/muteStore';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
+import { canEncryptWith } from '@/services/e2ee';
+import { useE2eeStore } from '@/store/e2eeStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { ConversationMediaPreview } from './ConversationMediaPreview';
 import { toast } from '@/store/toastStore';
@@ -49,6 +51,23 @@ export function ContactInfoPanel({
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
 
+  // Only claim encryption when it is genuinely happening (both sides hold keys).
+  const e2eeReady = useE2eeStore((st) => st.ready);
+  const [encrypted, setEncrypted] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (conversation.type !== 'DIRECT' || other?.id == null) {
+      setEncrypted(false);
+      return;
+    }
+    void canEncryptWith(other.id)
+      .then((can) => live && setEncrypted(can))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [conversation.type, other?.id, e2eeReady]);
+
   const subtitle = other?.about || (other?.username ? `@${other.username}` : `${conversation.memberCount ?? conversation.members.length} members`);
 
   return (
@@ -82,10 +101,21 @@ export function ContactInfoPanel({
 
       {/* Options */}
       <div className="mt-auto space-y-2 px-5 pb-6">
-        <button className="flex w-full items-center justify-between rounded-xl glass-panel p-3.5 text-left transition hover:bg-white/5">
-          <span className="flex items-center gap-3"><Star className="h-5 w-5 text-on-surface-variant" /><span className="text-base text-on-surface">Starred Messages</span></span>
-          <ChevronRight className="h-5 w-5 text-on-surface-variant" />
-        </button>
+        {/* Where someone looks when they want to know whether this chat is private.
+            Shown only when the messages really are encrypted — and it replaces a
+            "Starred Messages" row that was a button wired to nothing at all. */}
+        {encrypted && (
+          <div className="flex w-full items-start gap-3 rounded-xl glass-panel p-3.5 text-left">
+            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <span>
+              <span className="block text-base text-on-surface">End-to-end encrypted</span>
+              <span className="block text-sm text-on-surface-variant">
+                Messages are locked on your device. Only you and {other?.displayName ?? 'they'}{' '}
+                can read them — not ChatSphere.
+              </span>
+            </span>
+          </div>
+        )}
         {other && (
           <button onClick={() => (blocked ? unblockUser.mutate(other) : blockUser.mutate(other))} className="flex w-full items-center gap-3 rounded-xl glass-panel p-3.5 text-left transition hover:bg-white/5">
             <Ban className="h-5 w-5 text-error" />
