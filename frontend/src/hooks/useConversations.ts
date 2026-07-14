@@ -9,14 +9,24 @@ import {
 } from '@/api/conversations';
 import { queryKeys } from '@/api/queryKeys';
 import { clearConversationMessages, clearUnread } from '@/services/messageCache';
+import { useDecryptedPreviews } from '@/hooks/useDecrypted';
 import type { ConversationSummary } from '@/types';
 
 export function useConversations() {
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.conversations,
     queryFn: getConversations,
   });
+
+  // The last-message preview of an encrypted chat is ciphertext as far as the server
+  // is concerned — it cannot build the preview for us any more, which is the whole
+  // point. So decrypt the previews here, where the keys are.
+  const data = useDecryptedPreviews(query.data ?? EMPTY);
+  return { ...query, data: query.data ? data : query.data };
 }
+
+/** Stable reference, so the decrypt hook doesn't re-run on every render. */
+const EMPTY: ConversationSummary[] = [];
 
 export function useConversation(conversationId: number | null) {
   const { data } = useConversations();

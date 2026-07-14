@@ -6,6 +6,8 @@ import { CallManager } from '@/features/call/CallManager';
 import { useSocketConnection } from '@/hooks/useSocketConnection';
 import { useMe } from '@/hooks/useProfile';
 import { syncPushOnLogin } from '@/services/push';
+import { restoreEncryption } from '@/services/e2ee';
+import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/utils/cn';
 
 /**
@@ -23,6 +25,13 @@ export function AppLayout() {
   useEffect(() => {
     void syncPushOnLogin();
   }, []);
+
+  // Restore the encryption key cached on THIS device, so a reload does not ask for
+  // the password again. (The key only ever gets there by being unwrapped at login.)
+  const me = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (me) void restoreEncryption(me.id);
+  }, [me?.id]);
 
   const location = useLocation();
   // Thread + call screens go full-bleed on mobile (no bottom nav bar).

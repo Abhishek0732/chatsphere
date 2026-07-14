@@ -110,6 +110,13 @@ public class AccountDeletionService {
         // Their QR and invite links must stop resolving to anyone.
         user.setQrToken("deleted-" + UUID.randomUUID());
         user.setInviteCode(null);
+        // Encryption keys go too. The wrapped private key is useless without the
+        // password we just destroyed, but there is no reason to keep it — and
+        // dropping the public key means nobody can encrypt anything new to them.
+        user.setPublicKey(null);
+        user.setEncPrivateKey(null);
+        user.setEncKeySalt(null);
+        user.setEncKeyIv(null);
         userRepository.save(user);
 
         // The send path checks a cached "is this person deleted" flag — clear it, or

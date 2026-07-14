@@ -32,6 +32,8 @@ export interface Message {
   status: MessageStatus;
   /** Present only for optimistic messages awaiting server echo. */
   tempId?: string;
+  /** True when `content` is ciphertext only the two participants can read. */
+  encrypted?: boolean;
   /** Client-only flag: message failed to send. */
   failed?: boolean;
   /**
@@ -265,6 +267,8 @@ export interface ChatSendPayload {
   replyToId?: number;
   tempId: string;
   mentions?: number[];
+  /** True when `content` is ciphertext (direct chats). The server just stores it. */
+  encrypted?: boolean;
 }
 
 /** WhatsApp-style "Message info": who has seen one of my messages. */

@@ -4,6 +4,7 @@ import { getMessages } from '@/api/conversations';
 import { queryKeys } from '@/api/queryKeys';
 import { prependMessages } from '@/services/messageCache';
 import { useOutboxStore } from '@/store/outboxStore';
+import { useDecryptedMessages } from '@/hooks/useDecrypted';
 import { outboxItemToMessage } from '@/services/outbox';
 import type { Message } from '@/types';
 
@@ -62,8 +63,12 @@ export function useMessages(conversationId: number | null) {
     return pending.length ? [...fetched, ...pending] : fetched;
   }, [query.data, queued, conversationId]);
 
+  // Direct chats are end-to-end encrypted: the server only ever had ciphertext, so
+  // the thread is decrypted here, in the browser, before anything renders it.
+  const decrypted = useDecryptedMessages(messages, conversationId);
+
   return {
-    messages,
+    messages: decrypted,
     isLoading: query.isLoading,
     isError: query.isError,
     loadOlder,

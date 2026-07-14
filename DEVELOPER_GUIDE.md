@@ -495,6 +495,59 @@ arrives is far worse.
 Only `chat.send` is stamped. Typing and read receipts are not ordered against anything,
 and stamping them would make a message wait behind a keystroke.
 
+## 10c. End-to-end encryption (direct chats)
+
+**The server cannot read your direct messages.** It stores ciphertext and forwards it,
+and that is all it can do with it.
+
+How it fits together:
+
+- Every user has an **ECDH P-256** key pair (`frontend/src/services/crypto.ts`, pure
+  WebCrypto — no crypto library, nothing hand-rolled).
+- The **public** key is published (`/api/keys`). The **private** key is wrapped in the
+  browser with AES-GCM under a key derived from the user's password (PBKDF2, 250k
+  iterations) and only that blob is stored server-side. The server has the blob and no
+  way to open it — but the user can, on any device, with their password. That is what
+  makes a new login work instead of destroying their history.
+- To message someone: `ECDH(my private, their public)` → a shared secret only the two of
+  us can compute → **HKDF** → an AES-GCM key. It is never transmitted. Both sides derive
+  the identical key (the HKDF info string sorts the two user ids, so "me" and "them"
+  produce the same value on both sides).
+- Each message gets a fresh 96-bit IV. The wire/db form is `v1.<iv>.<ciphertext>`.
+
+Consequences that are **inherent**, not laziness — and are implemented honestly:
+
+- **Server-side search skips encrypted messages** (`m.encrypted = 0` in the FULLTEXT
+  query). There is nothing for an index to match. Searching an encrypted chat can only
+  ever happen client-side, over what has been decrypted.
+- **Notification and push previews say "🔒 sent you a message"**, never the text. If the
+  server could preview it, the encryption would be a lie.
+- **The chat-list preview is decrypted in the client** (`useDecryptedPreviews`), because
+  the server can no longer build it.
+
+Things that will bite you if you touch this:
+
+- **Changing the password MUST re-wrap the key** (`rewrapForNewPassword`, called from
+  `ChangePasswordModal`). Skip it and the user locks themselves out of their own history
+  by doing something completely routine.
+- **A password RESET destroys the key.** The old password is gone, so the wrapped blob can
+  never be opened; the client detects this, generates a new key pair, and *tells the user*
+  that older encrypted messages can no longer be read. Do not paper over this.
+- **The decrypt hooks must wait for `useE2eeStore().ready`.** Unlocking is async (a fetch
+  plus 250k PBKDF2 rounds) and the thread renders first. An earlier version decrypted too
+  early, cached the failure, and on a fresh device the history looked permanently lost.
+
+**What this does NOT give you** — state it plainly, never imply otherwise:
+
+- **No forward secrecy.** The conversation key is derived from the two identity keys, so
+  it is stable: someone who steals a private key can read that conversation's past
+  messages. A Signal-style double ratchet is what fixes that, and it is a much bigger
+  build.
+- **It protects you from the server, not from your own browser.** Any XSS in this origin
+  can read the key while it is in memory or in IndexedDB.
+- **Groups are not encrypted** (they need per-member key distribution and re-keying on
+  every join/leave), and **attachments are not encrypted** — only message text.
+
 ## 11. Security model
 
 - **JWT access tokens** (HS256, 30 min) + **opaque refresh tokens** (14 days, stored in
@@ -597,8 +650,8 @@ your typecheck.
 ## 14. Known gaps
 
 - No CI. `make test` exists and passes; nothing runs it automatically on push.
-- **No end-to-end encryption.** Messages are readable in the database. That is fine for
-  this project — but never claim otherwise in the README without doing the work.
+- **Encryption covers direct messages only** — not groups, and not attachments (§10c).
+  There is also no forward secrecy: a stolen private key reads that conversation's past.
 - No group calls (calling is 1:1 P2P WebRTC).
 - No archive, disappearing messages, view-once media or polls.
 - No privacy toggles for last-seen / read receipts (statuses have a full audience model;

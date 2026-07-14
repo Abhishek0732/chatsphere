@@ -19,10 +19,11 @@ import * as deletedUser from './checks/deleted-user.mjs';
 import * as status from './checks/status.mjs';
 import * as rateLimit from './checks/rate-limit.mjs';
 import * as perf from './checks/perf.mjs';
+import * as encryption from './checks/encryption.mjs';
 
 // Order matters only in that the cheap, foundational things run first — a broken
 // login should be reported as a broken login, not as six mysterious timeouts.
-const MODULES = [auth, messaging, chatList, deletedUser, status, rateLimit, perf];
+const MODULES = [auth, messaging, chatList, deletedUser, status, encryption, rateLimit, perf];
 
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
@@ -42,6 +43,7 @@ async function buildContext() {
   };
 
   let directConvId = null;
+  let groupConvId;
   let noteSink = [];
 
   const ctx = {
@@ -73,6 +75,16 @@ async function buildContext() {
         directConvId = res.body.id;
       }
       return directConvId;
+    },
+
+    /** Any GROUP conversation alice is in (encryption must NOT apply to these). */
+    async groupConversation() {
+      if (groupConvId === undefined) {
+        const res = await get('/conversations', { token: users.alice.token });
+        const group = (res.body ?? []).find((c) => c.type === 'GROUP');
+        groupConvId = group ? group.id : null;
+      }
+      return groupConvId;
     },
 
     /** Things to undo at the end, so the suite can be run again and again. */

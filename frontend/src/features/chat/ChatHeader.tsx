@@ -13,6 +13,7 @@ import {
   Phone,
   UserCheck,
   Video,
+  Lock,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -31,6 +32,8 @@ import { downloadText } from '@/utils/download';
 import { formatChatExport } from '@/utils/chatExport';
 import { toast } from '@/store/toastStore';
 import { socketService } from '@/services/socket';
+import { canEncryptWith } from '@/services/e2ee';
+import { useE2eeStore } from '@/store/e2eeStore';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
 
@@ -57,6 +60,9 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
   const isBlocked = useIsBlocked(other?.id);
   const isMuted = useMuteStore((s) => s.muted[conversation.id]);
   const toggleMute = useMuteStore((s) => s.toggleMute);
+
+  // Re-check the lock when the key finishes unlocking (it is async).
+  const e2eeReady = useE2eeStore((s) => s.ready);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -150,6 +156,25 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
     }
   };
 
+  // Is this chat actually encrypted? Only say so when it is TRUE — a lock icon that
+  // lies is worse than no lock icon at all. It becomes true once both sides have a
+  // key, which is what makes the messages ciphertext on the wire.
+  const [encrypted, setEncrypted] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const peerId = conversation.type === 'DIRECT' ? other?.id : undefined;
+    if (peerId == null) {
+      setEncrypted(false);
+      return;
+    }
+    void canEncryptWith(peerId)
+      .then((can) => live && setEncrypted(can))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [conversation.id, conversation.type, other?.id, e2eeReady]);
+
   let subtitle: string;
   if (conversation.type === 'DIRECT' && isBlocked) {
     subtitle = 'Blocked';
@@ -197,7 +222,17 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
                 : setInfoOpen(true)
           }
         >
-          <p className="truncate font-semibold text-on-surface">{conversation.name}</p>
+          <p className="flex items-center gap-1.5 truncate font-semibold text-on-surface">
+            {conversation.name}
+            {/* A lock the user can actually trust: it is shown only when this chat's
+                messages really are encrypted to a key the server does not have. */}
+            {encrypted && (
+              <Lock
+                className="h-3.5 w-3.5 shrink-0 text-primary/70"
+                aria-label="Messages are end-to-end encrypted"
+              />
+            )}
+          </p>
           <p
             className={cn(
               'truncate text-xs',

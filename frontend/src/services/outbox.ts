@@ -28,6 +28,7 @@ export function outboxItemToMessage(item: OutboxItem): Message {
     tempId: item.tempId,
     replyTo: item.replyTo ?? null,
     mentions: item.mentions,
+    encrypted: item.encrypted,
     queued: true,
   };
 }
@@ -93,6 +94,7 @@ export async function flushOutbox(): Promise<void> {
         replyToId: item.replyToId,
         tempId: item.tempId,
         mentions: item.mentions,
+        encrypted: item.encrypted,
       });
       // Only drop it once the socket has actually accepted the frame. If the
       // connection died again, it stays queued for the next reconnect.

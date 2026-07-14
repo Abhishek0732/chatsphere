@@ -423,6 +423,10 @@ public class ChatService {
         m.setContent(cmd.content());
         m.setType(parseType(cmd.type()));
         m.setAttachmentUrl(cmd.attachmentUrl());
+        // Encryption is a property of DIRECT chats only. A client cannot mark a group
+        // message encrypted: nobody in the group could read it, and it would make the
+        // server hide the preview of a message everyone else can see anyway.
+        m.setEncrypted(cmd.encrypted() && conv.getType() == Conversation.Type.DIRECT);
         m.setMentions(encodeMentions(cmd.conversationId(), cmd.mentions()));
         if (cmd.replyToId() != null) {
             // Only accept a reply target that belongs to the same conversation.
@@ -699,7 +703,7 @@ public class ChatService {
                 content, m.getType().name(), attachmentUrl,
                 m.getCreatedAt(), status, tempId, deleted, replyTo,
                 reactions, m.isPinned(), m.getEditedAt(), statusRef,
-                deleted ? List.of() : decodeMentions(m.getMentions()));
+                deleted ? List.of() : decodeMentions(m.getMentions()), m.isEncrypted());
     }
 
     /**
@@ -909,7 +913,7 @@ public class ChatService {
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 m.getContent(), m.getType().name(), m.getAttachmentUrl(), m.getCreatedAt(),
                 "SENT", tempId, false, replyTo, List.of(), m.isPinned(), m.getEditedAt(),
-                statusRef, decodeMentions(m.getMentions()));
+                statusRef, decodeMentions(m.getMentions()), m.isEncrypted());
     }
 
     private Map<Long, User> loadSenders(List<Message> messages) {

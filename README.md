@@ -120,6 +120,25 @@ log.
 
 ![Call history](docs/screenshots/calls.png)
 
+### End-to-end encrypted direct messages
+
+Direct chats are end-to-end encrypted, and the sentence that matters is: **the server
+cannot read them.** It stores ciphertext (`v1.<iv>.<ciphertext>`) and forwards it. The
+keys are ECDH P-256 + AES-GCM, done with the browser's own WebCrypto; your private key is
+wrapped with your password (PBKDF2) before it is ever stored, so you can restore it on a
+new device and the server still cannot open it.
+
+Two consequences are real, and are implemented rather than hidden:
+
+- **Server-side search cannot find encrypted messages.** There is nothing to index.
+- **Notification previews say "🔒 sent you a message"**, not the text. If the server could
+  preview it, the encryption would be a lie.
+
+Being equally plain about the limits: there is **no forward secrecy** (a stolen private
+key reads that conversation's past), **groups are not encrypted**, **attachments are not
+encrypted**, and it protects you from the *server* — not from an attacker who can run
+script in your browser.
+
 ### Notifications that reach a closed app
 
 Web Push: a message, mention or invite still notifies you when ChatSphere is shut — not

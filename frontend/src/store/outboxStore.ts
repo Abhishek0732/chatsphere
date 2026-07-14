@@ -27,6 +27,8 @@ export interface OutboxItem {
   senderId: number;
   senderName: string;
   queuedAt: string;
+  /** Queued messages are stored ALREADY ENCRYPTED — plaintext never touches disk. */
+  encrypted?: boolean;
 }
 
 interface OutboxState {

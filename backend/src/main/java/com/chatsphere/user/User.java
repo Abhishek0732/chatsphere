@@ -57,6 +57,24 @@ public class User {
     @Column(name = "deleted_at")
     private java.time.Instant deletedAt;
 
+    // ── End-to-end encryption (direct chats) ──
+    // The public half is public. The private half is stored ONLY as a blob the user's
+    // password unwraps — the server holds it but can never read it.
+    @Column(name = "public_key", length = 255)
+    private String publicKey;
+
+    @Column(name = "enc_private_key", columnDefinition = "TEXT")
+    private String encPrivateKey;
+
+    @Column(name = "enc_key_salt", length = 64)
+    private String encKeySalt;
+
+    @Column(name = "enc_key_iv", length = 64)
+    private String encKeyIv;
+
+    @Column(name = "key_version", nullable = false)
+    private int keyVersion = 0;
+
     /** Short code behind the shareable "add me" link (/i/<code>). Rotatable. */
     @Column(name = "invite_code", unique = true, length = 16)
     private String inviteCode;

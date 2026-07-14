@@ -29,7 +29,9 @@ public final class ChatDtos {
             Instant editedAt,
             StatusRef statusRef,
             /** Ids of the users @mentioned in this message (group chats). */
-            List<Long> mentions) {}
+            List<Long> mentions,
+            /** True when `content` is ciphertext: only the two participants can read it. */
+            boolean encrypted) {}
 
     /** An emoji and the ids of everyone who reacted with it. */
     public record ReactionDto(String emoji, List<Long> userIds) {}
@@ -68,7 +70,9 @@ public final class ChatDtos {
             String attachmentUrl,
             Long replyToId,
             String tempId,
-            List<Long> mentions) {}
+            List<Long> mentions,
+            /** True when `content` is ciphertext the server cannot read (direct chats). */
+            boolean encrypted) {}
 
     public record TypingCommand(@NotNull Long conversationId, boolean typing) {}
 

@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { changePassword } from '@/api/auth';
+import { rewrapForNewPassword } from '@/services/e2ee';
 import { toast } from '@/store/toastStore';
 import { apiErrorMessage } from '@/utils/apiError';
 import { changePasswordSchema, type ChangePasswordValues } from '@/features/auth/schemas';
@@ -30,7 +31,14 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
   }, [open, reset]);
 
   const change = useMutation({
-    mutationFn: (v: ChangePasswordValues) => changePassword(v.currentPassword, v.newPassword),
+    mutationFn: async (v: ChangePasswordValues) => {
+      await changePassword(v.currentPassword, v.newPassword);
+      // Re-wrap the encryption key under the NEW password. The private key is stored
+      // wrapped by a key derived from the password, so without this the user would
+      // lock themselves out of their own encrypted history simply by changing it.
+      // The key pair itself is unchanged, so nothing anyone else can read is affected.
+      await rewrapForNewPassword(v.newPassword);
+    },
     onSuccess: () => {
       toast({ title: 'Password changed', variant: 'success' });
       onClose();

@@ -56,6 +56,14 @@ public class Message {
     @Column(name = "edited_at")
     private Instant editedAt;
 
+    /**
+     * True when {@code content} is ciphertext produced in the sender's browser.
+     * The server stores and forwards it and cannot read it: search skips these rows,
+     * and notification previews never quote them.
+     */
+    @Column(nullable = false)
+    private boolean encrypted = false;
+
     // ── Status reply/reaction snapshot ──
     // Present when this message is a reply or reaction to someone's status. The
     // snapshot lets the quoted preview render even after the status has expired.

@@ -121,10 +121,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      * ever serve it and every search scanned every message in the database.
      *
      * Native query, because JPQL cannot express MATCH ... AGAINST.
+     *
+     * Encrypted messages are excluded (m.encrypted = 0), and there is no way around
+     * it: their content is ciphertext, so there is literally nothing here for a
+     * FULLTEXT index to match. Searching an end-to-end encrypted chat can only ever
+     * happen on the client, over what it has decrypted.
      */
     @Query(value = """
             SELECT /*+ MAX_EXECUTION_TIME(3000) */ m.* FROM messages m
             WHERE m.deleted = 0
+              AND m.encrypted = 0
               AND m.conversation_id IN (
                   SELECT cm.conversation_id FROM conversation_members cm WHERE cm.user_id = :userId
               )

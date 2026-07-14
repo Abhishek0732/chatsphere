@@ -119,7 +119,7 @@ export async function connectChatUser(token, label) {
 }
 
 /** The frame the frontend sends for a new message (see socket.ts sendMessage). */
-export function sendMessage(user, conversationId, content, tempId) {
+export function sendMessage(user, conversationId, content, tempId, opts = {}) {
   user.publish('/app/chat.send', {
     conversationId,
     content,
@@ -128,5 +128,8 @@ export function sendMessage(user, conversationId, content, tempId) {
     replyToId: null,
     tempId,
     mentions: [],
+    // End-to-end encrypted direct messages: `content` is ciphertext and the server
+    // must treat it as opaque.
+    encrypted: opts.encrypted === true,
   });
 }

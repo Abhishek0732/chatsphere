@@ -101,8 +101,19 @@ class NotificationServiceTest {
     }
 
     private static MessageDto message(String type, String content, List<Long> mentions) {
+        return message(type, content, mentions, false);
+    }
+
+    private static MessageDto message(String type, String content, List<Long> mentions,
+                                      boolean encrypted) {
         return new MessageDto(500L, 900L, SENDER, "USER1", content, type, null,
-                Instant.now(), "SENT", null, false, null, List.of(), false, null, null, mentions);
+                Instant.now(), "SENT", null, false, null, List.of(), false, null, null, mentions,
+                encrypted);
+    }
+
+    /** An end-to-end encrypted message: the server holds ciphertext and nothing else. */
+    private static MessageDto encrypted(String ciphertext) {
+        return message("TEXT", ciphertext, List.of(), true);
     }
 
     private static MessageDto text(String content, List<Long> mentions) {
@@ -176,6 +187,19 @@ class NotificationServiceTest {
         void nullContentBecomesAnEmptyBody() {
             service.notifyNewMessage(text(null, null), List.of(SENDER, 2L), SENDER);
             assertThat(savedRows().get(0).getBody()).isEmpty();
+        }
+
+        @Test
+        void anEncryptedMessageIsNeverQuotedInTheNotification() {
+            // The whole point of E2E encryption: the server holds ciphertext. Putting
+            // it in the notification would show the recipient gibberish — and if we
+            // could show them the real text, the encryption would be a lie.
+            String ciphertext = "v1.7mK2xQ==.9fA1bZ3cD4eF5gH6iJ7kL8mN";
+            service.notifyNewMessage(encrypted(ciphertext), List.of(SENDER, 2L), SENDER);
+
+            String body = savedRows().get(0).getBody();
+            assertThat(body).isEqualTo("🔒 sent you a message");
+            assertThat(body).doesNotContain(ciphertext);
         }
 
         @Test

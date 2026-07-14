@@ -77,7 +77,11 @@ public class NotificationService {
     @Transactional
     public void notifyNewMessage(MessageDto message, List<Long> memberIds, Long senderId) {
         List<Long> mentions = message.mentions() == null ? List.of() : message.mentions();
-        String preview = switch (message.type()) {
+        // An end-to-end encrypted message has no preview, and cannot have one: its
+        // content is ciphertext we are unable to read. Quoting it here would put
+        // gibberish in the notification centre and in the OS notification — and if we
+        // could read it, the encryption would be a lie.
+        String preview = message.encrypted() ? "🔒 sent you a message" : switch (message.type()) {
             case "IMAGE" -> "📷 Photo";
             case "FILE" -> "📎 Attachment";
             default -> message.content() == null ? "" : message.content();
