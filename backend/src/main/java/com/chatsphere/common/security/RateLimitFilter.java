@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 
@@ -43,7 +45,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Limit("/api/auth/login", 10, Duration.ofMinutes(1)),
             new Limit("/api/auth/register/send-otp", 5, Duration.ofMinutes(10)),
             new Limit("/api/auth/register", 5, Duration.ofMinutes(10)),
-            new Limit("/api/auth/password/forgot", 5, Duration.ofMinutes(10)),
+            // NB: this must match the REAL path (PasswordController maps
+            // /api/auth/forgot-password). It used to read "/api/auth/password/forgot",
+            // which matches nothing — so the one unauthenticated endpoint that SENDS
+            // AN EMAIL PER CALL had no limit at all: a free mail bomb, and a fast way
+            // to burn the SMTP quota.
+            new Limit("/api/auth/forgot-password", 5, Duration.ofMinutes(10)),
+            new Limit("/api/auth/reset-password", 5, Duration.ofMinutes(10)),
+            new Limit("/api/account/password", 5, Duration.ofMinutes(10)),
             new Limit("/api/media/upload", 60, Duration.ofMinutes(1)),
             // Outbound third-party call.
             new Limit("/api/music", 30, Duration.ofMinutes(1)),
@@ -82,13 +91,44 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return best;
     }
 
-    /** Signed-in users are limited per user; anonymous callers per client IP. */
+    /**
+     * Who is this request from — a signed-in user, or an IP?
+     *
+     * X-Forwarded-For is only believed when the request actually came from our own
+     * reverse proxy. It used to be trusted from ANYONE, and the header is client-
+     * supplied: send a different X-Forwarded-For on every request and you get a
+     * brand-new bucket every time, which quietly nullified the whole filter — the
+     * unlimited password guessing and the BCrypt CPU-exhaustion it exists to stop
+     * were both still wide open.
+     *
+     * In this deployment the only thing in front of the backend is the nginx
+     * container on the private Docker network, so a private/loopback peer is the
+     * proxy and anything else is the public internet talking to us directly.
+     */
     private String clientKey(HttpServletRequest req) {
         Long userId = SecurityUtils.currentUserIdOrNull();
         if (userId != null) return "u:" + userId;
-        String fwd = req.getHeader("X-Forwarded-For");
-        String ip = (fwd != null && !fwd.isBlank()) ? fwd.split(",")[0].trim() : req.getRemoteAddr();
+
+        String peer = req.getRemoteAddr();
+        String ip = peer;
+        if (isTrustedProxy(peer)) {
+            String fwd = req.getHeader("X-Forwarded-For");
+            if (fwd != null && !fwd.isBlank()) {
+                ip = fwd.split(",")[0].trim();
+            }
+        }
         return "ip:" + ip;
+    }
+
+    /** Loopback or an RFC1918 private address — i.e. our own nginx, not the internet. */
+    private static boolean isTrustedProxy(String ip) {
+        if (ip == null || ip.isBlank()) return false;
+        try {
+            InetAddress addr = InetAddress.getByName(ip);
+            return addr.isLoopbackAddress() || addr.isSiteLocalAddress() || addr.isLinkLocalAddress();
+        } catch (UnknownHostException e) {
+            return false;
+        }
     }
 
     /** INCR + EXPIRE on first hit: a fixed window, which is plenty here. */
