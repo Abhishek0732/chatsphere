@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { NavRail } from '@/components/NavRail';
 import { ImageViewer } from '@/components/ui/ImageViewer';
 import { CallManager } from '@/features/call/CallManager';
 import { useSocketConnection } from '@/hooks/useSocketConnection';
 import { useMe } from '@/hooks/useProfile';
+import { syncPushOnLogin } from '@/services/push';
 import { cn } from '@/utils/cn';
 
 /**
@@ -13,6 +15,14 @@ import { cn } from '@/utils/cn';
 export function AppLayout() {
   useSocketConnection();
   useMe();
+
+  // If this browser already has notification permission, make sure the server has
+  // its push subscription — the endpoint is keyed to whoever subscribed last, so
+  // a new login on a shared machine must re-claim it. Never prompts here; that
+  // only happens when the user asks for it in Settings.
+  useEffect(() => {
+    void syncPushOnLogin();
+  }, []);
 
   const location = useLocation();
   // Thread + call screens go full-bleed on mobile (no bottom nav bar).

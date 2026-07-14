@@ -34,6 +34,12 @@ export interface Message {
   tempId?: string;
   /** Client-only flag: message failed to send. */
   failed?: boolean;
+  /**
+   * Client-only flag: typed while offline and waiting in the outbox. It will be
+   * sent automatically when the connection comes back — unlike `failed`, which
+   * needs the user to retry.
+   */
+  queued?: boolean;
   /** Soft-deleted message ("This message was deleted"). */
   deleted?: boolean;
   /** Snapshot of the message this one replies to. */

@@ -144,6 +144,11 @@ services:
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://${PUBLIC_HOST}:${FRONTEND_PORT}}
       APP_MAIL_FROM: ${APP_MAIL_FROM:-ChatSphere <no-reply@chatsphere.local>}
       MUSIC_COUNTRY: ${MUSIC_COUNTRY:-IN}
+      # Web Push (VAPID). Without these, notifications only ever reach an OPEN tab.
+      # Generate a pair with: node scripts/generate-vapid-keys.mjs
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@chatsphere.dev}
       # Media plane: native peer-to-peer WebRTC (no SFU). The backend only hands
       # the browser ICE servers so the two peers can find a path to each other.
       TURN_ENABLED: "true"

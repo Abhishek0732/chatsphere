@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -33,6 +33,7 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { useUpdateProfile } from '@/hooks/useProfile';
 import { Avatar } from '@/components/ui/Avatar';
 import { toast } from '@/store/toastStore';
+import { disablePush, enablePush, pushState, type PushState } from '@/services/push';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -104,6 +105,29 @@ export function SettingsPanel() {
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const close = () => setOpenModal(null);
+
+  // Web Push: whether THIS browser is registered to be notified while the app is
+  // closed. Distinct from the permission prompt — permission alone notifies you
+  // only while a tab is open.
+  const [push, setPush] = useState<PushState>('off');
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    void pushState().then(setPush);
+  }, []);
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    try {
+      const next = push === 'on' ? await disablePush() : await enablePush();
+      setPush(next);
+      setNotifPerm(notificationPermission());
+      if (next === 'on') toast({ title: 'Notifications on, even when closed', variant: 'success' });
+      else if (next === 'denied')
+        toast({ title: 'Blocked — enable notifications in your browser settings', variant: 'error' });
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const enableNotifications = async () => setNotifPerm(await requestNotificationPermission());
   const protectAvatar = !!user?.protectAvatar;
@@ -339,7 +363,8 @@ export function SettingsPanel() {
             <div className="min-w-0">
               <p className="font-semibold text-on-surface">Push notifications</p>
               <p className="text-sm text-on-surface-variant">
-                Get alerted to new messages when the app is in the background.
+                Get told about new messages, mentions and calls — even when ChatSphere is
+                closed.
               </p>
             </div>
           </div>
@@ -348,25 +373,35 @@ export function SettingsPanel() {
               <span
                 className={cn(
                   'h-2.5 w-2.5 shrink-0 rounded-full',
-                  notifPerm === 'granted' ? 'bg-green-500' : 'bg-surface-container-highest',
+                  push === 'on' ? 'bg-green-500' : 'bg-surface-container-highest',
                 )}
               />
               <span className="text-on-surface-variant">
-                {notifPerm === 'granted'
-                  ? 'Desktop notifications are on'
-                  : notifPerm === 'denied'
-                    ? 'Blocked — enable them in your browser settings'
-                    : notifPerm === 'unsupported'
+                {push === 'on'
+                  ? 'On — this device will be notified while the app is shut'
+                  : push === 'denied'
+                    ? 'Blocked — enable notifications in your browser settings'
+                    : push === 'unsupported'
                       ? 'Not supported on this browser'
-                      : 'Turn on to get notified while away'}
+                      : 'Off — you will only be notified while the app is open'}
               </span>
             </div>
-            {notifPerm === 'default' && (
-              <Button size="sm" variant="secondary" onClick={enableNotifications}>
-                Enable
+            {(push === 'on' || push === 'off') && (
+              <Button size="sm" variant="secondary" onClick={togglePush} disabled={pushBusy}>
+                {pushBusy ? '…' : push === 'on' ? 'Turn off' : 'Turn on'}
               </Button>
             )}
           </div>
+          {/* Fallback: the browser supports notifications but not Web Push (or the
+              server has no VAPID keys) — at least offer in-app alerts. */}
+          {push === 'off' && notifPerm === 'default' && (
+            <button
+              onClick={enableNotifications}
+              className="text-xs text-on-surface-variant underline underline-offset-2"
+            >
+              Or just allow notifications while the app is open
+            </button>
+          )}
         </div>
       </Modal>
 

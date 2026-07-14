@@ -9,7 +9,16 @@ export default defineConfig({
     react(),
     tsconfigPaths(),
     VitePWA({
+      // A custom service worker (src/sw.ts) rather than a generated one: the
+      // generated worker cannot receive a Web Push, and the push handler is the
+      // only thing that can notify someone whose app is closed.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      },
       includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
         name: 'ChatSphere',
@@ -37,10 +46,6 @@ export default defineConfig({
             purpose: 'any maskable',
           },
         ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        navigateFallback: '/index.html',
       },
     }),
   ],

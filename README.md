@@ -120,6 +120,28 @@ log.
 
 ![Call history](docs/screenshots/calls.png)
 
+### Notifications that reach a closed app
+
+Web Push: a message, mention or invite still notifies you when ChatSphere is shut — not
+just when a tab happens to be open. The payload is encrypted per device, so the push
+service itself cannot read your message, and only people who are **offline** are pushed
+(someone who is connected already got it over the socket).
+
+Turn it on in **Settings → Notifications**. It needs VAPID keys:
+
+```bash
+make vapid-keys                 # prints two lines — paste them into .env
+docker compose up -d backend
+```
+
+Without keys, push simply stays off and everything else works.
+
+### Send while offline
+
+Type on a train, in a lift, or on a dying connection: the message is **queued**, not
+lost. It shows as *waiting*, survives a reload, and is sent automatically — in the order
+you typed it — the moment you are back.
+
 ### Everything else
 
 Contacts by request, QR code or short invite link (`/i/<code>`); blocking (with history,
@@ -195,6 +217,19 @@ and `messaging` (Kafka).
 
 ---
 
+## Tests
+
+```bash
+make test-unit   # 92 backend unit tests — no DB, no Spring context. ~5s.
+make test-e2e    # 10 end-to-end checks against the running stack (make up first)
+make test        # both
+```
+
+These are deliberately aimed at the bugs this app has actually shipped: messages silently
+**lost** under concurrency (20 rapid sends, all 20 must persist), a **deleted user**
+breaking everyone else's chat list, a status re-shared by someone who was never tagged,
+and a rate limiter that does not limit. Nothing to install — they run in Docker.
+
 ## Common commands
 
 ```bash
@@ -204,6 +239,7 @@ make backend-logs  # tail backend only
 make down          # stop (keep data)
 make clean         # stop + wipe volumes (DB, MinIO)
 make rebuild       # no-cache rebuild
+make vapid-keys    # generate Web Push keys for .env
 ```
 
 ## Configuration

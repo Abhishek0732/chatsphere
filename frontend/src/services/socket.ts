@@ -7,6 +7,7 @@ import {
 import SockJS from 'sockjs-client';
 import { authAccessors } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
+import { ackOutboxEcho, flushOutbox } from '@/services/outbox';
 import { queryClient } from './queryClient';
 import { queryKeys } from '@/api/queryKeys';
 import {
@@ -87,9 +88,42 @@ class SocketService {
   private watchedTypingIds: number[] = [];
 
   private connected = false;
+  private networkBound = false;
+
+  /**
+   * The browser knows it is offline long before the socket does.
+   *
+   * STOMP only learns the connection is dead when a close/heartbeat-timeout fires,
+   * which can be many seconds after the network actually went. In that window
+   * `connected` was still true, so messages were published into a dead socket:
+   * they were not queued (we thought we had sent them), and they leaked out in
+   * whatever order the reconnect happened to flush them. Trusting the browser's
+   * own online/offline signal closes that window.
+   */
+  private bindNetworkEvents(): void {
+    if (this.networkBound || typeof window === 'undefined') return;
+    this.networkBound = true;
+
+    window.addEventListener('offline', () => {
+      this.connected = false;
+      useChatStore.getState().setConnected(false);
+    });
+    window.addEventListener('online', () => {
+      // stompjs reconnects on its own schedule; nudge it so the outbox drains
+      // promptly rather than up to reconnectDelay later.
+      if (this.client && !this.connected) this.client.activate();
+    });
+  }
+
+  /** True only when we can actually put a frame on the wire right now. */
+  canSend(): boolean {
+    const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    return this.connected && browserOnline;
+  }
 
   /** Establish the STOMP-over-SockJS connection. Idempotent. */
   connect(): void {
+    this.bindNetworkEvents();
     if (this.client) return;
     const token = authAccessors.getAccessToken();
     if (!token) return;
@@ -149,6 +183,11 @@ class SocketService {
 
     const client = this.client;
     if (!client) return;
+
+    // Anything typed while we were offline is waiting in the outbox — send it now,
+    // oldest first. Deferred a tick so the subscriptions below are in place first
+    // (otherwise the server's echo could arrive before we are listening for it).
+    setTimeout(() => void flushOutbox(), 0);
 
     // Personal message queue.
     client.subscribe('/user/queue/messages', (frame: IMessage) => {
@@ -303,7 +342,10 @@ class SocketService {
   // Client -> server sends
   // -----------------------------------------------------------------------
   sendMessage(payload: ChatSendPayload): boolean {
-    if (!this.client || !this.connected) return false;
+    // canSend(), not connected: the socket can still claim to be up for several
+    // seconds after the network has gone. Returning false here is what puts the
+    // message safely in the outbox instead of into a dead socket.
+    if (!this.client || !this.canSend()) return false;
     this.client.publish({
       destination: '/app/chat.send',
       body: JSON.stringify(payload),
@@ -515,6 +557,10 @@ class SocketService {
   // -----------------------------------------------------------------------
   private onIncomingMessage(message: Message): void {
     upsertMessage(message);
+
+    // If this is the echo of something we flushed from the outbox, release the
+    // next queued message — they go one at a time so the order is preserved.
+    ackOutboxEcho(message.tempId);
 
     const activeId = useChatStore.getState().activeConversationId;
     const isActive = activeId === message.conversationId;

@@ -426,6 +426,51 @@ many users at once" — the commit messages are written as post-mortems.
 
 ---
 
+## 10a. Notifications: three different things
+
+People confuse these constantly, so they are named here:
+
+1. **The live socket frame** — what makes a message appear in an open app. Reaches
+   only somebody who is already looking.
+2. **The in-app notification row** (`notifications` table) — the notification centre.
+   A direct message writes one; a group message writes one **only for @mentions**
+   (§9.2).
+3. **Web Push** (`push` package, `push_subscriptions` table) — the only thing that can
+   reach a **closed** app. A service worker (`frontend/src/sw.ts`) receives it and
+   raises the OS notification.
+
+Push is sent **only to recipients who are offline** (`presenceService.onlineAmong`),
+because someone who is connected already got the message over the socket, and pushing
+them too would announce it twice. It is `@Async` — a push is an HTTPS round trip to
+Google/Mozilla/Apple and has no business sitting between the sender pressing Enter and
+the message being delivered. A push that fails never fails the message; a subscription
+that returns 404/410 (the browser threw it away) is deleted, or we would retry a dead
+endpoint forever.
+
+Push needs VAPID keys (`make vapid-keys` → paste into `.env`). **With no keys it
+quietly disables itself** and everything else still works.
+
+## 10b. The offline outbox
+
+A message typed while the socket is down used to be marked FAILED on the spot and the
+text was gone. Now it goes into the **outbox** (`store/outboxStore.ts`, persisted to
+localStorage, so it survives a reload), shows as **"waiting"** rather than "failed",
+and is flushed automatically on reconnect.
+
+Two things here are less obvious than they look, and both were real bugs:
+
+- **`canSend()`, not `isConnected()`.** STOMP only learns the connection is dead when a
+  close or heartbeat timeout fires, which can be *seconds* after the network actually
+  went. In that window the app happily published into a dead socket — so the messages
+  were neither sent nor queued. The send path now also trusts `navigator.onLine`, and
+  the socket flips itself to disconnected on the browser's `offline` event.
+- **The outbox flushes ONE AT A TIME, waiting for each echo.** The server does *not*
+  guarantee ordering within a burst: its WebSocket inbound channel is a thread pool, so
+  two frames sent back-to-back on the same connection can be persisted concurrently and
+  land in the wrong order. Firing a queued backlog all at once visibly **shuffled the
+  user's messages**. (The same race exists in principle for very fast normal typing —
+  see §14.)
+
 ## 11. Security model
 
 - **JWT access tokens** (HS256, 30 min) + **opaque refresh tokens** (14 days, stored in
@@ -469,6 +514,27 @@ self-hosted **Coturn** (with short-lived HMAC credentials), then a free public T
 
 ---
 
+## 12a. Tests
+
+```bash
+make test-unit    # backend unit tests: no DB, no Spring context. ~5s.
+make test-e2e     # end-to-end suite against the RUNNING stack (make up first)
+make test         # both
+```
+
+- **`backend/src/test/`** — 92 JUnit/Mockito tests over the logic that is either
+  security-critical or has actually regressed: the status repost rules, the block
+  *window* semantics, account-deletion semantics, the rate limiter, and the
+  notification policy (a plain group message must write no rows).
+- **`tests/`** — 10 end-to-end checks against the real API and a real WebSocket. This is
+  the net for the bugs this app has genuinely shipped: **messages silently lost** under
+  concurrency (it sends 20 rapid messages and asserts all 20 persist), **a deleted user
+  breaking everyone's chat list**, a status being re-shared by someone who was never
+  tagged, and a rate limiter that does not limit.
+
+If you touch the send path, membership, deletion or the limiter, run both before you
+push. Neither needs anything installed on your machine — they run in Docker.
+
 ## 13. Working on the code
 
 **Adding a backend feature**, in the order that works:
@@ -506,6 +572,19 @@ your typecheck.
 
 ## 14. Known gaps
 
+- **Message ordering within a burst is not guaranteed by the server.** The WebSocket
+  inbound channel is a thread pool, so two frames sent back-to-back on one connection can
+  be persisted concurrently and get ids in the wrong order. The outbox works around it by
+  flushing one message at a time (§10b), but very fast normal typing can still, in
+  principle, land out of order. The proper fix is server-side: sequence per conversation,
+  or order by a client-supplied sequence number rather than by insert id.
+- No CI. `make test` exists and passes; nothing runs it automatically on push.
+- **No end-to-end encryption.** Messages are readable in the database. That is fine for
+  this project — but never claim otherwise in the README without doing the work.
+- No group calls (calling is 1:1 P2P WebRTC).
+- No archive, disappearing messages, view-once media or polls.
+- No privacy toggles for last-seen / read receipts (statuses have a full audience model;
+  presence does not).
 - `docker-compose.yml` pins a `container_name` and a fixed host port on the backend, so
   `--scale backend=N` needs a real load balancer with sticky sessions (the code itself is
   multi-instance-correct — that was verified with two backends and a user on each).

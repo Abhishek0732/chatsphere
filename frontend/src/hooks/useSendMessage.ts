@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
 import { makeTempId } from '@/utils/id';
-import { bumpConversation, markMessageFailed, upsertMessage } from '@/services/messageCache';
+import { bumpConversation, upsertMessage } from '@/services/messageCache';
+import { outboxAccessors } from '@/store/outboxStore';
 import type { Message, MessageType, ReplyPreview } from '@/types';
 
 export interface OutgoingMessage {
@@ -58,7 +59,23 @@ export function useSendMessage() {
       });
 
       if (!ok) {
-        markMessageFailed(conversationId, tempId);
+        // The socket is down (offline, or reconnecting). Park it in the outbox and
+        // send it the moment we are back, rather than throwing away what the user
+        // typed — losing a typed message is the one thing a chat app may not do.
+        outboxAccessors.enqueue({
+          tempId,
+          conversationId,
+          content: trimmed,
+          type,
+          attachmentUrl,
+          replyToId: replyTo?.id,
+          mentions,
+          replyTo: replyTo ?? null,
+          senderId: user.id,
+          senderName: user.displayName,
+          queuedAt: optimistic.createdAt,
+        });
+        upsertMessage({ ...optimistic, queued: true });
       }
     },
     [user],

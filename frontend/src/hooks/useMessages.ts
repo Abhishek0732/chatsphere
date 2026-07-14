@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getMessages } from '@/api/conversations';
 import { queryKeys } from '@/api/queryKeys';
 import { prependMessages } from '@/services/messageCache';
+import { useOutboxStore } from '@/store/outboxStore';
+import { outboxItemToMessage } from '@/services/outbox';
 import type { Message } from '@/types';
 
 const PAGE_SIZE = 30;
@@ -44,7 +46,21 @@ export function useMessages(conversationId: number | null) {
     }
   }, [conversationId, hasMore, loadingOlder, query.data]);
 
-  const messages: Message[] = query.data ?? [];
+  // Messages typed while offline live in the outbox, NOT in the query cache — if
+  // they were written into the cache, a conversation whose history had not been
+  // fetched yet would look like it contained only them (the cache would be
+  // non-empty, so the fetch would never run). They are appended here instead, so
+  // after a reload the user still sees what they typed, waiting to go out.
+  const queued = useOutboxStore((s) => s.items);
+  const messages: Message[] = useMemo(() => {
+    const fetched = query.data ?? [];
+    if (conversationId == null || queued.length === 0) return fetched;
+    const known = new Set(fetched.map((m) => m.tempId).filter(Boolean));
+    const pending = queued
+      .filter((i) => i.conversationId === conversationId && !known.has(i.tempId))
+      .map(outboxItemToMessage);
+    return pending.length ? [...fetched, ...pending] : fetched;
+  }, [query.data, queued, conversationId]);
 
   return {
     messages,

@@ -3,6 +3,7 @@ package com.chatsphere.notification;
 import com.chatsphere.chat.dto.ChatDtos.MessageDto;
 import com.chatsphere.notification.dto.NotificationDto;
 import com.chatsphere.presence.PresenceService;
+import com.chatsphere.push.PushService;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
 import com.chatsphere.common.realtime.StompRelay;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,15 +25,18 @@ public class NotificationService {
     private final StompRelay relay;
     private final PresenceService presenceService;
     private final UserRepository userRepository;
+    private final PushService pushService;
 
     public NotificationService(NotificationRepository repository,
                                StompRelay relay,
                                PresenceService presenceService,
-                               UserRepository userRepository) {
+                               UserRepository userRepository,
+                               PushService pushService) {
         this.repository = repository;
         this.relay = relay;
         this.presenceService = presenceService;
         this.userRepository = userRepository;
+        this.pushService = pushService;
     }
 
     @Transactional(readOnly = true)
@@ -123,6 +128,22 @@ public class NotificationService {
                 relay.toUser(u.getUsername(), "/queue/notifications", NotificationDto.from(saved));
             }
         }
+
+        // Web Push, for the people the socket cannot reach.
+        //
+        // Everything above announces the message over an OPEN WebSocket, which by
+        // definition only reaches somebody already looking at the app. Whoever is
+        // NOT connected gets a real push instead, so a closed tab (or a phone in a
+        // pocket) still rings.
+        //
+        // Only the offline ones: pushing to someone who is connected would announce
+        // the same message twice, since the client already raises an OS notification
+        // when its tab is in the background.
+        Set<Long> online = presenceService.onlineAmong(recipients);
+        List<Long> offline = recipients.stream().filter(id -> !online.contains(id)).toList();
+        if (!offline.isEmpty()) {
+            pushService.pushToUsers(offline, message.senderName(), preview, "/");
+        }
     }
 
     /** Persist + push a single generic notification (contact requests, etc.). */
@@ -136,6 +157,12 @@ public class NotificationService {
         n.setRefId(refId);
         Notification saved = repository.save(n);
         pushToUser(userId, NotificationDto.from(saved));
+
+        // A contact request, a group invite or a status mention is exactly the kind
+        // of thing you want to hear about while the app is shut.
+        if (presenceService.onlineAmong(List.of(userId)).isEmpty()) {
+            pushService.pushToUsers(List.of(userId), title, body, "/");
+        }
     }
 
     private void pushToUser(Long userId, NotificationDto dto) {
