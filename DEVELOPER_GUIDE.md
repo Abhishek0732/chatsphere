@@ -398,6 +398,32 @@ chatting simultaneously over real WebSockets:
 | Search | **7–8ms** |
 | Messages lost | **zero** |
 
+### The infrastructure was the bottleneck, not the code
+
+Two MySQL defaults cost more than every query optimisation in this file put together,
+and both are now set in `docker-compose.yml`:
+
+- **`innodb_buffer_pool_size` defaulted to 128MB** while this schema is ~750MB at lakh
+  scale. Nine reads in ten missed the cache and went to disk. Now 2G (override with
+  `MYSQL_BUFFER_POOL`).
+- **The binlog was on, with `sync_binlog=1`.** That is the REPLICATION log — there are
+  no replicas here, so every commit was paying for a second fsync on a file nothing
+  reads. Off by default now. **Crash durability is unchanged**
+  (`innodb_flush_log_at_trx_commit` stays at 1): a committed message is on disk before
+  it is acknowledged. What you give up is point-in-time recovery, so turn it back on
+  (`MYSQL_BINLOG=--log-bin=binlog`) if you add a replica.
+
+### Two traps when measuring this
+
+Both of these made the app look far slower than it is, and both were the *measurement*:
+
+- **One Node process cannot drive 400 sockets.** Its event loop becomes the queue, and
+  you measure the client. Split the load across processes — the same 200 senders went
+  from "225ms" to 42–64ms simply by using four client processes instead of one.
+- **Logins are supposed to be slow.** Each one runs BCrypt (~80ms of CPU *by design*).
+  400 logins is ~32s of CPU; if that overlaps the send phase, you are timing the login,
+  not the message. Let it settle before measuring.
+
 The techniques, so you can follow them in new code:
 
 - **Denormalise what is read on every load.** `conversations.last_message_id` replaced an

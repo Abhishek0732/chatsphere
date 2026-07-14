@@ -186,14 +186,24 @@ The app is built to stay fast at **lakh scale** (100k users, 2M messages) — th
 standing requirement, not an afterthought. Measured on a seeded 100k-user / 2M-message
 database, with hundreds of people chatting at the same moment over real WebSockets:
 
+Measured on a **100,035-user / 2,016,559-message** database (a fresh seed, re-measured
+after encryption shipped), with everything sending at the same instant:
+
 | | |
 |---|---|
-| 200 concurrent 1:1 chatters, end-to-end delivery | median **98ms** · p95 329ms · p99 440ms |
-| Busy 500-member group | median **61ms** (was 2426ms) |
-| Chat list | **51ms** (was >40s — it never loaded) |
-| Open a chat | **18ms** |
-| Search | **7–8ms** |
-| Messages lost | **zero** |
+| Chat list (a power user with **417 chats**) | **50ms** · a normal 20-chat user: ~12ms |
+| Open a chat · older page | **15ms** · 14ms |
+| Search 2M messages · 100k users | **67ms** · 29ms |
+| Status feed · contacts · notifications | 24ms · 8ms · 8ms |
+| Encryption key endpoints | 4–5ms |
+| 10 people sending at once, end-to-end delivery | **15ms** |
+| 50 people sending at once | **36ms** (p95 48ms) |
+| Sustained burst: 200 senders, 600 messages in the same instant | ~1,200 msg/s; queues to ~250ms then drains |
+| Messages lost · delivered out of order | **zero** · **zero** |
+
+Every one of 17 endpoints is inside a 200ms budget at p95. Latency under a thundering
+herd is *queueing*, not per-message cost — a single instance sustains ~1,200 msg/s, and
+the app is horizontally scalable (all realtime delivery goes through a Redis relay).
 
 How, in one line each: the last message and the unread count are **denormalised** onto the
 conversation instead of derived; the send path is a **single INSERT** with the pointers,

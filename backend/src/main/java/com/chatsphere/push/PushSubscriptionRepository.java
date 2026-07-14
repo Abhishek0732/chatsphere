@@ -19,4 +19,10 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
     @Modifying
     @Query("delete from PushSubscription p where p.endpoint = :endpoint")
     void deleteByEndpoint(@Param("endpoint") String endpoint);
+
+    /** Everyone who has push enabled — used to warm the subscriber set at boot. */
+    @Query("select distinct p.userId from PushSubscription p")
+    List<Long> findDistinctUserIds();
+
+    boolean existsByUserId(Long userId);
 }

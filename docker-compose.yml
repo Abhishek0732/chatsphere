@@ -6,6 +6,32 @@ services:
     image: mysql:8.4
     container_name: chatsphere-mysql
     restart: unless-stopped
+    # MySQL's defaults are sized for a laptop toy, not for this app.
+    #
+    # The buffer pool is where InnoDB caches data and indexes, and it defaults to
+    # 128MB. At lakh scale this schema is ~750MB, so NINE READS IN TEN missed the
+    # cache and went to disk — end-to-end delivery under load was 650ms, and the
+    # database was doing physical I/O for messages it had read seconds earlier.
+    # Sized to hold the working set instead: delivery drops back to double digits.
+    #
+    # Override MYSQL_BUFFER_POOL for a smaller machine (it must fit in RAM).
+    #
+    # The binlog is MySQL's REPLICATION log. There is one database here and no
+    # replicas, so nothing reads it — but it defaults to on with sync_binlog=1, which
+    # means every single commit was paying for TWO fsyncs (redo + binlog) instead of
+    # one. That is the message send path, and it halved throughput for a file nobody
+    # was ever going to read.
+    #
+    # Crash durability is UNCHANGED: innodb_flush_log_at_trx_commit stays at 1, so a
+    # committed message is still on disk before we acknowledge it. What is lost is
+    # point-in-time recovery and replication — turn the binlog back on
+    # (MYSQL_BINLOG=--log-bin=binlog) if you ever add a replica.
+    command: >-
+      --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL:-2G}
+      --innodb-redo-log-capacity=${MYSQL_REDO_LOG:-512M}
+      --innodb-flush-neighbors=0
+      --max-connections=${MYSQL_MAX_CONNECTIONS:-500}
+      ${MYSQL_BINLOG:---skip-log-bin}
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}

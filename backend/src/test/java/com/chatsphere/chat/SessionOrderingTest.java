@@ -1,6 +1,7 @@
 package com.chatsphere.chat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -8,139 +9,172 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The gate that stops one connection's messages being persisted out of order.
  *
- * The bug it exists for: the inbound channel is a thread pool, so two sends from
- * one connection run concurrently and race to the INSERT — the loser can get the
- * lower id, and a conversation ordered by id then shows them swapped forever.
+ * Two properties matter, and the second is why this class was rewritten:
+ *   1. Order is exact — messages run in the sequence they arrived in.
+ *   2. NOTHING EVER BLOCKS A POOL THREAD. The first version made a message wait for
+ *      its predecessor, which burned a thread; under load the pool parked itself on
+ *      messages whose predecessors could not run, because the threads that would have
+ *      run them were the ones parked. Delivery went from ~50ms to over 500ms.
  */
 class SessionOrderingTest {
 
+    private static SessionOrdering ordering() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.initialize();
+        return new SessionOrdering(scheduler);
+    }
+
     @Test
-    void messagesFromOneSessionAreProcessedInArrivalOrder_evenWhenThreadsRunThemBackwards() throws Exception {
-        SessionOrdering ordering = new SessionOrdering();
-        String session = "s1";
+    void messagesRunInArrivalOrder_evenWhenSubmittedBackwards() {
+        SessionOrdering ordering = ordering();
+        ConcurrentLinkedQueue<Long> ran = new ConcurrentLinkedQueue<>();
 
-        ConcurrentLinkedQueue<Long> processed = new ConcurrentLinkedQueue<>();
-        ExecutorService pool = Executors.newFixedThreadPool(8);
-        CountDownLatch done = new CountDownLatch(8);
-
-        // Hand the work to the pool in REVERSE order, which is the worst case the
-        // real thread pool can produce.
-        for (long seq = 7; seq >= 0; seq--) {
+        // Worst case: they arrive in reverse.
+        for (long seq = 4; seq >= 1; seq--) {
             final long s = seq;
-            pool.submit(() -> {
-                try {
-                    ordering.awaitTurn(session, s);
-                    processed.add(s);          // stands in for the INSERT
-                } finally {
-                    ordering.complete(session, s);
-                    done.countDown();
-                }
-            });
-            // Give the pool a moment, so the tasks really are started backwards
-            // rather than all queueing up behind one another.
-            Thread.sleep(5);
+            ordering.submit("s1", s, () -> ran.add(s));
         }
+        ordering.submit("s1", 0L, () -> ran.add(0L));
 
-        assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
-        pool.shutdownNow();
-
-        assertThat(processed).containsExactly(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L);
+        // The moment the missing 0 arrives, the whole backlog drains in order.
+        assertThat(ran).containsExactly(0L, 1L, 2L, 3L, 4L);
     }
 
     @Test
-    void aMessageIsNeverLostWhenAnEarlierOneNeverCompletes() {
-        SessionOrdering ordering = new SessionOrdering();
+    void aMessageOutOfTurnDoesNotBlockTheThreadThatBroughtIt() throws Exception {
+        SessionOrdering ordering = ordering();
 
-        // Sequence 0 never completes (imagine its thread died). Sequence 1 must
-        // still go through — bounded wait, then proceed. A message that is slightly
-        // out of order is bad; a message that never arrives is far worse.
+        // seq 1 arrives first. Its predecessor (0) is nowhere to be seen. The calling
+        // thread MUST come straight back — parking it here is what starved the pool.
         long start = System.currentTimeMillis();
-        ordering.awaitTurn("s1", 1L);
-        long waited = System.currentTimeMillis() - start;
-
-        assertThat(waited).isGreaterThanOrEqualTo(400); // it did wait its turn…
-        assertThat(waited).isLessThan(2_000);           // …but gave up rather than hang
-    }
-
-    @Test
-    void differentSessionsNeverBlockEachOther() throws Exception {
-        SessionOrdering ordering = new SessionOrdering();
-
-        // Session A is stuck waiting for a predecessor that never arrives.
-        Thread stuck = new Thread(() -> ordering.awaitTurn("A", 5L));
-        stuck.start();
-
-        // Session B must be completely unaffected — one slow sender may never slow
-        // anybody else down.
-        long start = System.currentTimeMillis();
-        ordering.awaitTurn("B", 0L);
-        ordering.complete("B", 0L);
+        ordering.submit("s1", 1L, () -> {});
         long elapsed = System.currentTimeMillis() - start;
 
-        assertThat(elapsed).isLessThan(100);
-        stuck.join(2_000);
+        assertThat(elapsed).isLessThan(50);
     }
 
     @Test
-    void anUnstampedMessageJustGoes() {
-        SessionOrdering ordering = new SessionOrdering();
-        // No session or no sequence (e.g. a frame that predates the interceptor):
-        // it must pass straight through rather than block.
+    void manySendersOnManyThreadsAreEachOrderedWithoutStarvingThePool() throws Exception {
+        SessionOrdering ordering = ordering();
+
+        final int sessions = 50;
+        final int perSession = 10;
+        // Deliberately FEWER threads than sessions: if a single out-of-turn message
+        // parked a thread, this pool would deadlock itself.
+        ExecutorService pool = Executors.newFixedThreadPool(4);
+        CountDownLatch done = new CountDownLatch(sessions * perSession);
+
+        ConcurrentLinkedQueue<String> ran = new ConcurrentLinkedQueue<>();
+
+        for (int s = 0; s < sessions; s++) {
+            final String session = "s" + s;
+            // Submit each session's messages in a jumbled order.
+            for (long seq : new long[] {3, 1, 4, 0, 8, 2, 9, 5, 7, 6}) {
+                pool.submit(() -> {
+                    ordering.submit(session, seq, () -> ran.add(session + ":" + seq));
+                    done.countDown();
+                });
+            }
+        }
+
+        assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+
+        // Every session's messages must appear in sequence order.
+        for (int s = 0; s < sessions; s++) {
+            String session = "s" + s;
+            List<Long> seqs = ran.stream()
+                    .filter(e -> e.startsWith(session + ":"))
+                    .map(e -> Long.valueOf(e.substring(session.length() + 1)))
+                    .toList();
+            assertThat(seqs)
+                    .as("session %s ran in order", session)
+                    .containsExactly(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L);
+        }
+    }
+
+    @Test
+    void aMessageIsNeverLostWhenAnEarlierOneNeverArrives() throws Exception {
+        SessionOrdering ordering = ordering();
+        AtomicInteger ran = new AtomicInteger();
+
+        // Sequence 0 never arrives (its frame died). Sequence 1 must STILL run — a
+        // message slightly out of order is bad; one that never arrives is far worse.
+        ordering.submit("s1", 1L, ran::incrementAndGet);
+        assertThat(ran.get()).isZero(); // waiting for 0…
+
+        // …and the gap timeout lets it through.
+        long deadline = System.currentTimeMillis() + 3_000;
+        while (ran.get() == 0 && System.currentTimeMillis() < deadline) {
+            Thread.sleep(25);
+        }
+        assertThat(ran.get()).isEqualTo(1);
+    }
+
+    @Test
+    void aFailingSendStillHandsOnTheTurn() {
+        SessionOrdering ordering = ordering();
+        ConcurrentLinkedQueue<Long> ran = new ConcurrentLinkedQueue<>();
+
+        // The first message blows up (a database error, say). The next one must not be
+        // stuck behind it forever.
+        try {
+            ordering.submit("s1", 0L, () -> {
+                throw new IllegalStateException("insert failed");
+            });
+        } catch (IllegalStateException expected) {
+            // the handler's own error path deals with this
+        }
+        ordering.submit("s1", 1L, () -> ran.add(1L));
+
+        assertThat(ran).containsExactly(1L);
+    }
+
+    @Test
+    void anUnstampedMessageJustRuns() {
+        SessionOrdering ordering = ordering();
+        ConcurrentLinkedQueue<Long> ran = new ConcurrentLinkedQueue<>();
+        ordering.submit(null, 3L, () -> ran.add(3L));
+        ordering.submit("s", null, () -> ran.add(9L));
+        assertThat(ran).containsExactly(3L, 9L);
+    }
+
+    @Test
+    void differentSessionsNeverBlockEachOther() {
+        SessionOrdering ordering = ordering();
+        ConcurrentLinkedQueue<String> ran = new ConcurrentLinkedQueue<>();
+
+        // Session A is stuck (its seq 0 never arrives). Session B must be unaffected —
+        // one stalled sender may never slow anybody else down.
+        ordering.submit("A", 5L, () -> ran.add("A5"));
+
         long start = System.currentTimeMillis();
-        ordering.awaitTurn(null, 3L);
-        ordering.awaitTurn("s", null);
-        assertThat(System.currentTimeMillis() - start).isLessThan(100);
+        ordering.submit("B", 0L, () -> ran.add("B0"));
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertThat(ran).containsExactly("B0");
+        assertThat(elapsed).isLessThan(50);
     }
 
     @Test
-    void forgettingASessionDoesNotBreakALaterOne() {
-        SessionOrdering ordering = new SessionOrdering();
-        ordering.awaitTurn("s1", 0L);
-        ordering.complete("s1", 0L);
+    void forgettingASessionReleasesItsState() {
+        SessionOrdering ordering = ordering();
+        ConcurrentLinkedQueue<Long> ran = new ConcurrentLinkedQueue<>();
+
+        ordering.submit("s1", 0L, () -> ran.add(0L));
         ordering.forget("s1");
 
-        // A reconnect reuses nothing: the new session starts from zero again.
-        long start = System.currentTimeMillis();
-        ordering.awaitTurn("s1", 0L);
-        ordering.complete("s1", 0L);
-        assertThat(System.currentTimeMillis() - start).isLessThan(100);
-    }
-
-    @Test
-    void completingOutOfOrderNeverMovesTheTurnBackwards() {
-        SessionOrdering ordering = new SessionOrdering();
-        ordering.awaitTurn("s", 0L);
-        ordering.complete("s", 0L);
-        ordering.awaitTurn("s", 1L);
-        ordering.complete("s", 1L);
-
-        // A late duplicate completion for an old sequence must not rewind the gate,
-        // or the next message would wait for a turn that has already passed.
-        ordering.complete("s", 0L);
-
-        long start = System.currentTimeMillis();
-        ordering.awaitTurn("s", 2L);
-        assertThat(System.currentTimeMillis() - start).isLessThan(100);
-    }
-
-    @Test
-    void aBurstOfEightIsNotSlowedDownWhenItArrivesInOrder() throws Exception {
-        SessionOrdering ordering = new SessionOrdering();
-        List<Long> seqs = List.of(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L);
-
-        long start = System.currentTimeMillis();
-        for (Long seq : seqs) {
-            ordering.awaitTurn("s", seq);
-            ordering.complete("s", seq);
-        }
-        // The normal case must cost nothing: nobody waits when it is already
-        // their turn.
-        assertThat(System.currentTimeMillis() - start).isLessThan(50);
+        // A reconnect is a NEW session and starts from zero again.
+        ordering.submit("s1", 0L, () -> ran.add(100L));
+        assertThat(ran).containsExactly(0L, 100L);
     }
 }

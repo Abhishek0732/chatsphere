@@ -14,10 +14,14 @@ public class PushController {
 
     private final PushService pushService;
     private final PushSubscriptionRepository repository;
+    private final PushSubscribers subscribers;
 
-    public PushController(PushService pushService, PushSubscriptionRepository repository) {
+    public PushController(PushService pushService,
+                          PushSubscriptionRepository repository,
+                          PushSubscribers subscribers) {
         this.pushService = pushService;
         this.repository = repository;
+        this.subscribers = subscribers;
     }
 
     /**
@@ -51,6 +55,8 @@ public class PushController {
         sub.setP256dh(req.p256dh());
         sub.setAuth(req.auth());
         repository.save(sub);
+        // The send path asks Redis (not the DB) whether a recipient has push at all.
+        subscribers.remember(me);
         return ResponseEntity.noContent().build();
     }
 
@@ -61,7 +67,10 @@ public class PushController {
         if (req != null && !isBlank(req.endpoint())) {
             repository.findByEndpoint(req.endpoint())
                     .filter(s -> s.getUserId().equals(SecurityUtils.currentUserId()))
-                    .ifPresent(s -> repository.deleteByEndpoint(s.getEndpoint()));
+                    .ifPresent(s -> {
+                        repository.deleteByEndpoint(s.getEndpoint());
+                        subscribers.forgetIfLast(s.getUserId());
+                    });
         }
         return ResponseEntity.noContent().build();
     }

@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/keys")
 public class KeyController {
 
+    private final UserKeyRepository keyRepository;
     private final UserRepository userRepository;
 
-    public KeyController(UserRepository userRepository) {
+    public KeyController(UserKeyRepository keyRepository, UserRepository userRepository) {
+        this.keyRepository = keyRepository;
         this.userRepository = userRepository;
     }
 
@@ -48,10 +50,11 @@ public class KeyController {
     @GetMapping("/me")
     @Transactional(readOnly = true)
     public MyKeysResponse mine() {
-        User me = userRepository.findById(SecurityUtils.currentUserId())
-                .orElseThrow(() -> ApiException.notFound("User not found"));
-        return new MyKeysResponse(me.getPublicKey(), me.getEncPrivateKey(),
-                me.getEncKeySalt(), me.getEncKeyIv(), me.getKeyVersion());
+        return keyRepository.findById(SecurityUtils.currentUserId())
+                .map(k -> new MyKeysResponse(k.getPublicKey(), k.getEncPrivateKey(),
+                        k.getEncKeySalt(), k.getEncKeyIv(), k.getKeyVersion()))
+                // No keys yet: the client makes a pair and publishes it.
+                .orElseGet(() -> new MyKeysResponse(null, null, null, null, 0));
     }
 
     /**
@@ -68,23 +71,30 @@ public class KeyController {
                 || isBlank(req.encKeySalt()) || isBlank(req.encKeyIv())) {
             throw ApiException.badRequest("Incomplete key material");
         }
-        User me = userRepository.findById(SecurityUtils.currentUserId())
-                .orElseThrow(() -> ApiException.notFound("User not found"));
+        Long me = SecurityUtils.currentUserId();
 
-        boolean newKeyPair = req.rotated() || me.getPublicKey() == null
-                || !req.publicKey().equals(me.getPublicKey());
+        UserKey key = keyRepository.findById(me).orElseGet(() -> {
+            UserKey k = new UserKey();
+            k.setUserId(me);
+            k.setKeyVersion(0);
+            return k;
+        });
 
-        me.setPublicKey(req.publicKey());
-        me.setEncPrivateKey(req.encPrivateKey());
-        me.setEncKeySalt(req.encKeySalt());
-        me.setEncKeyIv(req.encKeyIv());
+        boolean newKeyPair = req.rotated()
+                || key.getPublicKey() == null
+                || !req.publicKey().equals(key.getPublicKey());
+
+        key.setPublicKey(req.publicKey());
+        key.setEncPrivateKey(req.encPrivateKey());
+        key.setEncKeySalt(req.encKeySalt());
+        key.setEncKeyIv(req.encKeyIv());
         // Only a genuinely NEW key pair bumps the version. Re-wrapping the same key
         // under a new password is not a rotation — the peer's derived secret, and so
         // every message they can already read, is unchanged.
         if (newKeyPair) {
-            me.setKeyVersion(me.getKeyVersion() + 1);
+            key.setKeyVersion(key.getKeyVersion() + 1);
         }
-        userRepository.save(me);
+        keyRepository.save(key);
         return ResponseEntity.noContent().build();
     }
 
@@ -92,9 +102,14 @@ public class KeyController {
     @GetMapping("/{userId}")
     @Transactional(readOnly = true)
     public PublicKeyResponse of(@PathVariable Long userId) {
-        User u = userRepository.findById(userId)
-                .orElseThrow(() -> ApiException.notFound("User not found"));
-        return new PublicKeyResponse(u.getId(), u.getPublicKey(), u.getKeyVersion());
+        if (!userRepository.existsById(userId)) {
+            throw ApiException.notFound("User not found");
+        }
+        return keyRepository.findById(userId)
+                .map(k -> new PublicKeyResponse(userId, k.getPublicKey(), k.getKeyVersion()))
+                // They have not set up encryption. The client falls back to sending in
+                // the clear rather than sending them something they can never read.
+                .orElseGet(() -> new PublicKeyResponse(userId, null, 0));
     }
 
     private static boolean isBlank(String s) {

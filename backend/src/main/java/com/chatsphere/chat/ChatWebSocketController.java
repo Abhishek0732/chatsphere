@@ -68,19 +68,14 @@ public class ChatWebSocketController {
                      @Header(name = InboundSequenceInterceptor.SEQ_HEADER, required = false) Long seq,
                      @Header(name = "simpSessionId", required = false) String sessionId) {
         Long senderId = userId(principal);
-        // Wait until every earlier message from THIS connection has been written.
-        // Without this, two messages sent back-to-back race each other on the inbound
-        // thread pool and the loser can get the lower id — so a conversation ordered
-        // by id shows them swapped, permanently. This only ever makes a sender wait
-        // behind themselves; different people never block each other.
-        ordering.awaitTurn(sessionId, seq);
-        try {
-            doSend(cmd, senderId);
-        } finally {
-            // Hand the turn on even if the send blew up, or every later message from
-            // this connection would sit here until the timeout.
-            ordering.complete(sessionId, seq);
-        }
+        // Persist in the order the frames ARRIVED on this connection. Two messages sent
+        // back-to-back are handed to two different pool threads and race to the INSERT;
+        // the loser can get the lower id, and a conversation is ordered by id, so they
+        // would be stored — and shown, forever — swapped.
+        //
+        // submit() runs inline when it is already this message's turn (the usual case,
+        // so it costs nothing) and parks it otherwise, WITHOUT blocking this thread.
+        ordering.submit(sessionId, seq, () -> doSend(cmd, senderId));
     }
 
     private void doSend(SendMessageCommand cmd, Long senderId) {
@@ -187,14 +182,35 @@ public class ChatWebSocketController {
 
     @MessageMapping("presence.ping")
     public void ping(Principal principal) {
-        presenceService.heartbeat(userId(principal));
+        // A heartbeat can arrive on a session that has just gone away (a reconnect
+        // race, or a frame already in flight when the socket closed). There is no
+        // identity to attribute it to, and nothing to do — drop it. It used to throw,
+        // and Spring logged a full ERROR stack trace for every stray ping, which at
+        // lakh scale is a lot of noise about nothing.
+        Long uid = userIdOrNull(principal);
+        if (uid != null) presenceService.heartbeat(uid);
     }
 
+    /**
+     * The authenticated user behind a STOMP frame.
+     *
+     * The identity comes from the CONNECT frame (see WebSocketAuthChannelInterceptor)
+     * and is never taken from the payload, so a client cannot claim to be someone else.
+     * A frame with no principal is a stale one from a session that is already gone.
+     */
     private Long userId(Principal principal) {
+        Long uid = userIdOrNull(principal);
+        if (uid == null) {
+            throw new IllegalStateException("Unauthenticated WebSocket session");
+        }
+        return uid;
+    }
+
+    private Long userIdOrNull(Principal principal) {
         if (principal instanceof Authentication auth
                 && auth.getPrincipal() instanceof UserPrincipal up) {
             return up.id();
         }
-        throw new IllegalStateException("Unauthenticated WebSocket session");
+        return null;
     }
 }

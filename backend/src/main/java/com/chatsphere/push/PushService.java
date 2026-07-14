@@ -36,16 +36,19 @@ public class PushService {
     private static final int MAX_BODY = 180;
 
     private final PushSubscriptionRepository repository;
+    private final PushSubscribers subscriberFilter;
     private final ObjectMapper mapper;
     private final String publicKey;
     private final nl.martijndwars.webpush.PushService pushService;
 
     public PushService(PushSubscriptionRepository repository,
+                       PushSubscribers subscriberFilter,
                        ObjectMapper mapper,
                        @Value("${chatsphere.push.vapid.public-key:}") String publicKey,
                        @Value("${chatsphere.push.vapid.private-key:}") String privateKey,
                        @Value("${chatsphere.push.vapid.subject:mailto:admin@chatsphere.dev}") String subject) {
         this.repository = repository;
+        this.subscriberFilter = subscriberFilter;
         this.mapper = mapper;
         this.publicKey = publicKey == null ? "" : publicKey.trim();
 
@@ -91,7 +94,15 @@ public class PushService {
     public void pushToUsers(Collection<Long> userIds, String title, String body, String url) {
         if (!isEnabled() || userIds == null || userIds.isEmpty()) return;
 
-        List<PushSubscription> subs = repository.findByUserIdIn(userIds);
+        // Almost nobody has enabled push, but EVERY message to an offline recipient
+        // was asking the database whether they had. At lakh scale that is a query per
+        // message for a row that is almost never there. A Redis set of the user ids
+        // that actually have a subscription answers it in microseconds, and the
+        // database is only touched for the few who do.
+        List<Long> subscribers = subscriberFilter.subscribersAmong(userIds);
+        if (subscribers.isEmpty()) return;
+
+        List<PushSubscription> subs = repository.findByUserIdIn(subscribers);
         if (subs.isEmpty()) return;
 
         String payload;
@@ -123,6 +134,7 @@ public class PushService {
             // retrying a dead endpoint on every single message, forever.
             if (status == 404 || status == 410) {
                 repository.deleteByEndpoint(sub.getEndpoint());
+                subscriberFilter.forgetIfLast(sub.getUserId());
                 return;
             }
             if (status >= 200 && status < 300) {
