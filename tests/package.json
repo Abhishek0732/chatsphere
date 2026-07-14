@@ -1,0 +1,14 @@
+{
+  "name": "chatsphere-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end regression suite against a running ChatSphere (real HTTP API + STOMP WebSocket).",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "@stomp/stompjs": "^7.0.0",
+    "ws": "^8.18.0"
+  }
+}

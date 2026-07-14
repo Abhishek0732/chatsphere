@@ -1,6 +1,7 @@
 # ChatSphere — everything runs in Docker. No host installs required.
 
-.PHONY: up down build rebuild logs ps clean backend-logs frontend-logs
+.PHONY: up down build rebuild logs ps clean backend-logs frontend-logs \
+        test test-unit test-e2e vapid-keys
 
 ## Build all images and start the whole stack (detached)
 up:
@@ -36,3 +37,29 @@ frontend-logs:
 ## Show running services
 ps:
 	docker compose ps
+
+# ── Tests ────────────────────────────────────────────────────────────────────
+
+## Everything: fast unit tests, then the end-to-end suite (needs the stack up)
+test: test-unit test-e2e
+
+## Backend unit tests — no database, no Spring context. Seconds.
+test-unit:
+	docker run --rm \
+		-v "$(PWD)/backend":/app -v "$(HOME)/.m2":/root/.m2 -w /app \
+		maven:3.9-eclipse-temurin-21 mvn -q test
+
+## End-to-end regression suite against the RUNNING stack (make up first).
+## This is the net that catches the bugs this app has actually shipped:
+## lost messages, a deleted user breaking everyone's chat list, a broken limiter.
+test-e2e:
+	docker run --rm --network host \
+		-v "$(PWD)/tests":/tests -w /tests \
+		node:22-alpine sh -c "npm install --silent && npm test"
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+
+## Generate a VAPID key pair for Web Push (paste the output into .env)
+vapid-keys:
+	docker run --rm -v "$(PWD)/scripts":/scripts node:22-alpine \
+		node /scripts/generate-vapid-keys.mjs
