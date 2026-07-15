@@ -74,10 +74,12 @@ spring:
             enable: ${MAIL_SMTP_STARTTLS:false}
   servlet:
     multipart:
-      # 25MB usable file size; the request cap has headroom for multipart
-      # boundary/header overhead so an actual 25MB file isn't rejected.
-      max-file-size: 25MB
-      max-request-size: 30MB
+      # 100MB usable file size (short phone videos, decks, PDFs); the request cap
+      # has headroom for multipart boundary/header overhead so an actual 100MB
+      # file isn't rejected. Keep this in sync with nginx client_max_body_size
+      # (105m) and the frontend MAX_UPLOAD_BYTES.
+      max-file-size: 100MB
+      max-request-size: 105MB
       # Keep uploads up to this size in memory instead of spilling them to a temp
       # file on disk (the Spring default threshold is 0B = always disk). Client
       # photos are compressed to well under this, so the common path avoids the

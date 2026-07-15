@@ -586,6 +586,74 @@ Things that will bite you if you touch this:
 - **Groups are not encrypted** (they need per-member key distribution and re-keying on
   every join/leave).
 
+## 10d. Five features that came later (and why they're built this way)
+
+### Large media (100 MB) with progress + cancel
+The cap moved from 25 MB to 100 MB in **three places that must stay in sync**:
+`application.yml` (`max-file-size`/`max-request-size`), `frontend/nginx.conf`
+(`client_max_body_size` on `/api/`, +5 MB for multipart overhead), and
+`frontend/src/api/media.ts` (`MAX_UPLOAD_BYTES`). The upload was already streamed
+(`proxy_request_buffering off`); what was added is a **progress bar you can cancel** —
+axios `onUploadProgress` averaged across the picked files, and an `AbortController.signal`
+threaded through `uploadMedia`. A canceled upload throws `ERR_CANCELED`, which
+`isUploadAbort()` swallows silently (it is not an error).
+
+**Deliberately NOT done: resumable/chunked upload.** An encrypted attachment is sealed as
+one AES-GCM blob (`encryptFileFor` → `file.arrayBuffer()`), so a naive chunked protocol
+would break the whole-file AEAD (every chunk would need its own IV and a streaming
+construction). Raising the ceiling + progress + cancel is the honest, self-consistent
+slice; true resume is a larger change tracked in §14.
+
+### Catch-up sync (`GET /api/sync?since=<id>`)
+Live delivery only reaches *connected* members (§10, the send path filters to
+`onlineAmong`). So a message that lands during a disconnect is in the DB but never pushed.
+`SyncController` → `ChatService.syncSince` returns every non-cleared message across the
+user's conversations with `id > since`, **oldest-first, capped at 500**, in one ascending
+scan (`MessageRepository.findSinceForUser`, served by `idx_msg_conv_del_id_sender`).
+Message ids are globally monotonic AUTO_INCREMENT, so **a single watermark is a correct
+cursor for the whole account** — no per-conversation bookkeeping. The client
+(`services/syncService.ts`) derives the watermark as `max(seen-live, max lastMessage id in
+the conversation-list cache)` and runs the sync on every `onConnect`. It does **not** fire
+OS notifications for caught-up messages — reconnecting must not dump a burst of alerts.
+
+### Reciprocal privacy toggles (read receipts, last-seen)
+Two boolean columns on `users` (V32, default `1`). The rule is WhatsApp's: **a signal is
+visible only if both parties share it**, and it's enforced server-side, not hidden in the
+UI.
+- *Read receipts* apply to **direct chats only** (group read receipts always show).
+  `visibleReadCeil()` computes the blue-tick ceiling and, for a direct chat, returns 0 if
+  the viewer opted out and skips any member who opted out. The live path
+  (`ChatWebSocketController.read`) only broadcasts a `ReadEvent` when
+  `readReceiptsBroadcastAllowed`, and the client additionally suppresses an incoming
+  receipt if *its* user turned them off — belt and suspenders.
+- *Last-seen* gates presence at every exposure point: `UserController` (byId/search),
+  `ChatService` member DTOs (`memberDto`), and the `PresenceService.broadcast` (a hidden
+  user emits nothing). The client mirror lives in `chatStore.setPresence`.
+
+The flags ride on `HotPathCache.UserBrief` so the read-tick and presence hot paths read
+them without a query; a toggle calls `cache.invalidateUser`.
+
+### Reactions: full picker + swipe-to-reply
+The existing `EmojiPicker` (already used in the composer) is reused behind a **"+"** on the
+quick-reaction bar — no new dependency. A picked emoji can be a multi-codepoint ZWJ
+sequence (a family emoji is 7 code points), which the old `VARCHAR(16)` truncated into a
+broken glyph, so V34 widens `message_reactions.emoji` to 32. **Swipe-to-reply** is a
+touch-only gesture on `MessageBubble` (`pointerType === 'touch'`, `touch-action: pan-y` so
+vertical scroll still works): a horizontal drag translates the bubble via a ref (no
+re-render), and past a 56 px threshold it calls the existing `handleReply`.
+
+### Disappearing messages
+A nullable `disappearing_ttl_seconds` on `conversations` and a nullable `expires_at` on
+`messages` (V33, with `idx_msg_expires`). Any member sets the timer
+(`POST /conversations/{id}/disappearing`); it's broadcast to the conversation over
+`/topic/conversations/{id}/disappearing`. `persistMessage` stamps `expires_at = now + ttl`
+at insert. Two things make a message vanish: the client **hides** anything past `expiresAt`
+immediately (`MessageThread` filters on a 30 s ticker, run only while the chat has a
+timer), and `RetentionService.sweepExpiredMessages` **hard-deletes** on a ~5-minute leased
+schedule — reactions and read-status cascade off the FK, replies are nulled
+(`ON DELETE SET NULL`). The `DELETE ... WHERE expires_at < now LIMIT 2000` is a covering
+`range` scan on `idx_msg_expires`, so it never touches the 2M non-expiring rows.
+
 ## 11. Security model
 
 - **JWT access tokens** (HS256, 30 min) + **opaque refresh tokens** (14 days, stored in
@@ -637,15 +705,18 @@ make test-e2e     # end-to-end suite against the RUNNING stack (make up first)
 make test         # both
 ```
 
-- **`backend/src/test/`** — 92 JUnit/Mockito tests over the logic that is either
+- **`backend/src/test/`** — 101 JUnit/Mockito tests over the logic that is either
   security-critical or has actually regressed: the status repost rules, the block
-  *window* semantics, account-deletion semantics, the rate limiter, and the
-  notification policy (a plain group message must write no rows).
-- **`tests/`** — 10 end-to-end checks against the real API and a real WebSocket. This is
+  *window* semantics, account-deletion semantics, the rate limiter, the message-ordering
+  gate, and the notification policy (a plain group message must write no rows).
+- **`tests/`** — 19 end-to-end checks against the real API and a real WebSocket. This is
   the net for the bugs this app has genuinely shipped: **messages silently lost** under
   concurrency (it sends 20 rapid messages and asserts all 20 persist), **a deleted user
   breaking everyone's chat list**, a status being re-shared by someone who was never
-  tagged, and a rate limiter that does not limit.
+  tagged, and a rate limiter that does not limit. `checks/features.mjs` adds the five
+  newer features (§10d): the 100 MB cap, the catch-up sync cursor, reciprocal read
+  receipts + last-seen, a multi-codepoint reaction round-trip, and the disappearing
+  timer + its broadcast.
 
 If you touch the send path, membership, deletion or the limiter, run both before you
 push. Neither needs anything installed on your machine — they run in Docker.
@@ -691,9 +762,10 @@ your typecheck.
 - **Encryption covers direct chats only** — not groups (§10c). There is also no forward
   secrecy: a stolen private key reads that conversation's past.
 - No group calls (calling is 1:1 P2P WebRTC).
-- No archive, disappearing messages, view-once media or polls.
-- No privacy toggles for last-seen / read receipts (statuses have a full audience model;
-  presence does not).
+- No archive, view-once media or polls. (Disappearing messages *are* in — §10d.)
+- **Uploads are not resumable.** The cap is 100 MB with progress + cancel, but a dropped
+  connection restarts the file — resume conflicts with the whole-file attachment
+  encryption (§10d).
 - `docker-compose.yml` pins a `container_name` and a fixed host port on the backend, so
   `--scale backend=N` needs a real load balancer with sticky sessions (the code itself is
   multi-instance-correct — that was verified with two backends and a user on each).

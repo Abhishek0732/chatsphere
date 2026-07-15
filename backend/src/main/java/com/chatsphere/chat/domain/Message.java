@@ -57,6 +57,14 @@ public class Message {
     private Instant editedAt;
 
     /**
+     * When the conversation has a disappearing-messages timer, this is stamped at
+     * send time (created_at + ttl). A background sweep hard-deletes rows past it,
+     * and clients hide them the moment it passes. Null = the message never expires.
+     */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
+    /**
      * True when {@code content} is ciphertext produced in the sender's browser.
      * The server stores and forwards it and cannot read it: search skips these rows,
      * and notification previews never quote them.

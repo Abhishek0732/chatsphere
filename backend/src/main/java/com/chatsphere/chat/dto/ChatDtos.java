@@ -31,7 +31,9 @@ public final class ChatDtos {
             /** Ids of the users @mentioned in this message (group chats). */
             List<Long> mentions,
             /** True when `content` is ciphertext: only the two participants can read it. */
-            boolean encrypted) {}
+            boolean encrypted,
+            /** When set, the message auto-disappears after this instant (client hides it too). */
+            Instant expiresAt) {}
 
     /** An emoji and the ids of everyone who reacted with it. */
     public record ReactionDto(String emoji, List<Long> userIds) {}
@@ -58,7 +60,9 @@ public final class ChatDtos {
             List<UserDto> members,
             /** Always the true member count, even when `members` is empty. */
             int memberCount,
-            Instant updatedAt) {}
+            Instant updatedAt,
+            /** Disappearing-messages timer in seconds; null = off. */
+            Integer disappearingTtlSeconds) {}
 
     public record CreateDirectRequest(@NotNull Long targetUserId) {}
 
@@ -85,6 +89,13 @@ public final class ChatDtos {
     public record PinCommand(@NotNull Long conversationId, @NotNull Long messageId, boolean pinned) {}
 
     public record EditCommand(@NotNull Long conversationId, @NotNull Long messageId, String content) {}
+
+    /** Set (or clear, with null) the disappearing-messages timer for a conversation. */
+    public record DisappearingRequest(Integer ttlSeconds) {}
+
+    /** Pushed to a conversation's members when its disappearing timer changes. */
+    public record DisappearingEvent(Long conversationId, Long changedByUserId,
+                                    String changedByName, Integer ttlSeconds) {}
 
     // ── WebSocket outbound events ──
     public record TypingEvent(Long conversationId, Long userId, String userName, boolean typing) {}

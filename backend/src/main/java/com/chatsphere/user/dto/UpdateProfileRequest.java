@@ -6,4 +6,6 @@ public record UpdateProfileRequest(
         @Size(max = 100) String displayName,
         @Size(max = 255) String about,
         @Size(max = 512) String avatarUrl,
-        Boolean protectAvatar) {}
+        Boolean protectAvatar,
+        Boolean readReceiptsEnabled,
+        Boolean lastSeenEnabled) {}

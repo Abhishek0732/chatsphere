@@ -6,6 +6,8 @@ export interface UpdateProfilePayload {
   about?: string;
   avatarUrl?: string;
   protectAvatar?: boolean;
+  readReceiptsEnabled?: boolean;
+  lastSeenEnabled?: boolean;
 }
 
 export async function getMe(): Promise<User> {

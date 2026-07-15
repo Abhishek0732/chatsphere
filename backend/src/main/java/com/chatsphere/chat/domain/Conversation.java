@@ -60,6 +60,13 @@ public class Conversation {
     @Column(name = "last_message_id")
     private Long lastMessageId;
 
+    /**
+     * Disappearing-messages timer in seconds (e.g. 86400 = 24h). Null = off. When
+     * set, every new message in this conversation is stamped with an expires_at.
+     */
+    @Column(name = "disappearing_ttl_seconds")
+    private Integer disappearingTtlSeconds;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

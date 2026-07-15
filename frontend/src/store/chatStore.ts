@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { authAccessors } from './authStore';
 import type { PresenceEvent, ReplyPreview } from '@/types';
 
 interface TypingUser {
@@ -83,12 +84,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set((state) => ({ typing: { ...state.typing, [conversationId]: [] } })),
 
   setPresence: (event) =>
-    set((state) => ({
-      presence: {
-        ...state.presence,
-        [event.userId]: { online: event.online, lastSeen: event.lastSeen },
-      },
-    })),
+    set((state) => {
+      // Reciprocal last-seen: if I've hidden mine, I don't get to see anyone's.
+      // The server already withholds it; this is the client half of the mirror.
+      if (authAccessors.getUser()?.lastSeenEnabled === false) return state;
+      return {
+        presence: {
+          ...state.presence,
+          [event.userId]: { online: event.online, lastSeen: event.lastSeen },
+        },
+      };
+    }),
 
   bulkSetPresence: (events) =>
     set((state) => {

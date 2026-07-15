@@ -78,6 +78,8 @@ You can also register a new account from the UI.
 Enter and are reconciled with the server echo, so the UI never waits on the network.
 Typing indicators, presence dots, read receipts (the double ticks), replies, reactions,
 editing, pinning, forwarding, per-user "clear chat", and full-text search are all in.
+Reactions open a **full emoji picker** (not just a fixed six), and on a phone you
+**swipe a message sideways to reply** to it.
 
 Typing indicators are live across the whole conversation list, not just the open chat —
 here Bob is typing in **Team** while Alice is reading her chat with him:
@@ -158,11 +160,38 @@ docker compose up -d backend
 
 Without keys, push simply stays off and everything else works.
 
-### Send while offline
+### Send while offline — and catch up when you're back
 
 Type on a train, in a lift, or on a dying connection: the message is **queued**, not
 lost. It shows as *waiting*, survives a reload, and is sent automatically — in the order
 you typed it — the moment you are back.
+
+The reverse is handled too. Live delivery only reaches a *connected* client, so anything
+that arrived while you were offline would be a gap. On every reconnect the app calls
+`GET /api/sync?since=<id>` and pulls **everything past the newest message it already
+holds**, in order, in one indexed ascending scan — no lost messages after a dropped
+socket.
+
+### Disappearing messages
+
+A per-chat timer (**24 hours, 7 days, 90 days, or off**) that either person can set. New
+messages are stamped with an expiry; the client hides them the moment it passes, and a
+background sweep hard-deletes the row (its reactions and read-status cascade away with
+it). Set it from the chat's ⋮ menu; a small timer icon by the name shows it's on.
+
+### Privacy you actually control
+
+**Read receipts** and **last seen / online** each have a switch in **Settings → Privacy**,
+and both are **reciprocal**, exactly like WhatsApp: turn your read receipts off and you
+stop seeing anyone's blue ticks; hide your last seen and theirs is hidden from you. It's
+enforced on the server for direct chats, not just hidden in the UI (group read receipts
+always show, as in WhatsApp).
+
+### Big files, with a real progress bar
+
+Photos, videos, voice notes and documents up to **100 MB** (was 25 MB). A large upload
+shows a **live progress bar you can cancel**, and — in an encrypted direct chat — the file
+is still sealed in the browser before it leaves, filename and all.
 
 ### Everything else
 
@@ -235,7 +264,7 @@ and the commit history reads as post-mortems.
                   └────────┘ └───────┘ └───────┘
 ```
 
-- **MySQL** — everything durable; schema is Flyway-managed (`V1`…`V28`).
+- **MySQL** — everything durable; schema is Flyway-managed (`V1`…`V34`).
 - **Redis** — presence, rate limiting, OTP codes, call locks, *and* the pub/sub bus that
   makes multi-instance realtime delivery work.
 - **Kafka** — a message-event stream; today its only consumer writes an audit line. It is
@@ -252,8 +281,8 @@ and `messaging` (Kafka).
 ## Tests
 
 ```bash
-make test-unit   # 92 backend unit tests — no DB, no Spring context. ~5s.
-make test-e2e    # 10 end-to-end checks against the running stack (make up first)
+make test-unit   # 101 backend unit tests — no DB, no Spring context. ~5s.
+make test-e2e    # 19 end-to-end checks against the running stack (make up first)
 make test        # both
 ```
 

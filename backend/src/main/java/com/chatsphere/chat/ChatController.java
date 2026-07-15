@@ -19,13 +19,19 @@ public class ChatController {
     private final ChatService chatService;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final ChatBroadcaster broadcaster;
+    private final com.chatsphere.common.cache.HotPathCache cache;
 
     public ChatController(ChatService chatService,
                           ConversationRepository conversationRepository,
-                          MessageRepository messageRepository) {
+                          MessageRepository messageRepository,
+                          ChatBroadcaster broadcaster,
+                          com.chatsphere.common.cache.HotPathCache cache) {
         this.chatService = chatService;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
+        this.broadcaster = broadcaster;
+        this.cache = cache;
     }
 
     @GetMapping
@@ -76,6 +82,21 @@ public class ChatController {
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Set (or clear, with a null/0 ttl) the disappearing-messages timer for a
+     * conversation. Any member may change it; everyone is told over STOMP.
+     */
+    @PostMapping("/{id}/disappearing")
+    public ResponseEntity<Void> setDisappearing(@PathVariable Long id,
+                                                @RequestBody DisappearingRequest req) {
+        Long me = SecurityUtils.currentUserId();
+        Integer ttl = chatService.setDisappearing(me, id, req.ttlSeconds());
+        var brief = cache.brief(me);
+        String name = brief != null ? brief.displayName() : "Someone";
+        broadcaster.broadcastDisappearing(new DisappearingEvent(id, me, name, ttl));
         return ResponseEntity.noContent().build();
     }
 

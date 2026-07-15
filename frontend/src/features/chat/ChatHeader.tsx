@@ -14,9 +14,12 @@ import {
   UserCheck,
   Video,
   Lock,
+  Timer,
+  Check,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Modal } from '@/components/ui/Modal';
 import { ChatInfoModal } from './ChatInfoModal';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
@@ -34,6 +37,8 @@ import { toast } from '@/store/toastStore';
 import { socketService } from '@/services/socket';
 import { canEncryptWith } from '@/services/e2ee';
 import { useE2eeStore } from '@/store/e2eeStore';
+import { setDisappearing } from '@/api/conversations';
+import { DISAPPEARING_OPTIONS, formatDisappearing } from '@/utils/disappearing';
 import type { ConversationSummary } from '@/types';
 import { otherMember } from './utils';
 
@@ -66,6 +71,7 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [disappearingOpen, setDisappearingOpen] = useState(false);
   const [confirm, setConfirm] = useState<{
     title: string;
     message: string;
@@ -124,6 +130,16 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
       toast({ title: 'Chat exported', variant: 'success' });
     } catch {
       toast({ title: 'Could not export chat', variant: 'error' });
+    }
+  };
+
+  const applyDisappearing = async (seconds: number | null) => {
+    setDisappearingOpen(false);
+    try {
+      // The change is echoed back over STOMP, which updates the list + toasts.
+      await setDisappearing(conversation.id, seconds);
+    } catch {
+      toast({ title: 'Could not update disappearing messages', variant: 'error' });
     }
   };
 
@@ -232,6 +248,12 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
                 aria-label="Messages are end-to-end encrypted"
               />
             )}
+            {conversation.disappearingTtlSeconds ? (
+              <Timer
+                className="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
+                aria-label={`Disappearing messages: ${formatDisappearing(conversation.disappearingTtlSeconds)}`}
+              />
+            ) : null}
           </p>
           <p
             className={cn(
@@ -325,6 +347,18 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
               <Download className="h-4 w-4" /> Export chat
             </button>
             <button
+              onClick={() => {
+                setMenuOpen(false);
+                setDisappearingOpen(true);
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
+            >
+              <Timer className="h-4 w-4" /> Disappearing
+              <span className="ml-auto text-xs text-on-surface-variant">
+                {formatDisappearing(conversation.disappearingTtlSeconds)}
+              </span>
+            </button>
+            <button
               onClick={handleClear}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
             >
@@ -378,6 +412,36 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
           other={other}
         />
       )}
+
+      <Modal
+        open={disappearingOpen}
+        onClose={() => setDisappearingOpen(false)}
+        title="Disappearing messages"
+      >
+        <p className="mb-3 text-sm text-on-surface-variant">
+          New messages in this chat will disappear after the time you choose. It applies for
+          everyone here, and either of you can change it.
+        </p>
+        <div className="space-y-1">
+          {DISAPPEARING_OPTIONS.map((o) => {
+            const active = (conversation.disappearingTtlSeconds ?? null) === o.seconds;
+            return (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => applyDisappearing(o.seconds)}
+                className={cn(
+                  'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition hover:bg-white/5',
+                  active && 'bg-primary/10',
+                )}
+              >
+                <span className="text-on-surface">{o.label}</span>
+                {active && <Check className="h-4 w-4 text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
     </header>
   );
 }

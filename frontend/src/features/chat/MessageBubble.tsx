@@ -13,7 +13,9 @@ import {
   PinOff,
   Pencil,
   Info,
+  Plus,
 } from 'lucide-react';
+import { EmojiPicker } from './EmojiPicker';
 import { cn } from '@/utils/cn';
 import { fileNameFromUrl, formatTime, isAudioUrl, isVideoUrl } from '@/utils/format';
 import { useChatStore } from '@/store/chatStore';
@@ -101,8 +103,15 @@ function MessageBubbleInner({
   const gateMedia = !mine && message.id > 0 && !mediaRevealed;
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Full emoji picker for reactions (opened from the "+" on the quick reaction bar).
+  const [pickerOpen, setPickerOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuContentRef = useRef<HTMLDivElement>(null);
+  // Swipe-to-reply (mobile): translate the bubble under the finger, and fire a
+  // reply once it's pulled past a threshold. Kept in a ref so the drag itself
+  // never re-renders the bubble (it moves via a direct style write).
+  const columnRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startX: number; startY: number; active: boolean; dx: number } | null>(null);
 
   // A positive server id means the message is persisted (optimistic messages use a
   // negative id). The server echoes the tempId back, so don't gate on tempId here.
@@ -201,6 +210,11 @@ function MessageBubbleInner({
     };
   }, [menuOpen]);
 
+  // Reopening the actions menu should always start on the quick reaction bar.
+  useEffect(() => {
+    if (!menuOpen) setPickerOpen(false);
+  }, [menuOpen]);
+
   const handleReply = () => {
     const reply: ReplyPreview = {
       id: message.id,
@@ -235,6 +249,40 @@ function MessageBubbleInner({
   const handleReact = (emoji: string) => {
     socketService.reactToMessage(message.conversationId, message.id, emoji);
     setMenuOpen(false);
+    setPickerOpen(false);
+  };
+
+  // ── Swipe-to-reply (touch only; desktop uses the actions menu) ──
+  const SWIPE_TRIGGER = 56; // px pulled before a reply is armed
+  const SWIPE_MAX = 80; // clamp so the bubble doesn't slide off
+  type Ptr = { pointerType: string; clientX: number; clientY: number };
+  const onSwipeStart = (e: Ptr) => {
+    if (e.pointerType !== 'touch' || !canAct) return;
+    drag.current = { startX: e.clientX, startY: e.clientY, active: false, dx: 0 };
+  };
+  const onSwipeMove = (e: Ptr) => {
+    const d = drag.current;
+    if (!d || e.pointerType !== 'touch') return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.active) {
+      // Let a vertical drag be a scroll; only claim clearly-horizontal moves.
+      if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)) {
+        drag.current = null;
+        return;
+      }
+      if (Math.abs(dx) < 10) return;
+      d.active = true;
+    }
+    const clamped = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx));
+    d.dx = clamped;
+    if (columnRef.current) columnRef.current.style.transform = `translateX(${clamped}px)`;
+  };
+  const onSwipeEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (columnRef.current) columnRef.current.style.transform = '';
+    if (d && d.active && Math.abs(d.dx) >= SWIPE_TRIGGER) handleReply();
   };
 
   const handleCopy = () => {
@@ -270,8 +318,14 @@ function MessageBubbleInner({
           <div className="w-8 shrink-0" />
         ))}
       <div
+        ref={columnRef}
         data-message-id={message.id}
-        className={cn('flex min-w-0 max-w-[85%] flex-col gap-0.5', mine ? 'items-end' : 'items-start')}
+        onPointerDown={onSwipeStart}
+        onPointerMove={onSwipeMove}
+        onPointerUp={onSwipeEnd}
+        onPointerCancel={onSwipeEnd}
+        style={{ touchAction: 'pan-y' }}
+        className={cn('flex min-w-0 max-w-[85%] flex-col gap-0.5 transition-transform', mine ? 'items-end' : 'items-start')}
       >
       <div
         className={cn(
@@ -583,25 +637,38 @@ function MessageBubbleInner({
             style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
             className="z-[60] flex flex-col gap-2"
           >
-            {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
-            <div className="flex items-center gap-1 self-start rounded-full border border-white/10 bg-surface-container/95 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
-              {QUICK_EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => handleReact(e)}
-                  className="rounded-full px-0.5 text-xl transition hover:scale-125"
-                  aria-label={`React ${e}`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
+            {pickerOpen ? (
+              /* Full emoji picker, for a reaction beyond the six quick ones. */
+              <EmojiPicker onSelect={handleReact} onClose={() => setPickerOpen(false)} />
+            ) : (
+              <>
+                {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
+                <div className="flex items-center gap-1 self-start rounded-full border border-white/10 bg-surface-container/95 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
+                  {QUICK_EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => handleReact(e)}
+                      className="rounded-full px-0.5 text-xl transition hover:scale-125"
+                      aria-label={`React ${e}`}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                  {/* Open the full picker for any other emoji. */}
+                  <button
+                    onClick={() => setPickerOpen(true)}
+                    className="ml-0.5 grid h-7 w-7 place-items-center rounded-full bg-white/10 text-on-surface-variant transition hover:bg-white/20"
+                    aria-label="More reactions"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
 
-            {/* Actions menu. */}
-            <div
-              style={{ width: MENU_W }}
-              className="overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl"
-            >
+                {/* Actions menu. */}
+                <div
+                  style={{ width: MENU_W }}
+                  className="overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl"
+                >
             <button
               onClick={handleReply}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-on-surface transition hover:bg-white/5"
@@ -664,7 +731,9 @@ function MessageBubbleInner({
                 <Trash2 className="h-4 w-4" /> Delete
               </button>
             )}
-            </div>
+                </div>
+              </>
+            )}
           </div>,
           document.body,
         )}

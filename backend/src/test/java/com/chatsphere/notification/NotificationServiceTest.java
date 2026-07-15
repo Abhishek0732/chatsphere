@@ -108,7 +108,7 @@ class NotificationServiceTest {
                                       boolean encrypted) {
         return new MessageDto(500L, 900L, SENDER, "USER1", content, type, null,
                 Instant.now(), "SENT", null, false, null, List.of(), false, null, null, mentions,
-                encrypted);
+                encrypted, null);
     }
 
     /** An end-to-end encrypted message: the server holds ciphertext and nothing else. */

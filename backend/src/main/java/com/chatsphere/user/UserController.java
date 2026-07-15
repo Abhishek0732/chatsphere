@@ -76,15 +76,24 @@ public class UserController {
     @GetMapping
     public List<UserDto> search(@RequestParam(name = "search", required = false) String search) {
         Long me = SecurityUtils.currentUserId();
+        // Reciprocal last-seen: I only see anyone's presence if I share mine too.
+        boolean iShare = userService.getById(me).isLastSeenEnabled();
         return userService.search(search, me).stream()
-                .map(u -> UserDto.from(u, presenceService.isOnline(u.getId()),
-                        presenceService.lastSeen(u.getId())))
+                .map(u -> iShare && u.isLastSeenEnabled()
+                        ? UserDto.from(u, presenceService.isOnline(u.getId()), presenceService.lastSeen(u.getId()))
+                        : UserDto.from(u, null, null))
                 .toList();
     }
 
     @GetMapping("/{id}")
     public UserDto byId(@PathVariable Long id) {
+        Long me = SecurityUtils.currentUserId();
         var u = userService.getById(id);
-        return UserDto.from(u, presenceService.isOnline(id), presenceService.lastSeen(id));
+        // Presence is mutual: hidden unless both this user and I share last-seen.
+        boolean reveal = java.util.Objects.equals(id, me)
+                || (userService.getById(me).isLastSeenEnabled() && u.isLastSeenEnabled());
+        return reveal
+                ? UserDto.from(u, presenceService.isOnline(id), presenceService.lastSeen(id))
+                : UserDto.from(u, null, null);
     }
 }

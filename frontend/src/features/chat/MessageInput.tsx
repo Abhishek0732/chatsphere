@@ -9,7 +9,7 @@ import { useGroup } from '@/hooks/useGroups';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
-import { uploadMedia, uploadSizeError } from '@/api/media';
+import { uploadMedia, uploadSizeError, isUploadAbort } from '@/api/media';
 import { compressImage } from '@/utils/imageCompress';
 import { encryptFileFor } from '@/services/e2ee';
 import { directPeerId } from '@/utils/conversation';
@@ -74,6 +74,10 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const clearEditing = useChatStore((s) => s.clearEditing);
 
   const [uploading, setUploading] = useState(false);
+  // Aggregate upload progress (0–100 across all picked files) + a handle to abort
+  // the in-flight upload — large files on a slow line need both.
+  const [uploadPct, setUploadPct] = useState(0);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -270,10 +274,17 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       resetFileInputs();
       return;
     }
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
+    // Average the per-file percentages into one bar the user actually watches.
+    const progress = new Array(list.length).fill(0);
+    const pushPct = () =>
+      setUploadPct(Math.round(progress.reduce((a, b) => a + b, 0) / list.length));
+    setUploadPct(0);
     setUploading(true);
     try {
       const uploaded = await Promise.all(
-        list.map(async (file) => {
+        list.map(async (file, idx) => {
           // In an encrypted chat the FILE ITSELF is encrypted before it is uploaded.
           // Otherwise the message text would be unreadable to us while the photo sat
           // in the object store for anyone with access to read — which would make the
@@ -282,9 +293,13 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           const sealed = peerId != null ? await encryptFileFor(peerId, await compressImage(file)) : null;
 
           const type: MessageType = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+          const onP = (pct: number) => {
+            progress[idx] = pct;
+            pushPct();
+          };
           const result = sealed
-            ? await uploadMedia(sealed, undefined, { encrypted: true })
-            : await uploadMedia(file);
+            ? await uploadMedia(sealed, onP, { encrypted: true, signal: controller.signal })
+            : await uploadMedia(file, onP, { signal: controller.signal });
 
           return {
             url: result.url,
@@ -301,13 +316,19 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       setAttachments((prev) => [...prev, ...uploaded]);
       // Focus the composer so pressing Enter sends right after picking media.
       textareaRef.current?.focus();
-    } catch {
-      toast({ title: 'Upload failed', variant: 'error' });
+    } catch (err) {
+      // A user-cancelled upload is not an error — say nothing.
+      if (!isUploadAbort(err)) toast({ title: 'Upload failed', variant: 'error' });
     } finally {
       setUploading(false);
+      setUploadPct(0);
+      uploadAbortRef.current = null;
       resetFileInputs();
     }
   };
+
+  /** Abort every in-flight upload from the current pick. */
+  const cancelUpload = () => uploadAbortRef.current?.abort();
 
   // Insert an emoji at the caret (or the end), keeping focus + caret position.
   const insertEmoji = (emoji: string) => {
@@ -568,6 +589,27 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
             onClick={() => clearReplyTo(conversationId)}
             className="rounded p-1 text-slate-400 hover:text-red-500"
             aria-label="Cancel reply"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {uploading && (
+        <div className="mb-2 flex items-center gap-3 rounded-lg border-l-4 border-brand-500 bg-white px-3 py-2 dark:bg-slate-800">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+            <div
+              className="h-full rounded-full bg-brand-500 transition-all"
+              style={{ width: `${uploadPct}%` }}
+            />
+          </div>
+          <span className="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400">
+            Uploading… {uploadPct}%
+          </span>
+          <button
+            type="button"
+            onClick={cancelUpload}
+            className="rounded p-1 text-slate-400 transition hover:text-red-500"
+            aria-label="Cancel upload"
           >
             <X className="h-4 w-4" />
           </button>

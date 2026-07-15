@@ -231,6 +231,11 @@ public class ChatService {
             lastDtoByConv.put(d.conversationId(), d);
         }
 
+        // The viewer only ever sees other people's presence if they themselves
+        // share last-seen (the reciprocal half of the privacy toggle).
+        User viewerUser = users.get(userId);
+        boolean viewerSharesLastSeen = viewerUser == null || viewerUser.isLastSeenEnabled();
+
         List<ConversationSummaryDto> result = new ArrayList<>(conversations.size());
         for (Conversation c : conversations) {
             List<ConversationMember> members = membersByConv.getOrDefault(c.getId(), List.of());
@@ -241,7 +246,7 @@ public class ChatService {
                     ? members.stream()
                         .map(m -> users.get(m.getUserId()))
                         .filter(Objects::nonNull)
-                        .map(u -> UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId())))
+                        .map(u -> memberDto(u, userId, viewerSharesLastSeen, online, lastSeen))
                         .toList()
                     : List.of();
 
@@ -266,7 +271,7 @@ public class ChatService {
             result.add(new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(),
                     name, avatar, lastDtoByConv.get(c.getId()),
                     unreadByConv.getOrDefault(c.getId(), 0L), memberDtos, members.size(),
-                    c.getUpdatedAt()));
+                    c.getUpdatedAt(), c.getDisappearingTtlSeconds()));
         }
         return result;
     }
@@ -274,6 +279,20 @@ public class ChatService {
     private static ConversationMember viewerMember(List<ConversationMember> members, Long userId) {
         if (members == null) return null;
         return members.stream().filter(m -> Objects.equals(m.getUserId(), userId)).findFirst().orElse(null);
+    }
+
+    /**
+     * A member's UserDto with presence revealed only when reciprocal last-seen
+     * privacy permits it: a user always sees their own presence, but another
+     * person's online/last-seen is shown only when BOTH have last-seen enabled.
+     */
+    private UserDto memberDto(User u, Long viewerId, boolean viewerSharesLastSeen,
+                              Set<Long> online, Map<Long, java.time.Instant> lastSeen) {
+        boolean reveal = Objects.equals(u.getId(), viewerId)
+                || (viewerSharesLastSeen && u.isLastSeenEnabled());
+        return reveal
+                ? UserDto.from(u, online.contains(u.getId()), lastSeen.get(u.getId()))
+                : UserDto.from(u, null, null);
     }
 
     /**
@@ -309,11 +328,12 @@ public class ChatService {
         List<Long> memberIds = members.stream().map(ConversationMember::getUserId).toList();
         java.util.Set<Long> onlineMembers = presenceService.onlineAmong(memberIds);
         java.util.Map<Long, java.time.Instant> lastSeenMembers = presenceService.lastSeenAmong(memberIds);
+        User viewerUser = users.get(viewerId);
+        boolean viewerSharesLastSeen = viewerUser == null || viewerUser.isLastSeenEnabled();
         List<UserDto> memberDtos = members.stream()
                 .map(m -> users.get(m.getUserId()))
                 .filter(Objects::nonNull)
-                .map(u -> UserDto.from(u, onlineMembers.contains(u.getId()),
-                        lastSeenMembers.get(u.getId())))
+                .map(u -> memberDto(u, viewerId, viewerSharesLastSeen, onlineMembers, lastSeenMembers))
                 .toList();
 
         // Resolve display name / avatar for DIRECT conversations from the counterpart.
@@ -369,7 +389,8 @@ public class ChatService {
         long unread = viewerMember == null ? 0L : viewerMember.getUnreadCount();
 
         return new ConversationSummaryDto(c.getId(), c.getPublicId(), c.getType().name(), name, avatar,
-                lastDto, unread, memberDtos, members.size(), c.getUpdatedAt());
+                lastDto, unread, memberDtos, members.size(), c.getUpdatedAt(),
+                c.getDisappearingTtlSeconds());
     }
 
     @Transactional(readOnly = true)
@@ -391,16 +412,13 @@ public class ChatService {
         }
         Map<Long, User> senders = loadSenders(page);
 
-        // Highest message id that some OTHER member has read. My messages up to
-        // this id are "READ" (blue tick) — so read state survives a page reload.
-        long maxOtherRead = memberRepository.findByConversationId(conversationId).stream()
-                .filter(mem -> !Objects.equals(mem.getUserId(), userId))
-                .map(mem -> mem.getLastReadMessageId() == null ? 0L : mem.getLastReadMessageId())
-                .max(Long::compareTo)
-                .orElse(0L);
-
-        // Build the whole page with batched reaction/reply lookups (no N+1).
-        final long readCeil = maxOtherRead;
+        // Highest message id that some OTHER member has read, subject to reciprocal
+        // read-receipt privacy. My messages up to this id are "READ" (blue tick) —
+        // so read state survives a page reload.
+        boolean direct = conversationRepository.findById(conversationId)
+                .map(c -> c.getType() == Conversation.Type.DIRECT).orElse(false);
+        final long readCeil = visibleReadCeil(direct, userId,
+                memberRepository.findByConversationId(conversationId));
         List<MessageDto> dtos = assembleBatch(page, senders, m ->
                 Objects.equals(m.getSenderId(), userId) && m.getId() <= readCeil ? "READ" : "SENT");
         // return oldest-first for rendering
@@ -428,6 +446,10 @@ public class ChatService {
         // server hide the preview of a message everyone else can see anyway.
         m.setEncrypted(cmd.encrypted() && conv.getType() == Conversation.Type.DIRECT);
         m.setMentions(encodeMentions(cmd.conversationId(), cmd.mentions()));
+        // Disappearing-messages timer: stamp when this message self-destructs.
+        if (conv.getDisappearingTtlSeconds() != null) {
+            m.setExpiresAt(Instant.now().plusSeconds(conv.getDisappearingTtlSeconds()));
+        }
         if (cmd.replyToId() != null) {
             // Only accept a reply target that belongs to the same conversation.
             messageRepository.findById(cmd.replyToId())
@@ -522,6 +544,11 @@ public class ChatService {
         m.setStatusRefMediaUrl(statusMediaUrl);
         m.setStatusRefCaption(statusCaption);
         m.setStatusRefBgColor(statusBgColor);
+        conversationRepository.findById(conversationId).ifPresent(c -> {
+            if (c.getDisappearingTtlSeconds() != null) {
+                m.setExpiresAt(Instant.now().plusSeconds(c.getDisappearingTtlSeconds()));
+            }
+        });
         Message saved = messageRepository.save(m);
         conversationRepository.findByIdForUpdate(conversationId).ifPresent(c -> {
             c.setLastMessageId(saved.getId());
@@ -703,7 +730,8 @@ public class ChatService {
                 content, m.getType().name(), attachmentUrl,
                 m.getCreatedAt(), status, tempId, deleted, replyTo,
                 reactions, m.isPinned(), m.getEditedAt(), statusRef,
-                deleted ? List.of() : decodeMentions(m.getMentions()), m.isEncrypted());
+                deleted ? List.of() : decodeMentions(m.getMentions()), m.isEncrypted(),
+                m.getExpiresAt());
     }
 
     /**
@@ -771,13 +799,52 @@ public class ChatService {
                 .toList();
     }
 
-    /** Read-tick status for a message, viewed by its sender. */
+    /** Read-tick status for a message, viewed by its sender (reciprocity applied). */
     private String statusFor(Message m) {
-        long maxOtherRead = memberRepository.findByConversationId(m.getConversationId()).stream()
-                .filter(mem -> !Objects.equals(mem.getUserId(), m.getSenderId()))
-                .map(mem -> mem.getLastReadMessageId() == null ? 0L : mem.getLastReadMessageId())
-                .max(Long::compareTo).orElse(0L);
-        return m.getId() <= maxOtherRead ? "READ" : "SENT";
+        boolean direct = conversationRepository.findById(m.getConversationId())
+                .map(c -> c.getType() == Conversation.Type.DIRECT).orElse(false);
+        long ceil = visibleReadCeil(direct, m.getSenderId(),
+                memberRepository.findByConversationId(m.getConversationId()));
+        return m.getId() <= ceil ? "READ" : "SENT";
+    }
+
+    /**
+     * Highest message id that some member OTHER than the viewer has read, and that
+     * the viewer is allowed to see as a read receipt. Read receipts are reciprocal
+     * for DIRECT chats: if either side has turned them off, neither sees them.
+     * Group read receipts are always on, exactly as WhatsApp behaves.
+     */
+    private long visibleReadCeil(boolean direct, Long viewerId, List<ConversationMember> members) {
+        if (direct) {
+            var vb = cache.brief(viewerId);
+            if (vb != null && !vb.readReceipts()) return 0L; // viewer opted out → sees none
+        }
+        long ceil = 0L;
+        for (ConversationMember mem : members) {
+            if (Objects.equals(mem.getUserId(), viewerId)) continue;
+            if (direct) {
+                var ob = cache.brief(mem.getUserId());
+                if (ob != null && !ob.readReceipts()) continue; // other opted out → hidden
+            }
+            long lr = mem.getLastReadMessageId() == null ? 0L : mem.getLastReadMessageId();
+            if (lr > ceil) ceil = lr;
+        }
+        return ceil;
+    }
+
+    /**
+     * Whether {@code readerId} marking a conversation read should be broadcast as a
+     * live read receipt. For DIRECT chats this respects the reader's own toggle
+     * (the recipient additionally suppresses it client-side if THEY opted out);
+     * group read receipts always broadcast.
+     */
+    @Transactional(readOnly = true)
+    public boolean readReceiptsBroadcastAllowed(Long readerId, Long conversationId) {
+        boolean direct = conversationRepository.findById(conversationId)
+                .map(c -> c.getType() == Conversation.Type.DIRECT).orElse(false);
+        if (!direct) return true;
+        var b = cache.brief(readerId);
+        return b == null || b.readReceipts();
     }
 
     /** Toggle the current user's emoji reaction on a message; returns the message. */
@@ -913,13 +980,54 @@ public class ChatService {
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 m.getContent(), m.getType().name(), m.getAttachmentUrl(), m.getCreatedAt(),
                 "SENT", tempId, false, replyTo, List.of(), m.isPinned(), m.getEditedAt(),
-                statusRef, decodeMentions(m.getMentions()), m.isEncrypted());
+                statusRef, decodeMentions(m.getMentions()), m.isEncrypted(), m.getExpiresAt());
     }
 
     private Map<Long, User> loadSenders(List<Message> messages) {
         Set<Long> ids = messages.stream().map(Message::getSenderId).collect(Collectors.toSet());
         return userRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
+    }
+
+    /**
+     * Set (ttlSeconds &gt; 0) or clear (null / &lt;= 0) the disappearing-messages timer
+     * for a conversation. Any member may change it, as WhatsApp allows. Returns the
+     * value actually stored (null = off).
+     */
+    @Transactional
+    public Integer setDisappearing(Long userId, Long conversationId, Integer ttlSeconds) {
+        assertMember(conversationId, userId);
+        Conversation c = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> ApiException.notFound("Conversation not found"));
+        Integer ttl = (ttlSeconds == null || ttlSeconds <= 0) ? null : ttlSeconds;
+        c.setDisappearingTtlSeconds(ttl);
+        conversationRepository.save(c);
+        return ttl;
+    }
+
+    /**
+     * Everything the caller missed while offline: non-cleared messages in their
+     * conversations with id greater than the client's watermark, oldest-first and
+     * capped. One indexed ascending scan — the reconnect catch-up that live
+     * (online-only) delivery does not provide.
+     */
+    @Transactional(readOnly = true)
+    public List<MessageDto> syncSince(Long userId, long sinceId, int limit) {
+        int cap = Math.min(Math.max(limit, 1), 500);
+        List<Message> page = messageRepository.findSinceForUser(userId, sinceId, PageRequest.of(0, cap));
+        if (page.isEmpty()) return List.of();
+        // Hide messages sent while the viewer had the sender blocked.
+        List<BlockService.BlockWindow> windows = blockService.blockWindows(userId);
+        if (!windows.isEmpty()) {
+            page = page.stream()
+                    .filter(m -> !BlockService.isHidden(windows, m.getSenderId(), m.getCreatedAt()))
+                    .toList();
+        }
+        Map<Long, User> senders = loadSenders(page);
+        // Read-tick status only matters for the viewer's own outgoing messages,
+        // which a catch-up does not return; SENT keeps this a single batched pass
+        // with no per-conversation read-ceiling work.
+        return assembleBatch(page, senders, m -> "SENT");
     }
 
     private Message.Type parseType(String type) {

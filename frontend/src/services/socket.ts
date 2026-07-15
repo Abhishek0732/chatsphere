@@ -18,6 +18,8 @@ import {
   upsertMessage,
 } from './messageCache';
 import { toast } from '@/store/toastStore';
+import { noteSeen, resetSync, runCatchUpSync } from '@/services/syncService';
+import { formatDisappearing } from '@/utils/disappearing';
 import { clearMessageNotifications, notifyMessage } from '@/utils/notifications';
 import { muteAccessors } from '@/store/muteStore';
 import { useCallStore } from '@/store/callStore';
@@ -28,6 +30,7 @@ import type {
   CallSignal,
   CallType,
   ChatSendPayload,
+  DisappearingEvent,
   Message,
   MessageDeletedEvent,
   PresenceEvent,
@@ -162,6 +165,7 @@ class SocketService {
     }
     this.connected = false;
     useChatStore.getState().setConnected(false);
+    resetSync();
   }
 
   /** Reconnect using a freshly-refreshed token. */
@@ -188,6 +192,11 @@ class SocketService {
     // oldest first. Deferred a tick so the subscriptions below are in place first
     // (otherwise the server's echo could arrive before we are listening for it).
     setTimeout(() => void flushOutbox(), 0);
+
+    // Pull anything that arrived while the socket was down (live delivery only
+    // reaches connected clients, so an offline window leaves gaps the DB has but
+    // we were never pushed).
+    setTimeout(() => void runCatchUpSync(), 0);
 
     // Personal message queue.
     client.subscribe('/user/queue/messages', (frame: IMessage) => {
@@ -281,13 +290,28 @@ class SocketService {
         // Only turn our own messages blue when the OTHER participant reads them.
         // Ignore our own read events (opening a chat marks the latest message read,
         // which would otherwise instantly blue-tick messages we just sent).
-        if (event && event.userId !== authAccessors.getUserId()) {
+        // Reciprocal privacy: if I've turned read receipts off, I don't get to see
+        // theirs either — suppress the receipt client-side (the server also gates it).
+        if (
+          event &&
+          event.userId !== authAccessors.getUserId() &&
+          authAccessors.getUser()?.readReceiptsEnabled !== false
+        ) {
           applyReadReceipt(event.conversationId, event.messageId);
         }
       },
     );
 
-    this.convSubs.set(conversationId, [typingSub, readSub]);
+    // Disappearing-messages timer changes (either party may set it).
+    const disappearingSub = client.subscribe(
+      `/topic/conversations/${conversationId}/disappearing`,
+      (frame: IMessage) => {
+        const event = parse<DisappearingEvent>(frame.body);
+        if (event) this.onDisappearingChange(event);
+      },
+    );
+
+    this.convSubs.set(conversationId, [typingSub, readSub, disappearingSub]);
   }
 
   /** Unsubscribe from a conversation's topics. */
@@ -555,8 +579,31 @@ class SocketService {
   // -----------------------------------------------------------------------
   // Incoming dispatch
   // -----------------------------------------------------------------------
+  /** A conversation's disappearing timer changed — update the list + tell the user. */
+  private onDisappearingChange(event: DisappearingEvent): void {
+    queryClient.setQueryData<{ id: number; disappearingTtlSeconds?: number | null }[]>(
+      queryKeys.conversations,
+      (prev) =>
+        prev?.map((c) =>
+          c.id === event.conversationId
+            ? { ...c, disappearingTtlSeconds: event.ttlSeconds ?? null }
+            : c,
+        ),
+    );
+    const mine = event.changedByUserId === authAccessors.getUserId();
+    const who = mine ? 'You' : event.changedByName || 'Someone';
+    toast({
+      title: event.ttlSeconds
+        ? `${who} turned on disappearing messages (${formatDisappearing(event.ttlSeconds)})`
+        : `${who} turned off disappearing messages`,
+      variant: 'info',
+    });
+  }
+
   private onIncomingMessage(message: Message): void {
     upsertMessage(message);
+    // Advance the catch-up cursor so a later reconnect only fetches what's newer.
+    noteSeen(message.id);
 
     // If this is the echo of something we flushed from the outbox, release the
     // next queued message — they go one at a time so the order is preserved.

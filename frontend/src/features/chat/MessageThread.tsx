@@ -24,6 +24,7 @@ import { GroupInfoModal } from '@/features/groups/GroupInfoModal';
 import { useGroup } from '@/hooks/useGroups';
 import { useIsBlocked } from '@/hooks/useBlocks';
 import { otherMember } from './utils';
+import { isExpired } from '@/utils/disappearing';
 import type { Message } from '@/types';
 
 // Stable empty reference so a zustand selector doesn't return a fresh [] each
@@ -109,7 +110,21 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const setActive = useChatStore((s) => s.setActiveConversation);
   const clearTyping = useChatStore((s) => s.clearTyping);
   const { messages, isLoading, loadOlder, loadingOlder, hasMore } = useMessages(conversationId);
-  const rows = useMemo(() => buildRows(messages), [messages]);
+  // Disappearing messages: hide anything past its timer the moment it expires,
+  // before the server sweep hard-deletes it. Re-check on a slow ticker, but only
+  // while this conversation actually has a timer (no wasted interval otherwise).
+  const [nowTick, setNowTick] = useState(0);
+  const ttl = conversation?.disappearingTtlSeconds ?? null;
+  useEffect(() => {
+    if (!ttl) return;
+    const t = setInterval(() => setNowTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, [ttl]);
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => !isExpired(m.expiresAt)),
+    [messages, nowTick],
+  );
+  const rows = useMemo(() => buildRows(visibleMessages), [visibleMessages]);
   const isGroup = conversation?.type === 'GROUP';
   // The chat LIST no longer ships group rosters (a 500-member group has no
   // business in a list of 350 chats). The thread fetches the roster it needs —
@@ -136,8 +151,8 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   // Hide a blocked user's typing indicator from the blocker (WhatsApp-style).
   const someoneTyping = otherTypers.length > 0 && !blocked;
   const pinnedMessages = useMemo(
-    () => messages.filter((m) => m.pinned && !m.deleted),
-    [messages],
+    () => visibleMessages.filter((m) => m.pinned && !m.deleted),
+    [visibleMessages],
   );
   const typingLabel =
     conversation?.type === 'GROUP' && otherTypers.length > 0
@@ -193,7 +208,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   }, [conversationId, setActive, clearTyping]);
 
   // Mark the conversation read on open and whenever new messages land.
-  const lastMessageId = messages.length ? messages[messages.length - 1].id : 0;
+  const lastMessageId = visibleMessages.length ? visibleMessages[visibleMessages.length - 1].id : 0;
   useEffect(() => {
     if (!conversationId) return;
     markRead.mutate(conversationId);
@@ -306,7 +321,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
 
         {isLoading ? (
           <SkeletonThread />
-        ) : messages.length === 0 ? (
+        ) : visibleMessages.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
             No messages yet. Say hello!
           </div>

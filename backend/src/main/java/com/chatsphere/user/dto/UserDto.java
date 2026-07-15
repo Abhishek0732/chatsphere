@@ -18,17 +18,19 @@ public record UserDto(
         Boolean online,
         Instant lastSeen,
         boolean protectAvatar,
+        boolean readReceiptsEnabled,
+        boolean lastSeenEnabled,
         boolean deleted) {
 
     public static UserDto from(User u) {
         return new UserDto(u.getId(), u.getUsername(), u.getEmail(), u.getDisplayName(),
                 u.getAbout(), u.getAvatarUrl(), null, null, u.isProtectAvatar(),
-                u.getDeletedAt() != null);
+                u.isReadReceiptsEnabled(), u.isLastSeenEnabled(), u.getDeletedAt() != null);
     }
 
     public static UserDto from(User u, Boolean online, Instant lastSeen) {
         return new UserDto(u.getId(), u.getUsername(), u.getEmail(), u.getDisplayName(),
                 u.getAbout(), u.getAvatarUrl(), online, lastSeen, u.isProtectAvatar(),
-                u.getDeletedAt() != null);
+                u.isReadReceiptsEnabled(), u.isLastSeenEnabled(), u.getDeletedAt() != null);
     }
 }

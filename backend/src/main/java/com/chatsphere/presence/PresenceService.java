@@ -38,19 +38,22 @@ public class PresenceService {
     private final ContactRepository contactRepository;
     private final ConversationMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final com.chatsphere.common.cache.HotPathCache cache;
 
     public PresenceService(StringRedisTemplate redis,
                            UserPresenceRepository presenceRepository,
                            StompRelay relay,
                            ContactRepository contactRepository,
                            ConversationMemberRepository memberRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           com.chatsphere.common.cache.HotPathCache cache) {
         this.redis = redis;
         this.presenceRepository = presenceRepository;
         this.relay = relay;
         this.contactRepository = contactRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.cache = cache;
     }
 
     public boolean isOnline(Long userId) {
@@ -137,6 +140,11 @@ public class PresenceService {
      * that a stranger's phone woke up.
      */
     private void broadcast(PresenceEvent event) {
+        // A user who hides their last-seen / online announces no presence at all.
+        var brief = cache.brief(event.userId());
+        if (brief != null && !brief.lastSeenShared()) {
+            return;
+        }
         List<String> audience = audienceOf(event.userId());
         if (!audience.isEmpty()) {
             relay.toUsers(audience, "/queue/presence", event);

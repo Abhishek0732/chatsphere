@@ -61,6 +61,7 @@ if (useAuthStore.persist.hasHydrated()) {
  */
 export const authAccessors = {
   getUserId: () => useAuthStore.getState().user?.id ?? null,
+  getUser: () => useAuthStore.getState().user,
   getAccessToken: () => useAuthStore.getState().accessToken,
   getRefreshToken: () => useAuthStore.getState().refreshToken,
   setTokens: (a: string, r: string) => useAuthStore.getState().setTokens(a, r),

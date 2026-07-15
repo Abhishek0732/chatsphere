@@ -77,6 +77,34 @@ public class RetentionService {
                 statuses, notifications, resetTokens, refreshTokens, System.currentTimeMillis() - t0);
     }
 
+    /**
+     * Disappearing messages: hard-delete anything whose timer has passed. This runs
+     * far more often than the nightly sweep — a 24h-timer message has to actually go
+     * within minutes of expiry, not "sometime tonight" — on its own short Redis
+     * lease so exactly one instance does it. Children (reactions, per-user status)
+     * cascade via their foreign keys; a reply to a vanished message has its pointer
+     * nulled (ON DELETE SET NULL), so nothing is left dangling that a read can hit.
+     *
+     * The expires_at index makes this a small range scan: almost every row is NULL
+     * (non-disappearing) and never enters the range.
+     */
+    @Scheduled(fixedDelayString = "${chatsphere.disappearing.sweep-ms:300000}", initialDelay = 60_000)
+    public void sweepExpiredMessages() {
+        try {
+            Boolean ok = redis.opsForValue()
+                    .setIfAbsent("chatsphere:disappearing:lease", "1", Duration.ofMinutes(4));
+            if (!Boolean.TRUE.equals(ok)) return;
+        } catch (Exception e) {
+            return; // Redis down — skip rather than have every instance sweep at once
+        }
+        int deleted = deleteBatched(
+                "DELETE FROM messages WHERE expires_at IS NOT NULL AND expires_at < ? LIMIT " + BATCH,
+                java.sql.Timestamp.from(Instant.now()));
+        if (deleted > 0) {
+            log.info("disappearing sweep: hard-deleted {} expired messages", deleted);
+        }
+    }
+
     /** Delete in bounded batches until a batch comes back short (or we hit the cap). */
     private int deleteBatched(String sql, Object arg) {
         int total = 0;

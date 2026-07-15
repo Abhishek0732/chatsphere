@@ -13,6 +13,10 @@ export interface User {
   lastSeen?: string;
   /** When true, other clients block download + deter screenshots of this photo. */
   protectAvatar?: boolean;
+  /** Reciprocal read receipts. When false, I neither send nor see blue ticks. */
+  readReceiptsEnabled?: boolean;
+  /** Reciprocal last-seen/online. When false, mine is hidden and so is theirs to me. */
+  lastSeenEnabled?: boolean;
   /** This account was deleted — they can't be messaged. */
   deleted?: boolean;
 }
@@ -63,6 +67,8 @@ export interface Message {
   statusRef?: StatusRef | null;
   /** Ids of the users @mentioned in this message (group chats). */
   mentions?: number[];
+  /** When set (disappearing messages), the message self-destructs after this ISO instant. */
+  expiresAt?: string | null;
 }
 
 /** Quoted snapshot of a status a message answers (WhatsApp-style). */
@@ -163,6 +169,8 @@ export interface ConversationSummary {
   /** True member count, even when `members` is empty (groups). */
   memberCount: number;
   updatedAt: string;
+  /** Disappearing-messages timer in seconds; null/absent = off. */
+  disappearingTtlSeconds?: number | null;
 }
 
 export interface Contact {
@@ -306,6 +314,14 @@ export interface PresenceEvent {
   userId: number;
   online: boolean;
   lastSeen?: string;
+}
+
+/** Pushed when a conversation's disappearing-messages timer changes. */
+export interface DisappearingEvent {
+  conversationId: number;
+  changedByUserId: number;
+  changedByName: string;
+  ttlSeconds: number | null;
 }
 
 // ---------------------------------------------------------------------------

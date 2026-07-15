@@ -132,6 +132,12 @@ export function SettingsPanel() {
   const enableNotifications = async () => setNotifPerm(await requestNotificationPermission());
   const protectAvatar = !!user?.protectAvatar;
   const toggleProtect = () => updateProfile.mutate({ protectAvatar: !protectAvatar });
+  // Reciprocal privacy toggles (default ON): turning either off also hides the
+  // other person's from you.
+  const readReceipts = user?.readReceiptsEnabled !== false;
+  const toggleReadReceipts = () => updateProfile.mutate({ readReceiptsEnabled: !readReceipts });
+  const lastSeen = user?.lastSeenEnabled !== false;
+  const toggleLastSeen = () => updateProfile.mutate({ lastSeenEnabled: !lastSeen });
   const soon = () => toast({ title: 'Coming soon', variant: 'info' });
 
   // Invite: a dialog around a SHORT, opaque "add me" link (/i/<code>) — the old
@@ -350,6 +356,63 @@ export function SettingsPanel() {
             <Feature icon={<Download className="h-4 w-4" />} title="No downloads" desc="Others can't save your photo" />
             <Feature icon={<Camera className="h-4 w-4" />} title="Screenshot blur" desc="Blurs on capture attempts" />
             <Feature icon={<Check className="h-4 w-4" />} title="You keep access" desc="Download your own anytime" />
+          </div>
+
+          {/* Reciprocal privacy toggles, WhatsApp-style. */}
+          <div className="space-y-3 border-t border-white/10 pt-5">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5">
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-on-surface">Read receipts</p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">
+                  If off, you won't send or see blue ticks. Group chats always show them.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={readReceipts}
+                disabled={updateProfile.isPending}
+                onClick={toggleReadReceipts}
+                className={cn(
+                  'relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60',
+                  readReceipts ? 'bg-primary' : 'bg-surface-container-highest',
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
+                    readReceipts ? 'left-[22px]' : 'left-0.5',
+                  )}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5">
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-on-surface">Last seen &amp; online</p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">
+                  If off, you won't see anyone's last seen or online either.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={lastSeen}
+                disabled={updateProfile.isPending}
+                onClick={toggleLastSeen}
+                className={cn(
+                  'relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60',
+                  lastSeen ? 'bg-primary' : 'bg-surface-container-highest',
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
+                    lastSeen ? 'left-[22px]' : 'left-0.5',
+                  )}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

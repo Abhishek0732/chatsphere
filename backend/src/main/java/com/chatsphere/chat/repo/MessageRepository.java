@@ -68,6 +68,25 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     Message findTopByConversationIdAndDeletedFalseOrderByIdDesc(Long conversationId);
 
+    /**
+     * A user's missed messages across ALL their conversations: id greater than the
+     * client's watermark, above each conversation's per-user cleared floor, oldest
+     * first. Backs the reconnect catch-up sync. Message.id is globally monotonic,
+     * so a single watermark is a correct cursor for the whole account.
+     */
+    @Query("""
+            SELECT m FROM Message m, ConversationMember cm
+            WHERE cm.userId = :userId
+              AND cm.conversationId = m.conversationId
+              AND m.deleted = false
+              AND m.id > :sinceId
+              AND m.id > COALESCE(cm.clearedUpToMessageId, 0)
+            ORDER BY m.id ASC
+            """)
+    List<Message> findSinceForUser(@Param("userId") Long userId,
+                                   @Param("sinceId") long sinceId,
+                                   Pageable pageable);
+
     /** Latest non-deleted message for EACH of many conversations, in one query. */
     @Query("""
             SELECT m FROM Message m

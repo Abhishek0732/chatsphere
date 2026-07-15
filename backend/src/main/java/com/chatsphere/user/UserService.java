@@ -122,8 +122,16 @@ public class UserService {
         if (req.protectAvatar() != null) {
             user.setProtectAvatar(req.protectAvatar());
         }
+        if (req.readReceiptsEnabled() != null) {
+            user.setReadReceiptsEnabled(req.readReceiptsEnabled());
+        }
+        if (req.lastSeenEnabled() != null) {
+            user.setLastSeenEnabled(req.lastSeenEnabled());
+        }
         User saved = userRepository.save(user);
-        cache.invalidateUser(userId); // a rename must not be served from cache
+        // The privacy flags are read from this cache on the read-tick / presence
+        // hot paths, so a toggle must not be served from a stale brief.
+        cache.invalidateUser(userId);
         return saved;
     }
 }

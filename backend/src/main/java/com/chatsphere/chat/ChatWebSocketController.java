@@ -145,7 +145,12 @@ public class ChatWebSocketController {
     public void read(@Payload ReadCommand cmd, Principal principal) {
         Long uid = userId(principal);
         chatService.markRead(uid, cmd.conversationId(), cmd.messageId());
-        broadcaster.broadcastRead(new ReadEvent(cmd.conversationId(), uid, cmd.messageId()));
+        // Reciprocal read receipts: a reader who has turned them off does not
+        // announce their read (the recipient also suppresses it client-side if
+        // THEY opted out). Group read receipts always broadcast.
+        if (chatService.readReceiptsBroadcastAllowed(uid, cmd.conversationId())) {
+            broadcaster.broadcastRead(new ReadEvent(cmd.conversationId(), uid, cmd.messageId()));
+        }
     }
 
     @MessageMapping("chat.delete")

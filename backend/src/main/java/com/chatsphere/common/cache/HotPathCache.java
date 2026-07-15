@@ -38,7 +38,8 @@ public class HotPathCache {
     private static final int MAX_ENTRIES = 50_000;
 
     /** The bits of a user the send path actually needs. */
-    public record UserBrief(Long id, String username, String displayName, boolean deleted) {}
+    public record UserBrief(Long id, String username, String displayName, boolean deleted,
+                            boolean readReceipts, boolean lastSeenShared) {}
 
     private record Entry<T>(T value, Instant expiresAt) {
         boolean live() {
@@ -91,7 +92,7 @@ public class HotPathCache {
             if (users.size() > MAX_ENTRIES) users.clear();
             for (User u : userRepository.findAllById(missing)) {
                 UserBrief b = new UserBrief(u.getId(), u.getUsername(), u.getDisplayName(),
-                        u.getDeletedAt() != null);
+                        u.getDeletedAt() != null, u.isReadReceiptsEnabled(), u.isLastSeenEnabled());
                 users.put(u.getId(), new Entry<>(b, Instant.now().plus(USER_TTL)));
                 out.put(u.getId(), b);
             }

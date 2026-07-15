@@ -1,5 +1,6 @@
 package com.chatsphere.chat;
 
+import com.chatsphere.chat.dto.ChatDtos.DisappearingEvent;
 import com.chatsphere.chat.dto.ChatDtos.MessageDeletedEvent;
 import com.chatsphere.chat.dto.ChatDtos.MessageDto;
 import com.chatsphere.chat.dto.ChatDtos.ReadEvent;
@@ -56,5 +57,10 @@ public class ChatBroadcaster {
 
     public void broadcastRead(ReadEvent event) {
         relay.toTopic("/topic/conversations/" + event.conversationId() + "/read", event);
+    }
+
+    /** Tell a conversation's members their disappearing-messages timer changed. */
+    public void broadcastDisappearing(DisappearingEvent event) {
+        relay.toTopic("/topic/conversations/" + event.conversationId() + "/disappearing", event);
     }
 }

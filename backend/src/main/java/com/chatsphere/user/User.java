@@ -42,6 +42,21 @@ public class User {
     @Column(name = "protect_avatar", nullable = false)
     private boolean protectAvatar = false;
 
+    /**
+     * WhatsApp-style reciprocal read receipts. When false, this user does not send
+     * read receipts and does not see anyone else's (enforced for DIRECT chats;
+     * group read receipts are always on). Defaults true.
+     */
+    @Column(name = "read_receipts_enabled", nullable = false)
+    private boolean readReceiptsEnabled = true;
+
+    /**
+     * When false, this user's last-seen / online is hidden from others, and — the
+     * reciprocal half — theirs is hidden from this user. Defaults true.
+     */
+    @Column(name = "last_seen_enabled", nullable = false)
+    private boolean lastSeenEnabled = true;
+
     @Column(nullable = false, length = 20)
     private String role = "USER";
 

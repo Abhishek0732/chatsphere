@@ -23,7 +23,7 @@ public class MessageReaction {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 32)
     private String emoji;
 
     @CreationTimestamp

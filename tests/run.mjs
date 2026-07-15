@@ -20,10 +20,11 @@ import * as status from './checks/status.mjs';
 import * as rateLimit from './checks/rate-limit.mjs';
 import * as perf from './checks/perf.mjs';
 import * as encryption from './checks/encryption.mjs';
+import * as features from './checks/features.mjs';
 
 // Order matters only in that the cheap, foundational things run first — a broken
 // login should be reported as a broken login, not as six mysterious timeouts.
-const MODULES = [auth, messaging, chatList, deletedUser, status, encryption, rateLimit, perf];
+const MODULES = [auth, messaging, chatList, deletedUser, status, encryption, features, rateLimit, perf];
 
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';

@@ -84,3 +84,21 @@ export async function getMessageInfo(
 export async function clearConversation(conversationId: number): Promise<void> {
   await api.delete(`/conversations/${conversationId}/messages`);
 }
+
+/** Set (ttlSeconds) or clear (null) the disappearing-messages timer. */
+export async function setDisappearing(
+  conversationId: number,
+  ttlSeconds: number | null,
+): Promise<void> {
+  await api.post(`/conversations/${conversationId}/disappearing`, { ttlSeconds });
+}
+
+/**
+ * Everything that arrived while we were offline: messages across all my
+ * conversations with id greater than the watermark, oldest-first. The reconnect
+ * catch-up that online-only live delivery cannot provide.
+ */
+export async function syncSince(since: number, limit = 500): Promise<Message[]> {
+  const { data } = await api.get<Message[]>('/sync', { params: { since, limit } });
+  return data;
+}
