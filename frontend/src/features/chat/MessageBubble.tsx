@@ -14,6 +14,8 @@ import {
   Pencil,
   Info,
   Plus,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { cn } from '@/utils/cn';
@@ -30,9 +32,12 @@ import { downloadFile } from '@/utils/download';
 import { copyText } from '@/utils/clipboard';
 import { mediaSrc } from '@/utils/media';
 import { useAttachmentSrc } from '@/hooks/useAttachmentSrc';
+import { consumeViewOnce } from '@/api/viewOnce';
+import { replaceMessage } from '@/services/messageCache';
 import type { Message, ReplyPreview } from '@/types';
 import { MessageStatusTicks } from './MessageStatusTicks';
 import { MessageText } from './MessageText';
+import { LinkPreviewCard } from './LinkPreviewCard';
 import { Avatar } from '@/components/ui/Avatar';
 
 /** Stable empty list so direct chats don't hand memoized bubbles a new array. */
@@ -119,6 +124,8 @@ function MessageBubbleInner({
   const canAct = sent && !message.deleted;
   const hasAttachment =
     (message.type === 'IMAGE' || message.type === 'FILE') && Boolean(message.attachmentUrl);
+  // View-once media renders its own placeholder instead of the normal media blocks.
+  const isViewOnce = Boolean(message.viewOnce) && !message.deleted;
 
   // An ENCRYPTED attachment cannot be handed to <img src>: the object in storage is
   // iv||ciphertext. It is fetched, decrypted in the browser and turned into a blob:
@@ -303,6 +310,18 @@ function MessageBubbleInner({
     setMenuOpen(false);
   };
 
+  // Recipient opens a view-once message: show it once, then tell the server to burn
+  // it. The server nulls the URL + deletes the object and broadcasts the update, so
+  // the bubble becomes "Opened" everywhere. The blob we already hold stays on screen.
+  const openViewOnce = () => {
+    if (!attachSrc) return;
+    if (message.type === 'IMAGE') openViewer(message.content || 'Photo', attachSrc);
+    else window.open(attachSrc, '_blank', 'noopener');
+    void consumeViewOnce(message.conversationId, message.id)
+      .then((updated) => replaceMessage(updated))
+      .catch(() => undefined);
+  };
+
   return (
     <div className={cn('cv-row group flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
       {avatarColumn &&
@@ -419,7 +438,38 @@ function MessageBubbleInner({
               </button>
             )}
 
-            {message.type === 'IMAGE' && message.attachmentUrl && (
+            {/* View-once media: a one-time placeholder, never the real thumbnail. */}
+            {isViewOnce && (
+              message.viewOnceSeen ? (
+                <div className="mb-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm italic opacity-80">
+                  <EyeOff className="h-4 w-4 shrink-0" /> Opened
+                </div>
+              ) : mine ? (
+                <div
+                  className={cn(
+                    'mb-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
+                    'bg-white/10',
+                  )}
+                >
+                  <Eye className="h-4 w-4 shrink-0" /> View once ·{' '}
+                  {message.type === 'IMAGE' ? 'photo' : 'media'}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openViewOnce}
+                  disabled={!attachSrc}
+                  className="mb-1 flex w-full items-center gap-2 rounded-lg bg-white/10 p-2.5 text-left text-sm transition hover:bg-white/15 disabled:opacity-60"
+                >
+                  <Eye className="h-5 w-5 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    {attachSrc ? 'View once — tap to open' : 'Preparing…'}
+                  </span>
+                </button>
+              )
+            )}
+
+            {message.type === 'IMAGE' && message.attachmentUrl && !isViewOnce && (
               <>
                 {gateMedia ? (
                   <MediaDownloadTile
@@ -462,7 +512,7 @@ function MessageBubbleInner({
               </>
             )}
 
-            {message.type === 'FILE' && message.attachmentUrl && isAudioAttachment && (
+            {message.type === 'FILE' && message.attachmentUrl && isAudioAttachment && !isViewOnce && (
               <>
                 {gateMedia ? (
                   <MediaDownloadTile
@@ -493,7 +543,7 @@ function MessageBubbleInner({
 
             {message.type === 'FILE' &&
               message.attachmentUrl &&
-              isVideoAttachment && (
+              isVideoAttachment && !isViewOnce && (
               <>
                 {gateMedia ? (
                   <MediaDownloadTile
@@ -526,7 +576,7 @@ function MessageBubbleInner({
             {message.type === 'FILE' &&
               message.attachmentUrl &&
               !isVideoAttachment &&
-              !isAudioAttachment && (
+              !isAudioAttachment && !isViewOnce && (
               <>
                 <button
                   type="button"
@@ -563,6 +613,9 @@ function MessageBubbleInner({
                 mine={mine}
               />
             )}
+
+            {/* Server-unfurled link preview (non-encrypted messages only). */}
+            {message.linkPreview && <LinkPreviewCard preview={message.linkPreview} mine={mine} />}
           </>
         )}
 

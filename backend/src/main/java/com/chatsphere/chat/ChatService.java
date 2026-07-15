@@ -44,6 +44,9 @@ public class ChatService {
     private final MessageReactionRepository reactionRepository;
     private final com.chatsphere.common.cache.HotPathCache cache;
     private final PostSendWork postSend;
+    private final com.chatsphere.media.MediaService mediaService;
+    private final UnfurlService unfurlService;
+    private final ChatBroadcaster broadcaster;
 
     public ChatService(ConversationRepository conversationRepository,
                        ConversationMemberRepository memberRepository,
@@ -54,9 +57,17 @@ public class ChatService {
                        BlockService blockService,
                        MessageReactionRepository reactionRepository,
                        com.chatsphere.common.cache.HotPathCache cache,
-                       PostSendWork postSend) {
+                       PostSendWork postSend,
+                       com.chatsphere.media.MediaService mediaService,
+                       // @Lazy breaks the ChatService <-> UnfurlService cycle: UnfurlService
+                       // calls back into applyLinkPreview once a fetch completes.
+                       @org.springframework.context.annotation.Lazy UnfurlService unfurlService,
+                       ChatBroadcaster broadcaster) {
         this.cache = cache;
         this.postSend = postSend;
+        this.mediaService = mediaService;
+        this.unfurlService = unfurlService;
+        this.broadcaster = broadcaster;
         this.conversationRepository = conversationRepository;
         this.memberRepository = memberRepository;
         this.messageRepository = messageRepository;
@@ -445,6 +456,11 @@ public class ChatService {
         // message encrypted: nobody in the group could read it, and it would make the
         // server hide the preview of a message everyone else can see anyway.
         m.setEncrypted(cmd.encrypted() && conv.getType() == Conversation.Type.DIRECT);
+        // View-once only makes sense for a media message, and only in a direct chat —
+        // in a group "first viewer burns it for everyone" has no sensible meaning.
+        m.setViewOnce(cmd.viewOnce()
+                && cmd.attachmentUrl() != null
+                && conv.getType() == Conversation.Type.DIRECT);
         m.setMentions(encodeMentions(cmd.conversationId(), cmd.mentions()));
         // Disappearing-messages timer: stamp when this message self-destructs.
         if (conv.getDisappearingTtlSeconds() != null) {
@@ -468,7 +484,15 @@ public class ChatService {
         //
         // The conversation pointer is advanced with GREATEST(), so two messages
         // landing at once can never move it backwards.
-        afterCommit(() -> postSend.finish(cmd.conversationId(), senderId, saved.getId()));
+        afterCommit(() -> {
+            postSend.finish(cmd.conversationId(), senderId, saved.getId());
+            // Link preview: an off-thread fetch of any URL in the (readable) text. No-op
+            // for encrypted messages and messages without a link. Fills the row and
+            // broadcasts an update when it finds something.
+            if (!saved.isEncrypted() && saved.getType() == Message.Type.TEXT) {
+                unfurlService.submit(saved.getId(), saved.getContent(), saved.isEncrypted());
+            }
+        });
         return saved;
     }
 
@@ -731,7 +755,15 @@ public class ChatService {
                 m.getCreatedAt(), status, tempId, deleted, replyTo,
                 reactions, m.isPinned(), m.getEditedAt(), statusRef,
                 deleted ? List.of() : decodeMentions(m.getMentions()), m.isEncrypted(),
-                m.getExpiresAt());
+                m.getExpiresAt(), m.isViewOnce(), m.getViewOnceSeenAt() != null,
+                deleted ? null : linkPreviewOf(m));
+    }
+
+    /** Build the link-preview DTO from the columns already on the row (no query). */
+    private LinkPreviewDto linkPreviewOf(Message m) {
+        if (m.getLinkUrl() == null) return null;
+        return new LinkPreviewDto(m.getLinkTitle(), m.getLinkDesc(), m.getLinkImage(),
+                m.getLinkSite(), m.getLinkUrl());
     }
 
     /**
@@ -900,6 +932,55 @@ public class ChatService {
         return messageRepository.save(m);
     }
 
+    /**
+     * The recipient opened a view-once message. Stamp it seen, delete the stored
+     * object, and null the URL so the bytes can never be served again. Idempotent,
+     * and a no-op (beyond returning the DTO) when the SENDER previews their own —
+     * only the other side's open burns it. Broadcasts the update so the sender's
+     * bubble flips to "Opened" too.
+     */
+    @Transactional
+    public MessageDto markViewOnceSeen(Long userId, Long messageId) {
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        assertMember(m.getConversationId(), userId);
+        if (!m.isViewOnce()) {
+            throw ApiException.badRequest("This message is not view-once");
+        }
+        // The sender looking at their own send does not consume it.
+        if (Objects.equals(m.getSenderId(), userId)) {
+            return refreshedDto(m);
+        }
+        if (m.getViewOnceSeenAt() == null) {
+            String url = m.getAttachmentUrl();
+            m.setViewOnceSeenAt(Instant.now());
+            m.setAttachmentUrl(null);
+            messageRepository.save(m);
+            if (url != null) mediaService.deleteQuietly(url);
+        }
+        MessageDto dto = refreshedDto(m);
+        broadcaster.sendUpdateToMembers(dto, memberUserIds(m.getConversationId()));
+        return dto;
+    }
+
+    /**
+     * Called (off-thread) by {@link UnfurlService} once it has a preview for a
+     * message's link. Persists it on the row and broadcasts an in-place update so
+     * every member's bubble grows the preview card live.
+     */
+    @Transactional
+    public void applyLinkPreview(Long messageId, LinkPreviewDto preview) {
+        Message m = messageRepository.findById(messageId).orElse(null);
+        if (m == null || m.isDeleted() || m.isEncrypted() || m.getLinkUrl() != null) return;
+        m.setLinkUrl(preview.url());
+        m.setLinkTitle(preview.title());
+        m.setLinkDesc(preview.description());
+        m.setLinkImage(preview.imageUrl());
+        m.setLinkSite(preview.siteName());
+        messageRepository.save(m);
+        broadcaster.sendUpdateToMembers(refreshedDto(m), memberUserIds(m.getConversationId()));
+    }
+
     /** Rebuild the DTO for a mutated message (edit/pin/react), with correct ticks. */
     @Transactional(readOnly = true)
     public MessageDto refreshedDto(Message m) {
@@ -980,7 +1061,10 @@ public class ChatService {
         return new MessageDto(m.getId(), m.getConversationId(), m.getSenderId(), senderName,
                 m.getContent(), m.getType().name(), m.getAttachmentUrl(), m.getCreatedAt(),
                 "SENT", tempId, false, replyTo, List.of(), m.isPinned(), m.getEditedAt(),
-                statusRef, decodeMentions(m.getMentions()), m.isEncrypted(), m.getExpiresAt());
+                statusRef, decodeMentions(m.getMentions()), m.isEncrypted(), m.getExpiresAt(),
+                // A brand-new message: view-once flag is set, not yet seen, no preview yet
+                // (the async unfurl broadcasts an update the moment it has one).
+                m.isViewOnce(), false, null);
     }
 
     private Map<Long, User> loadSenders(List<Message> messages) {

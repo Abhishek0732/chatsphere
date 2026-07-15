@@ -72,6 +72,36 @@ public class Message {
     @Column(nullable = false)
     private boolean encrypted = false;
 
+    /**
+     * View-once media: opens exactly once for the recipient, then is gone. When they
+     * open it, {@code viewOnceSeenAt} is stamped, the stored object is deleted, and
+     * {@code attachmentUrl} is nulled — so the bytes can never be served again.
+     */
+    @Column(name = "view_once", nullable = false)
+    private boolean viewOnce = false;
+
+    @Column(name = "view_once_seen_at")
+    private Instant viewOnceSeenAt;
+
+    // ── Link preview (server-unfurled) ──
+    // Filled asynchronously after send by UnfurlService, only for non-encrypted
+    // messages. Sitting on the row means the read path returns a preview with no
+    // extra query. Null link_url = no preview.
+    @Column(name = "link_url", length = 1024)
+    private String linkUrl;
+
+    @Column(name = "link_title", length = 300)
+    private String linkTitle;
+
+    @Column(name = "link_desc", length = 600)
+    private String linkDesc;
+
+    @Column(name = "link_image", length = 1024)
+    private String linkImage;
+
+    @Column(name = "link_site", length = 150)
+    private String linkSite;
+
     // ── Status reply/reaction snapshot ──
     // Present when this message is a reply or reaction to someone's status. The
     // snapshot lets the quoted preview render even after the status has expired.

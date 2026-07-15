@@ -100,6 +100,16 @@ public class ChatController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * The recipient opened a view-once message. Burns it: the stored media is deleted
+     * and the URL nulled, and the (already-loaded) DTO is returned so the caller can
+     * show the media one last time. Idempotent.
+     */
+    @PostMapping("/{id}/messages/{messageId}/view-once")
+    public MessageDto viewOnce(@PathVariable Long id, @PathVariable Long messageId) {
+        return chatService.markViewOnceSeen(SecurityUtils.currentUserId(), messageId);
+    }
+
     @PostMapping("/{id}/read")
     public ResponseEntity<Void> read(@PathVariable Long id) {
         Long me = SecurityUtils.currentUserId();

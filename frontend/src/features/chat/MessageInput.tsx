@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { AtSign, Camera, Mic, Paperclip, Pencil, Reply, SendHorizonal, Smile, Trash2, X } from 'lucide-react';
+import { AtSign, Camera, Eye, Mic, Paperclip, Pencil, Reply, SendHorizonal, Smile, Trash2, X } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -79,6 +79,9 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
   const [uploadPct, setUploadPct] = useState(0);
   const uploadAbortRef = useRef<AbortController | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  // View-once: the next media message opens once for the recipient, then is gone.
+  // Direct chats only (a group "burns for everyone on first view" has no meaning).
+  const [viewOnce, setViewOnce] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -376,9 +379,11 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
           attachmentMime: att.mimeType,
           replyTo: i === 0 ? replyTo : null,
           mentions: i === 0 ? mentions : undefined,
+          viewOnce: !isGroup && viewOnce,
         });
       });
       setAttachments([]);
+      setViewOnce(false);
     } else {
       send({ conversationId, content: text, type: 'TEXT', replyTo, mentions });
     }
@@ -612,6 +617,26 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
             aria-label="Cancel upload"
           >
             <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {attachments.length > 0 && !isGroup && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-xs text-on-surface-variant">
+            {viewOnce ? 'Opens once, then disappears' : 'Stays in the chat'}
+          </span>
+          <button
+            type="button"
+            onClick={() => setViewOnce((v) => !v)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition',
+              viewOnce
+                ? 'bg-primary/20 text-primary'
+                : 'glass-panel text-on-surface-variant hover:text-on-surface',
+            )}
+            aria-pressed={viewOnce}
+          >
+            <Eye className="h-3.5 w-3.5" /> View once
           </button>
         </div>
       )}

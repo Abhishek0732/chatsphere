@@ -20,6 +20,8 @@ export interface OutgoingMessage {
   replyTo?: ReplyPreview | null;
   /** Ids of the users @mentioned in the text (group chats). */
   mentions?: number[];
+  /** View-once media: opens once for the recipient, then is gone. */
+  viewOnce?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function useSendMessage() {
       attachmentMime,
       replyTo,
       mentions,
+      viewOnce,
     }: OutgoingMessage) => {
       if (!user) return;
       const trimmed = content.trim();
@@ -89,6 +92,7 @@ export function useSendMessage() {
         encrypted,
         attachmentName,
         attachmentMime,
+        viewOnce,
       };
 
       upsertMessage(optimistic);
@@ -103,6 +107,7 @@ export function useSendMessage() {
         tempId,
         mentions,
         encrypted,
+        viewOnce,
       });
 
       if (!ok) {
@@ -123,6 +128,7 @@ export function useSendMessage() {
           senderName: user.displayName,
           queuedAt: optimistic.createdAt,
           encrypted,
+          viewOnce,
         });
         upsertMessage({ ...optimistic, queued: true });
       }

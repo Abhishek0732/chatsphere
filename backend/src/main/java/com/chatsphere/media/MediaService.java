@@ -6,6 +6,7 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,6 +117,33 @@ public class MediaService {
         // participants can open.
         return new UploadResult(url, encrypted ? "attachment" : original,
                 contentType, file.getSize(), thumbUrl);
+    }
+
+    /**
+     * Delete a stored object (and its thumbnail, if any) given the same relative URL
+     * we hand out — "/media/&lt;bucket&gt;/&lt;object&gt;". Best-effort: a failure to remove the
+     * bytes must never fail the caller (used by view-once, where the row is already
+     * marked consumed). Nothing outside our bucket can be addressed by this.
+     */
+    public void deleteQuietly(String url) {
+        if (url == null) return;
+        String prefix = "/media/" + config.bucket() + "/";
+        if (!url.startsWith(prefix)) return;
+        String objectKey = url.substring(prefix.length());
+        if (objectKey.isBlank()) return;
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(config.bucket()).object(objectKey).build());
+        } catch (Exception e) {
+            log.warn("Could not delete media {}: {}", objectKey, e.toString());
+        }
+        // The thumbnail is derived and optional — remove it too, quietly.
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(config.bucket()).object(thumbKey(objectKey)).build());
+        } catch (Exception ignored) {
+            // no thumbnail (encrypted upload, gif, or already gone) — fine
+        }
     }
 
     /**

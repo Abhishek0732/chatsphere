@@ -3,7 +3,9 @@ import {
   Ban,
   Bell,
   BellOff,
+  Flag,
   Search,
+  ShieldCheck,
   User as UserIcon,
   X,
   Lock,
@@ -11,10 +13,15 @@ import {
 import { Avatar } from '@/components/ui/Avatar';
 import { useMuteStore } from '@/store/muteStore';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
-import { canEncryptWith } from '@/services/e2ee';
+import { canEncryptWith, getMyPublicKey } from '@/services/e2ee';
+import { getPeerKey } from '@/api/keys';
+import { safetyNumber } from '@/services/crypto';
+import { useVerifiedStore } from '@/store/verifiedStore';
 import { useE2eeStore } from '@/store/e2eeStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { ConversationMediaPreview } from './ConversationMediaPreview';
+import { SafetyNumberModal } from './SafetyNumberModal';
+import { ReportModal } from './ReportModal';
 import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
 import type { ConversationSummary, User } from '@/types';
@@ -50,18 +57,37 @@ export function ContactInfoPanel({
   const blocked = useIsBlocked(other?.id);
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Only claim encryption when it is genuinely happening (both sides hold keys).
   const e2eeReady = useE2eeStore((st) => st.ready);
   const [encrypted, setEncrypted] = useState(false);
+  // The current safety number, so the panel can show whether this contact is verified
+  // and invalidate the badge automatically if either key changes.
+  const [safetyNum, setSafetyNum] = useState<string | null>(null);
+  const verified = useVerifiedStore((s) =>
+    other?.id != null && safetyNum ? s.verified[other.id] === safetyNum : false,
+  );
   useEffect(() => {
     let live = true;
     if (conversation.type !== 'DIRECT' || other?.id == null) {
       setEncrypted(false);
+      setSafetyNum(null);
       return;
     }
-    void canEncryptWith(other.id)
-      .then((can) => live && setEncrypted(can))
+    const peerId = other.id;
+    void canEncryptWith(peerId)
+      .then(async (can) => {
+        if (!live) return;
+        setEncrypted(can);
+        if (!can) {
+          setSafetyNum(null);
+          return;
+        }
+        const num = await safetyNumber(getMyPublicKey(), (await getPeerKey(peerId)).publicKey);
+        if (live) setSafetyNum(num);
+      })
       .catch(() => undefined);
     return () => {
       live = false;
@@ -116,13 +142,50 @@ export function ContactInfoPanel({
             </span>
           </div>
         )}
+        {encrypted && other && (
+          <button
+            onClick={() => setVerifyOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl glass-panel p-3.5 text-left transition hover:bg-white/5"
+          >
+            <ShieldCheck className={cn('h-5 w-5 shrink-0', verified ? 'text-emerald-500' : 'text-on-surface-variant')} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-base text-on-surface">Verify security code</span>
+              <span className="block text-sm text-on-surface-variant">
+                {verified ? 'Verified — no one is in the middle' : 'Confirm no one is intercepting'}
+              </span>
+            </span>
+          </button>
+        )}
         {other && (
           <button onClick={() => (blocked ? unblockUser.mutate(other) : blockUser.mutate(other))} className="flex w-full items-center gap-3 rounded-xl glass-panel p-3.5 text-left transition hover:bg-white/5">
             <Ban className="h-5 w-5 text-error" />
             <span className="text-base text-error">{blocked ? `Unblock ${other.displayName}` : 'Block Contact'}</span>
           </button>
         )}
+        {other && (
+          <button onClick={() => setReportOpen(true)} className="flex w-full items-center gap-3 rounded-xl glass-panel p-3.5 text-left transition hover:bg-white/5">
+            <Flag className="h-5 w-5 text-error" />
+            <span className="text-base text-error">Report {other.displayName}</span>
+          </button>
+        )}
       </div>
+
+      {other && (
+        <>
+          <SafetyNumberModal
+            open={verifyOpen}
+            onClose={() => setVerifyOpen(false)}
+            peerId={other.id}
+            peerName={other.displayName}
+          />
+          <ReportModal
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            user={other}
+            onAlsoBlock={() => !blocked && blockUser.mutate(other)}
+          />
+        </>
+      )}
     </aside>
   );
 }

@@ -175,6 +175,91 @@ export const checks = [
   },
 
   {
+    name: 'report user: a report is accepted (204); self-report is rejected (400)',
+    async run(ctx) {
+      const ok = await post(`/reports/${ctx.bob.user.id}`, {
+        token: ctx.alice.token,
+        body: { reason: 'spam', details: `e2e ${RUN_ID}` },
+      });
+      assertStatus(ok, 204, 'alice reports bob');
+
+      const self = await post(`/reports/${ctx.alice.user.id}`, {
+        token: ctx.alice.token,
+        body: { reason: 'spam' },
+      });
+      assertStatus(self, 400, 'a user cannot report themselves');
+    },
+  },
+
+  {
+    name: 'view-once: opens exactly once, then the media is gone server-side',
+    async run(ctx) {
+      const convId = await ctx.aliceBobConversation();
+      const alice = await ctx.stompFor('alice');
+
+      const tag = `${RUN_ID}-vo`;
+      const url = `/media/chatsphere-media/uploads/${tag}.jpg`;
+      // Send a view-once IMAGE straight over STOMP (the suite has no e2ee, so this
+      // is an unencrypted direct message — view-once still applies).
+      alice.publish('/app/chat.send', {
+        conversationId: convId,
+        content: `vo ${tag}`,
+        type: 'IMAGE',
+        attachmentUrl: url,
+        tempId: `tmp-${tag}`,
+        viewOnce: true,
+      });
+      const echo = await alice.waitForFrame(QUEUE, (m) => m.content === `vo ${tag}`);
+      assertEqual(echo.viewOnce, true, 'the echo carries the view-once flag');
+      assertEqual(echo.viewOnceSeen, false, 'a fresh view-once is not yet seen');
+      assert(echo.attachmentUrl, 'view-once media has a url before it is opened');
+
+      // Bob opens it — this burns it.
+      const opened = await post(`/conversations/${convId}/messages/${echo.id}/view-once`, {
+        token: ctx.bob.token,
+      });
+      assertStatus(opened, 200, 'bob opens the view-once message');
+      assertEqual(opened.body.viewOnceSeen, true, 'view-once reads as seen once opened');
+      assert(!opened.body.attachmentUrl, 'the media url is gone the instant it is opened');
+
+      // Alice (the sender) now reads it back as opened, media gone.
+      const rows = await persisted(ctx.alice.token, convId);
+      const m = rows.find((x) => x.id === echo.id);
+      assertEqual(m.viewOnceSeen, true, 'the sender sees it flipped to opened');
+      assert(!m.attachmentUrl, 'the sender no longer sees the media url either');
+
+      // Opening again is idempotent — still seen, no error.
+      const again = await post(`/conversations/${convId}/messages/${echo.id}/view-once`, {
+        token: ctx.bob.token,
+      });
+      assertStatus(again, 200, 're-opening a spent view-once is a harmless no-op');
+
+      ctx.trash.messages.push({ conversationId: convId, messageId: echo.id, as: 'alice' });
+    },
+  },
+
+  {
+    name: 'link preview: an internal (localhost) URL is never unfurled — SSRF blocked',
+    async run(ctx) {
+      const convId = await ctx.aliceBobConversation();
+      const alice = await ctx.stompFor('alice');
+
+      const tag = `${RUN_ID}-ssrf`;
+      // A URL pointing at our own network must never be fetched by the unfurler.
+      sendMessage(alice, convId, `look http://localhost:9000/secret ${tag}`, `tmp-${tag}`);
+      const echo = await alice.waitForFrame(QUEUE, (m) => (m.content ?? '').includes(tag));
+
+      // Give the async unfurl a moment; a blocked URL must produce no preview, ever.
+      await new Promise((r) => setTimeout(r, 1500));
+      const rows = await persisted(ctx.alice.token, convId);
+      const m = rows.find((x) => x.id === echo.id);
+      assert(!m.linkPreview, 'a localhost/internal URL must never be unfurled');
+
+      ctx.trash.messages.push({ conversationId: convId, messageId: echo.id, as: 'alice' });
+    },
+  },
+
+  {
     name: 'disappearing messages: timer stamps expires_at, is broadcast, and clears',
     async run(ctx) {
       const convId = await ctx.aliceBobConversation();

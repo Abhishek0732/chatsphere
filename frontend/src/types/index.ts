@@ -69,6 +69,21 @@ export interface Message {
   mentions?: number[];
   /** When set (disappearing messages), the message self-destructs after this ISO instant. */
   expiresAt?: string | null;
+  /** View-once media: opens once for the recipient, then is gone. */
+  viewOnce?: boolean;
+  /** True once the recipient has opened a view-once message (its media is then gone). */
+  viewOnceSeen?: boolean;
+  /** Server-unfurled preview of a link in this message, if any. */
+  linkPreview?: LinkPreview | null;
+}
+
+/** A small Open Graph preview of a link found in a message (server-side unfurl). */
+export interface LinkPreview {
+  title?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  siteName?: string | null;
+  url: string;
 }
 
 /** Quoted snapshot of a status a message answers (WhatsApp-style). */
@@ -284,6 +299,8 @@ export interface ChatSendPayload {
   mentions?: number[];
   /** True when `content` is ciphertext (direct chats). The server just stores it. */
   encrypted?: boolean;
+  /** True to make an attached media message view-once (opens once, then gone). */
+  viewOnce?: boolean;
 }
 
 /** WhatsApp-style "Message info": who has seen one of my messages. */

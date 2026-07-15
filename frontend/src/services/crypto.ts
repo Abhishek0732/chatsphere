@@ -156,6 +156,52 @@ export async function rewrapIdentity(
   };
 }
 
+// ── safety numbers (identity verification) ───────────────────────────────────
+//
+// A "safety number" lets two people confirm, out of band, that no one is sitting
+// in the middle. It is derived from BOTH identity public keys, so if the server
+// ever substituted a key (a man-in-the-middle), the two sides would compute
+// DIFFERENT numbers and the mismatch would give it away. Comparing the number in
+// person — or scanning the other's QR — is what upgrades "encrypted" to "verified".
+//
+// The number is symmetric: both people compute the same 60 digits from the same
+// two keys, regardless of who is "me". That is what makes a QR scan a simple equality
+// check.
+
+/** 30 digits (six 5-digit groups) fingerprinting one public key. */
+async function fingerprint30(publicKeyB64: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', fromB64(publicKeyB64)));
+  let out = '';
+  for (let g = 0; g < 6; g++) {
+    let n = 0;
+    for (let j = 0; j < 5; j++) n = (n * 256 + digest[g * 5 + j]) % 100000;
+    out += n.toString().padStart(5, '0');
+  }
+  return out;
+}
+
+/**
+ * The 60-digit safety number for a pair of identity keys. Order-independent: the
+ * two per-key fingerprints are sorted before joining, so both participants derive
+ * the identical value. Returns null if either key is missing.
+ */
+export async function safetyNumber(
+  myPublicKeyB64: string | null,
+  theirPublicKeyB64: string | null,
+): Promise<string | null> {
+  if (!myPublicKeyB64 || !theirPublicKeyB64) return null;
+  const [a, b] = await Promise.all([
+    fingerprint30(myPublicKeyB64),
+    fingerprint30(theirPublicKeyB64),
+  ]);
+  return [a, b].sort().join('');
+}
+
+/** Group a 60-digit safety number into 12 space-separated blocks of five. */
+export function formatSafetyNumber(digits: string): string {
+  return (digits.match(/.{1,5}/g) ?? []).join(' ');
+}
+
 // ── conversation keys ────────────────────────────────────────────────────────
 
 /**

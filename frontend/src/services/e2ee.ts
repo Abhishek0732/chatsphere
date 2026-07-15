@@ -192,6 +192,11 @@ export function encryptionReady(): boolean {
   return privateKey !== null;
 }
 
+/** My identity public key (base64), for computing a safety number. Null until set up. */
+export function getMyPublicKey(): string | null {
+  return myPublicKey;
+}
+
 // ── per-conversation keys ────────────────────────────────────────────────────
 
 async function keyForPeer(peerId: number): Promise<CryptoKey | null> {

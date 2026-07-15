@@ -33,7 +33,17 @@ public final class ChatDtos {
             /** True when `content` is ciphertext: only the two participants can read it. */
             boolean encrypted,
             /** When set, the message auto-disappears after this instant (client hides it too). */
-            Instant expiresAt) {}
+            Instant expiresAt,
+            /** View-once media: opens once for the recipient, then is gone. */
+            boolean viewOnce,
+            /** True once the recipient has opened a view-once message (then `attachmentUrl` is null). */
+            boolean viewOnceSeen,
+            /** Server-unfurled preview of a URL in the message; null when there is none. */
+            LinkPreviewDto linkPreview) {}
+
+    /** A small Open Graph preview of a link found in a message. */
+    public record LinkPreviewDto(String title, String description, String imageUrl,
+                                 String siteName, String url) {}
 
     /** An emoji and the ids of everyone who reacted with it. */
     public record ReactionDto(String emoji, List<Long> userIds) {}
@@ -76,7 +86,9 @@ public final class ChatDtos {
             String tempId,
             List<Long> mentions,
             /** True when `content` is ciphertext the server cannot read (direct chats). */
-            boolean encrypted) {}
+            boolean encrypted,
+            /** True to make an attached media message view-once (opens once, then gone). */
+            boolean viewOnce) {}
 
     public record TypingCommand(@NotNull Long conversationId, boolean typing) {}
 

@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   FileText,
+  Flag,
   Image as ImageIcon,
   Link as LinkIcon,
   Pin,
@@ -21,6 +22,7 @@ import { useMuteStore } from '@/store/muteStore';
 import { useChatStore } from '@/store/chatStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
+import { ReportModal } from './ReportModal';
 import { fileNameFromUrl, formatLastSeen, isAudioUrl, isVideoUrl } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
 import { downloadFile } from '@/utils/download';
@@ -46,6 +48,7 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
   const blocked = useIsBlocked(other?.id);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [tab, setTab] = useState<Tab>('media');
 
@@ -265,8 +268,25 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
               {blocked ? `Unblock ${other.displayName}` : `Block ${other.displayName}`}
             </button>
           )}
+          {other && (
+            <button
+              onClick={() => setReportOpen(true)}
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Flag className="h-5 w-5" />
+              Report {other.displayName}
+            </button>
+          )}
         </div>
       </div>
+      {other && (
+        <ReportModal
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          user={other}
+          onAlsoBlock={() => !blocked && blockUser.mutate(other)}
+        />
+      )}
     </Modal>
   );
 }
