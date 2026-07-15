@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, SquarePen } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { MoreVertical, Plus, Search, UserPlus, Users } from 'lucide-react';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { Logo } from '@/components/ui/Logo';
 import { useConversations } from '@/hooks/useConversations';
 import { socketService } from '@/services/socket';
 import { cn } from '@/utils/cn';
 import { AddContactModal } from '@/features/contacts/AddContactModal';
+import { CreateGroupModal } from '@/features/groups/CreateGroupModal';
 import { ConversationListItem } from './ConversationListItem';
 
 type Filter = 'all' | 'unread' | 'groups';
@@ -24,6 +25,25 @@ export function ConversationList() {
   const [term, setTerm] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [addOpen, setAddOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close the header menu when clicking anywhere outside it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
+
+  // Close the menu, then run the chosen action.
+  const menuAction = (fn: () => void) => () => {
+    setMenuOpen(false);
+    fn();
+  };
 
   // Sort once (most-recent first); both the filtered view and the typing-sub
   // list derive from this instead of each re-sorting the whole array.
@@ -78,13 +98,31 @@ export function ConversationList() {
             <Logo className="h-8 w-8 shadow ring-1 ring-white/10" />
             <h1 className="text-2xl font-bold tracking-tight text-primary">ChatSphere</h1>
           </div>
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
-            aria-label="New chat"
-          >
-            <SquarePen className="h-5 w-5" />
-          </button>
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
+              aria-label="Menu"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-xl border border-white/10 bg-surface-container/95 text-sm text-on-surface shadow-2xl backdrop-blur-xl">
+                <button
+                  onClick={menuAction(() => setGroupOpen(true))}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
+                >
+                  <Users className="h-4 w-4" /> New group
+                </button>
+                <button
+                  onClick={menuAction(() => setAddOpen(true))}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
+                >
+                  <UserPlus className="h-4 w-4" /> Add contact
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="relative">
@@ -136,6 +174,7 @@ export function ConversationList() {
       </button>
 
       <AddContactModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <CreateGroupModal open={groupOpen} onClose={() => setGroupOpen(false)} />
     </div>
   );
 }
