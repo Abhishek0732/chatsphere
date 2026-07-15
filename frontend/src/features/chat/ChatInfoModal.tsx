@@ -23,7 +23,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
 import { ReportModal } from './ReportModal';
-import { fileNameFromUrl, formatLastSeen, isAudioUrl, isVideoUrl } from '@/utils/format';
+import { fileNameFromUrl, isAudioUrl, isVideoUrl, presenceText } from '@/utils/format';
 import { mediaSrc } from '@/utils/media';
 import { downloadFile } from '@/utils/download';
 import type { ConversationSummary, Message, User } from '@/types';
@@ -70,10 +70,9 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
     return { media, files, links, pinned };
   }, [messages]);
 
+  // null for a direct chat = presence hidden → render nothing (never "offline").
   const subtitle = other
-    ? presence?.online
-      ? 'online'
-      : formatLastSeen(presence?.lastSeen ?? other.lastSeen)
+    ? presenceText(presence?.online, presence?.lastSeen ?? other.lastSeen)
     : `${conversation.memberCount ?? conversation.members.length} members`;
 
   const tabs: { key: Tab; label: string; count: number; icon: typeof ImageIcon }[] = [
@@ -104,7 +103,9 @@ export function ChatInfoModal({ open, onClose, conversation, other }: ChatInfoMo
           {other?.username && (
             <p className="text-sm text-slate-400">@{other.username}</p>
           )}
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+          {subtitle && (
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+          )}
           {other?.about && (
             <p className="mt-2 max-w-xs text-sm text-slate-600 dark:text-slate-300">{other.about}</p>
           )}

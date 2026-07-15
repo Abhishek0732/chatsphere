@@ -50,6 +50,20 @@ export function formatDayDivider(iso: string): string {
 }
 
 /** "last seen ..." presence text. */
+/**
+ * The presence line to show under a contact's name, or null when there is nothing
+ * to show. "Nothing" is deliberate: when presence is hidden — because you turned
+ * your own last-seen off (reciprocal), or the other person did — the server sends
+ * no online flag and no timestamp, and we must show a BLANK, never "offline". A
+ * grey "offline" would leak that they're simply not online, which is exactly what
+ * hiding last-seen is supposed to prevent.
+ */
+export function presenceText(online?: boolean, lastSeen?: string | null): string | null {
+  if (online) return 'online';
+  if (lastSeen) return formatLastSeen(lastSeen);
+  return null;
+}
+
 export function formatLastSeen(iso?: string): string {
   if (!iso) return 'offline';
   const d = new Date(iso);

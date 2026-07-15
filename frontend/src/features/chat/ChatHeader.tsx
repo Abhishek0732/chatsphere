@@ -28,7 +28,7 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { useClearChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
 import { useBlockUser, useIsBlocked, useUnblockUser } from '@/hooks/useBlocks';
-import { formatLastSeen } from '@/utils/format';
+import { presenceText } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import { exportChat } from '@/api/conversations';
 import { downloadText } from '@/utils/download';
@@ -191,17 +191,16 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
     };
   }, [conversation.id, conversation.type, other?.id, e2eeReady]);
 
-  let subtitle: string;
+  // null = show nothing (presence hidden by either side's last-seen privacy).
+  let subtitle: string | null;
   if (conversation.type === 'DIRECT' && isBlocked) {
     subtitle = 'Blocked';
   } else if (someoneTyping) {
     subtitle = typingLabel;
   } else if (conversation.type === 'GROUP') {
     subtitle = `${conversation.memberCount ?? conversation.members.length} members`;
-  } else if (presence?.online) {
-    subtitle = 'online';
   } else {
-    subtitle = formatLastSeen(presence?.lastSeen ?? other?.lastSeen);
+    subtitle = presenceText(presence?.online, presence?.lastSeen ?? other?.lastSeen);
   }
 
   return (
@@ -255,14 +254,16 @@ export function ChatHeader({ conversation, onOpenInfo, onToggleInfo }: ChatHeade
               />
             ) : null}
           </p>
-          <p
-            className={cn(
-              'truncate text-xs',
-              subtitle === 'online' ? 'font-medium text-primary/80' : 'text-on-surface-variant',
-            )}
-          >
-            {subtitle}
-          </p>
+          {subtitle && (
+            <p
+              className={cn(
+                'truncate text-xs',
+                subtitle === 'online' ? 'font-medium text-primary/80' : 'text-on-surface-variant',
+              )}
+            >
+              {subtitle}
+            </p>
+          )}
         </button>
       </div>
 
