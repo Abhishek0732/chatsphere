@@ -43,7 +43,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
 
   const mediaInput = useRef<HTMLInputElement>(null);
 
-  // @mentions: you can tag your contacts in a status, as in Instagram/WhatsApp.
+  // @mentions: you can tag your contacts in a status, as in Instagram and modern messengers.
   // The map remembers what each inserted "@Name" tags, so a mention the user
   // deletes from the text is dropped on post.
   const tagged = useRef<Map<string, number>>(new Map());

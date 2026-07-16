@@ -1,6 +1,6 @@
 # ChatSphere
 
-A real-time, WhatsApp-style chat application — 1:1 and group chat, 24-hour statuses with
+A real-time, messenger-style chat application — 1:1 and group chat, 24-hour statuses with
 music, voice and video calling, contacts by QR or invite link, and a lot of care spent on
 making it fast. Full stack, and **everything runs in Docker** — no host tooling (Java,
 Node, Maven) required.
@@ -107,7 +107,7 @@ per-status — everyone, everyone-except, or only-these-people.
 ![Updates](docs/screenshots/status-updates.png)
 
 You can **@mention** people in a status. Anyone you tag can then **add that status to
-their own** — exactly like WhatsApp — and the copy stays credited to the original author.
+their own** — as modern messengers do — and the copy stays credited to the original author.
 Only the people actually tagged can do this; it is enforced on the server, not just hidden
 in the UI.
 
@@ -182,10 +182,10 @@ it). Set it from the chat's ⋮ menu; a small timer icon by the name shows it's 
 ### Privacy you actually control
 
 **Read receipts** and **last seen / online** each have a switch in **Settings → Privacy**,
-and both are **reciprocal**, exactly like WhatsApp: turn your read receipts off and you
+and both are **reciprocal**, as modern messengers do: turn your read receipts off and you
 stop seeing anyone's blue ticks; hide your last seen and theirs is hidden from you. It's
 enforced on the server for direct chats, not just hidden in the UI (group read receipts
-always show, as in WhatsApp).
+always show, as in modern messengers).
 
 ### Big files, with a real progress bar
 

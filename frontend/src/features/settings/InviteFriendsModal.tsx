@@ -126,11 +126,11 @@ export function InviteFriendsModal({ open, onClose }: { open: boolean; onClose: 
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() =>
-                openExternal(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`)
+                openExternal(`sms:?&body=${encodeURIComponent(`${text} ${url}`)}`)
               }
               className="flex items-center justify-center gap-2 rounded-xl bg-surface-container-high px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-container-highest"
             >
-              <MessageCircle className="h-4 w-4" /> WhatsApp
+              <MessageCircle className="h-4 w-4" /> SMS
             </button>
             <button
               onClick={() =>

@@ -1,6 +1,6 @@
 # ChatSphere — Frontend
 
-A WhatsApp-style real-time chat web app. React 19 + TypeScript + Vite 6, TanStack
+A messenger-style real-time chat web app. React 19 + TypeScript + Vite 6, TanStack
 Query, Zustand, Tailwind CSS v3, STOMP-over-SockJS realtime, PWA.
 
 > The host is **not** used to build. Everything builds inside Docker.

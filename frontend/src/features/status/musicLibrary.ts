@@ -1,4 +1,4 @@
-// Curated, royalty-free music library for status (WhatsApp-style).
+// Curated, royalty-free music library for status (messenger-style).
 // Tracks are original loops shipped as static assets under /public/music, so
 // they're served same-origin, CDN-cacheable, and add zero backend load at scale.
 

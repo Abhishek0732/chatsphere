@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Lightweight, dependency-free emoji picker (WhatsApp-style). A curated set of
+ * Lightweight, dependency-free emoji picker (messenger-style). A curated set of
  * common emojis grouped into tabs — only the active category renders, so it
  * stays cheap. No npm dependency / no bundle bloat.
  */

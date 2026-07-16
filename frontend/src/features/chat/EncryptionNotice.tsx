@@ -4,7 +4,7 @@ import { canEncryptWith } from '@/services/e2ee';
 import { useE2eeStore } from '@/store/e2eeStore';
 
 /**
- * The WhatsApp-style notice at the top of an encrypted thread.
+ * The messenger-style notice at the top of an encrypted thread.
  *
  * A padlock tucked next to the name was the only sign the chat was encrypted, and the
  * word "encrypted" appeared nowhere in the app — which is no use: a privacy property

@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * A real, searchable music catalogue for statuses — the way Instagram/WhatsApp
+ * A real, searchable music catalogue for statuses — the way Instagram and modern messengers
  * do it, rather than a handful of files bundled with the app.
  *
  * Backed by Apple's public iTunes Search API: millions of real songs, each with

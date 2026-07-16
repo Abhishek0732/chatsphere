@@ -119,7 +119,7 @@ function StatusTile({ name, user, preview, unseen, onClick, addBadge, onAdd }: T
   );
 }
 
-/** The most recent (last) item is the one WhatsApp previews on the ring. */
+/** The most recent (last) item is the one we preview on the ring. */
 function latestItem(u: StatusUser): StatusItem | null {
   return u.items.length ? u.items[u.items.length - 1] : null;
 }

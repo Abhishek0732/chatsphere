@@ -28,7 +28,7 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
   // Show a live "typing…" hint in place of the last-message preview.
   const typers = useChatStore((s) => s.typing[conversation.id] ?? NO_TYPERS);
   const otherTypers = typers.filter((t) => t.userId !== myId);
-  // A blocked user's typing/presence is hidden from the blocker (WhatsApp-style).
+  // A blocked user's typing/presence is hidden from the blocker (messenger-style).
   const someoneTyping = otherTypers.length > 0 && !blocked;
   const typingText =
     conversation.type === 'GROUP'

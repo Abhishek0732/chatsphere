@@ -6,7 +6,7 @@ export type Theme = 'light' | 'dark' | 'system';
 
 /** Accent color palettes (see `[data-accent]` sets in index.css). */
 export type AccentKey =
-  | 'whatsapp'
+  | 'sky'
   | 'indigo'
   | 'blurple'
   | 'emerald'
@@ -23,7 +23,7 @@ export type RadiusKey = 'sharp' | 'default' | 'round';
 export type BackgroundKey = 'aurora' | 'vivid' | 'mesh' | 'minimal';
 
 export const ACCENTS: { key: AccentKey; label: string; swatch: string }[] = [
-  { key: 'whatsapp', label: 'Light Blue', swatch: '#33a1f2' },
+  { key: 'sky', label: 'Light Blue', swatch: '#33a1f2' },
   { key: 'indigo', label: 'Indigo', swatch: '#4f46e5' },
   { key: 'blurple', label: 'Blurple', swatch: '#5865f2' },
   { key: 'violet', label: 'Violet', swatch: '#7c3aed' },
@@ -92,7 +92,7 @@ export const BACKGROUNDS: { key: BackgroundKey; label: string }[] = [
 ];
 
 const DEFAULTS = {
-  accent: 'whatsapp' as AccentKey,
+  accent: 'sky' as AccentKey,
   wallpaper: 'doodle' as WallpaperKey,
   font: 'inter' as FontKey,
   textSize: 'md' as TextSizeKey,
@@ -284,8 +284,8 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'chatsphere-theme',
-      version: 3,
-      // Move users still on an old default accent to the current WhatsApp-green
+      version: 4,
+      // Move users still on an old default accent to the current light-blue
       // default (but keep any accent they deliberately chose / any custom color).
       migrate: (persisted: unknown, version: number) => {
         const st = (persisted ?? {}) as {
@@ -296,9 +296,13 @@ export const useThemeStore = create<ThemeState>()(
         const oldDefaults: AccentKey[] = ['violet', 'blurple', 'indigo'];
         const wasDefault = !st.accent || oldDefaults.includes(st.accent);
         if (version < 3 && wasDefault && !st.customAccent) {
-          st.accent = 'whatsapp';
+          st.accent = 'sky';
           st.background = 'minimal';
         }
+        // v4: the light-blue accent's internal key was renamed. Any accent that
+        // is no longer a known key (e.g. the old light-blue one) falls back to it.
+        const known = ACCENTS.map((a) => a.key);
+        if (st.accent && !known.includes(st.accent)) st.accent = 'sky';
         return st;
       },
       onRehydrateStorage: () => (state) => {

@@ -37,7 +37,7 @@ export function ImageViewer() {
 
   // Screenshot deterrent for a protected photo: blur it whenever the tab is
   // backgrounded or a screenshot key is pressed, so a casual capture is blurred.
-  // (The web has no true screenshot block — this is best-effort, like WhatsApp.)
+  // (The web has no true screenshot block — this is best-effort, like modern messengers.)
   const isProtected = !!current?.protected;
   useEffect(() => {
     if (!isProtected) {

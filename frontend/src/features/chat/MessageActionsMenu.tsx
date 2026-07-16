@@ -15,7 +15,7 @@ const MENU_W = 188;
 /**
  * A compact, self-contained action menu for a single message — Reply, Forward,
  * Download, Delete + a quick-reaction row. Used for individual photos inside an
- * album, where each tile needs its own actions (WhatsApp-style) rather than the
+ * album, where each tile needs its own actions (messenger-style) rather than the
  * whole group being replied to or deleted at once. The menu is portaled and
  * fixed-positioned so it never gets clipped by the scrolling thread.
  */

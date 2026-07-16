@@ -29,7 +29,7 @@ function PeopleList({ people }: { people: User[] }) {
 }
 
 /**
- * WhatsApp-style "Message info": which group members have opened the chat past
+ * messenger-style "Message info": which group members have opened the chat past
  * this message (Read by) and which haven't yet (Delivered to). Read state comes
  * from each member's read pointer, so it stays accurate as people catch up —
  * the modal refetches while it's open.

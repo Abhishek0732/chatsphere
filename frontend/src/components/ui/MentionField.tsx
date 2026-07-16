@@ -22,7 +22,7 @@ export function mentionsIn(text: string, tagged: Map<string, number>): number[] 
 }
 
 /**
- * A text field that tags people with "@" — the way Instagram and WhatsApp let
+ * A text field that tags people with "@" — the way Instagram and modern messengers let
  * you mention someone in a story. Renders as a textarea or a single-line input;
  * the picker lists the given people (your contacts) and inserts "@Their Name".
  *

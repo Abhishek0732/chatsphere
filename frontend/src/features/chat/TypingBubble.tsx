@@ -1,5 +1,5 @@
 /**
- * WhatsApp-style animated "···" bubble shown at the bottom of an open thread
+ * messenger-style animated "···" bubble shown at the bottom of an open thread
  * while the other participant(s) are typing. In a group it also names who.
  */
 export function TypingBubble({ label }: { label?: string }) {

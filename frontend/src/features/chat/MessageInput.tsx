@@ -119,7 +119,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
         avatarUrl: m.avatarUrl,
         ids: [m.id],
       }));
-    // "@All" notifies the whole group, as WhatsApp does.
+    // "@All" notifies the whole group, as modern messengers do.
     const everyone =
       groupMembers.length > 1 && (!q || 'all'.startsWith(q) || 'everyone'.startsWith(q))
         ? [
@@ -767,7 +767,7 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
         )}
 
         {/* Trailing button: send while recording, send when there's content to
-            send, otherwise the mic to start a voice message (WhatsApp-style). */}
+            send, otherwise the mic to start a voice message (messenger-style). */}
         {recording ? (
           <Button
             type="button"

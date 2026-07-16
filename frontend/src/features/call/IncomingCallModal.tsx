@@ -3,7 +3,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useCallStore } from '@/store/callStore';
 import { socketService } from '@/services/socket';
 
-/** Full-screen incoming-call prompt (WhatsApp-style), mounted globally. */
+/** Full-screen incoming-call prompt (messenger-style), mounted globally. */
 export function IncomingCallModal() {
   const call = useCallStore((s) => s.call);
   if (!call) return null;

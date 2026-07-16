@@ -2,7 +2,7 @@ import { Check, CheckCheck, Clock } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { Message } from '@/types';
 
-/** WhatsApp-style delivery ticks: single, double, blue double. */
+/** messenger-style delivery ticks: single, double, blue double. */
 export function MessageStatusTicks({ message }: { message: Message }) {
   if (message.failed) {
     return <span className="text-[10px] font-medium text-red-400">failed</span>;

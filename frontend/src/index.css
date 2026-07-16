@@ -158,7 +158,7 @@
   }
 
   /* ─── Accent palettes (per-user chat theme) ─────────────────────────── */
-  html[data-accent='whatsapp'] {
+  html[data-accent='sky'] {
     --brand-50: 236 242 255;
     --brand-100: 219 230 255;
     --brand-200: 189 210 255;
@@ -272,7 +272,7 @@
     --grad-from: #5bb6f8;
     --grad-to: #2f97ec;
   }
-  html[data-accent='whatsapp'] { --grad-from: #5bb6f8; --grad-to: #2f97ec; }
+  html[data-accent='sky'] { --grad-from: #5bb6f8; --grad-to: #2f97ec; }
   html[data-accent='indigo']  { --grad-from: #4f46e5; --grad-to: #06b6d4; }
   html[data-accent='blurple'] { --grad-from: #5865f2; --grad-to: #4752c4; }
   html[data-accent='emerald'] { --grad-from: #10b981; --grad-to: #06b6d4; }

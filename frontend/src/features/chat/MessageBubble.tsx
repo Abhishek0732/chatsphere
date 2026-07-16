@@ -68,7 +68,7 @@ interface MessageBubbleProps {
 }
 
 const MENU_W = 188; // fits the emoji reaction row
-const EDIT_WINDOW_MS = 15 * 60 * 1000; // WhatsApp: edit within 15 minutes of sending
+const EDIT_WINDOW_MS = 15 * 60 * 1000; // Edit window: within 15 minutes of sending
 
 function previewOf(message: Message): string | null {
   if (message.type === 'IMAGE') return message.content ? `📷 ${message.content}` : '📷 Photo';
@@ -102,7 +102,7 @@ function MessageBubbleInner({
   const myId = useAuthStore((s) => s.user?.id);
   const openViewer = useImageViewer((s) => s.open);
   const revealMedia = useMediaRevealStore((s) => s.reveal);
-  // Media I received stays hidden until I "download" it (WhatsApp-style); my own
+  // Media I received stays hidden until I "download" it (messenger-style); my own
   // sent media is always shown. Optimistic (negative id) messages show directly.
   const mediaRevealed = useMediaRevealStore((s) => Boolean(s.revealed[message.id]));
   const gateMedia = !mine && message.id > 0 && !mediaRevealed;
@@ -141,7 +141,7 @@ function MessageBubbleInner({
     : isVideoUrl(message.attachmentUrl);
   const attachName = message.attachmentName || fileNameFromUrl(message.attachmentUrl);
   const canCopy = Boolean(message.content);
-  // WhatsApp-style: your own text messages are editable for 15 minutes after
+  // messenger-style: your own text messages are editable for 15 minutes after
   // sending (read state no longer matters — a read message can still be edited).
   const canEdit =
     mine &&
@@ -149,7 +149,7 @@ function MessageBubbleInner({
     !message.deleted &&
     Date.now() - new Date(message.createdAt).getTime() <= EDIT_WINDOW_MS;
   // "Message info" (who has seen it) is a group-only action on your own messages,
-  // exactly as in WhatsApp — a direct chat already says it with the read ticks.
+  // exactly as in modern messengers — a direct chat already says it with the read ticks.
   const canShowInfo = Boolean(onShowInfo) && mine && sent && !message.deleted;
   // Reply, Forward, Pin + Copy (text), Edit (own text), Download (attachment),
   // Info + Delete (own). Plus the emoji reaction row at the top.
@@ -552,7 +552,7 @@ function MessageBubbleInner({
                     onReveal={() => revealMedia(message.id)}
                   />
                 ) : (
-                  /* Inline video player — play directly in the chat (WhatsApp-style). */
+                  /* Inline video player — play directly in the chat (messenger-style). */
                   <video
                     src={attachSrc ?? undefined}
                     controls
@@ -666,7 +666,7 @@ function MessageBubbleInner({
         )}
       </div>
 
-      {/* Timestamp + status below the bubble, WhatsApp/reference-style. */}
+      {/* Timestamp + status below the bubble, reference-style. */}
       <div
         className={cn(
           'flex items-center gap-1 px-1 text-on-surface-variant',
@@ -695,7 +695,7 @@ function MessageBubbleInner({
               <EmojiPicker onSelect={handleReact} onClose={() => setPickerOpen(false)} />
             ) : (
               <>
-                {/* Floating WhatsApp-style reaction bar, separate from the menu. */}
+                {/* Floating messenger-style reaction bar, separate from the menu. */}
                 <div className="flex items-center gap-1 self-start rounded-full border border-white/10 bg-surface-container/95 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
                   {QUICK_EMOJIS.map((e) => (
                     <button

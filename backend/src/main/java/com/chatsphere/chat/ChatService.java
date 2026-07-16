@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 @Service
 public class ChatService {
 
-    /** WhatsApp-style edit window: messages are editable for 15 minutes after sending. */
+    /** messenger-style edit window: messages are editable for 15 minutes after sending. */
     private static final Duration EDIT_WINDOW = Duration.ofMinutes(15);
 
     /** Upper bound on messages returned by a single chat export (keeps it bounded). */
@@ -673,7 +673,7 @@ public class ChatService {
      * "Message info" for one of my own messages: which members have read it and
      * which haven't. A member has read the message when their read pointer has
      * moved past it — so this is two queries (members + their users), never a
-     * per-recipient lookup. Only the sender may ask, as in WhatsApp.
+     * per-recipient lookup. Only the sender may ask, as in modern messengers.
      */
     @Transactional(readOnly = true)
     public MessageInfoDto messageInfo(Long userId, Long conversationId, Long messageId) {
@@ -844,7 +844,7 @@ public class ChatService {
      * Highest message id that some member OTHER than the viewer has read, and that
      * the viewer is allowed to see as a read receipt. Read receipts are reciprocal
      * for DIRECT chats: if either side has turned them off, neither sees them.
-     * Group read receipts are always on, exactly as WhatsApp behaves.
+     * Group read receipts are always on, exactly the way modern messengers behave.
      */
     private long visibleReadCeil(boolean direct, Long viewerId, List<ConversationMember> members) {
         if (direct) {
@@ -917,7 +917,7 @@ public class ChatService {
         if (m.isDeleted() || m.getType() != Message.Type.TEXT) {
             throw ApiException.badRequest("This message cannot be edited");
         }
-        // WhatsApp-style: a message is editable only within 15 minutes of sending
+        // messenger-style: a message is editable only within 15 minutes of sending
         // (read state no longer matters — you can edit a message that's been read).
         if (m.getCreatedAt() == null
                 || Duration.between(m.getCreatedAt(), Instant.now()).compareTo(EDIT_WINDOW) > 0) {
@@ -1075,7 +1075,7 @@ public class ChatService {
 
     /**
      * Set (ttlSeconds &gt; 0) or clear (null / &lt;= 0) the disappearing-messages timer
-     * for a conversation. Any member may change it, as WhatsApp allows. Returns the
+     * for a conversation. Any member may change it, as modern messengers allow. Returns the
      * value actually stored (null = off).
      */
     @Transactional

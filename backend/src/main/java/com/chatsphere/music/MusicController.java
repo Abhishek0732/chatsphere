@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Catalogue search for status music (Instagram/WhatsApp-style). */
+/** Catalogue search for status music (Instagram-style). */
 @RestController
 @RequestMapping("/api/music")
 public class MusicController {

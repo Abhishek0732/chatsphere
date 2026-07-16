@@ -1,4 +1,4 @@
-/** Disappearing-messages timer presets, matching WhatsApp's choices. */
+/** Disappearing-messages timer presets, matching common messenger choices. */
 export interface DisappearingOption {
   label: string;
   seconds: number | null;

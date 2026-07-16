@@ -51,7 +51,7 @@ public final class ChatDtos {
     /** Lightweight snapshot of the message being replied to. */
     public record ReplyPreview(Long id, String senderName, String content, String type) {}
 
-    /** Snapshot of the status a message replies/reacts to (WhatsApp-style quote). */
+    /** Snapshot of the status a message replies/reacts to (messenger-style quote). */
     public record StatusRef(Long id, String type, String mediaUrl, String caption, String bgColor) {}
 
     public record ConversationSummaryDto(
@@ -120,7 +120,7 @@ public final class ChatDtos {
     public record ExportMessageDto(String senderName, String type, String content,
                                    java.time.Instant createdAt, boolean deleted) {}
 
-    /** WhatsApp-style "Message info": who has seen one of my messages, and who hasn't. */
+    /** messenger-style "Message info": who has seen one of my messages, and who hasn't. */
     public record MessageInfoDto(List<UserDto> readBy, List<UserDto> pending) {}
 
     /** A shared media/attachment item for the contact info panel. */

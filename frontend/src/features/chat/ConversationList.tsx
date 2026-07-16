@@ -164,7 +164,7 @@ export function ConversationList() {
         )}
       </div>
 
-      {/* Floating "new chat" button (WhatsApp-style), bottom-right of the list. */}
+      {/* Floating "new chat" button (messenger-style), bottom-right of the list. */}
       <button
         onClick={() => setAddOpen(true)}
         className="absolute bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-brand-gradient text-white shadow-glow transition hover:brightness-110 active:scale-95"

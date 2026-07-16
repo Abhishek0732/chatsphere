@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 /**
  * Tracks which incoming media messages the user has "downloaded" (revealed).
- * WhatsApp-style: received photos/videos stay hidden behind a download button
+ * messenger-style: received photos/videos stay hidden behind a download button
  * until the user taps it, and remain revealed afterwards (persisted).
  */
 interface MediaRevealState {

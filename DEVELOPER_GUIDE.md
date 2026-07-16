@@ -13,7 +13,7 @@ the way they are, because a few of them look wrong until you know the story.
 
 ## 1. What the app is
 
-A WhatsApp-style real-time chat app. One-to-one and group chat with typing indicators,
+A messenger-style real-time chat app. One-to-one and group chat with typing indicators,
 read receipts, presence, replies, reactions, editing, pinning, forwarding and search;
 24-hour statuses (stories) with music and @mentions; voice and video calling; contacts
 by request, QR code or invite link; blocking; notifications; account deletion.
@@ -617,7 +617,7 @@ the conversation-list cache)` and runs the sync on every `onConnect`. It does **
 OS notifications for caught-up messages — reconnecting must not dump a burst of alerts.
 
 ### Reciprocal privacy toggles (read receipts, last-seen)
-Two boolean columns on `users` (V32, default `1`). The rule is WhatsApp's: **a signal is
+Two boolean columns on `users` (V32, default `1`). The rule is reciprocal: **a signal is
 visible only if both parties share it**, and it's enforced server-side, not hidden in the
 UI.
 - *Read receipts* apply to **direct chats only** (group read receipts always show).

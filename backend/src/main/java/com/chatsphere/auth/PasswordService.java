@@ -21,7 +21,7 @@ import java.util.HexFormat;
 /**
  * Change / forgot / reset password. Reset tokens are random 256-bit values;
  * only their SHA-256 hash is stored. On any password change we revoke every
- * refresh token so other sessions are logged out (WhatsApp-style).
+ * refresh token so other sessions are logged out (messenger-style).
  */
 @Service
 public class PasswordService {

@@ -41,7 +41,7 @@ function splitMentions(content: string, names: string[]): Part[] {
 }
 
 /**
- * Message text with @mentions highlighted (WhatsApp-style). A mention of ME —
+ * Message text with @mentions highlighted (messenger-style). A mention of ME —
  * by name, or via @All — is highlighted more strongly than a mention of someone
  * else, so it's obvious at a glance that a message wants my attention.
  */

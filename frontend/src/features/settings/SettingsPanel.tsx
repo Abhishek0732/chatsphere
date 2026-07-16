@@ -358,7 +358,7 @@ export function SettingsPanel() {
             <Feature icon={<Check className="h-4 w-4" />} title="You keep access" desc="Download your own anytime" />
           </div>
 
-          {/* Reciprocal privacy toggles, WhatsApp-style. */}
+          {/* Reciprocal privacy toggles, messenger-style. */}
           <div className="space-y-3 border-t border-white/10 pt-5">
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5">
               <div className="min-w-0 text-sm">

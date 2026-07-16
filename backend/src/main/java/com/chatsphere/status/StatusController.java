@@ -29,7 +29,7 @@ public class StatusController {
         return statusService.create(SecurityUtils.currentUserId(), req);
     }
 
-    /** Add a status I was @mentioned in to my own (WhatsApp's "Add to my status"). */
+    /** Add a status I was @mentioned in to my own (the "Add to my status" flow). */
     @PostMapping("/{id}/add")
     public StatusItemDto addToMyStatus(@PathVariable Long id) {
         return statusService.addToMyStatus(SecurityUtils.currentUserId(), id);

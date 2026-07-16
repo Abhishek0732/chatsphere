@@ -14,7 +14,7 @@ const LABEL: Record<Kind, string> = { image: 'Photo', video: 'Video', audio: 'Vo
 const ICON: Record<Kind, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic };
 
 /**
- * WhatsApp-style placeholder for an incoming media message: nothing is shown
+ * messenger-style placeholder for an incoming media message: nothing is shown
  * until the recipient taps download. Purely local — no network request is made
  * until the user actually reveals the media, so long media-heavy chats stay
  * instant to render.

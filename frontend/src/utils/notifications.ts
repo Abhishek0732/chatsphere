@@ -33,7 +33,7 @@ export async function requestNotificationPermission(): Promise<
   }
 }
 
-/** Per-conversation buffer so repeat messages accumulate (WhatsApp-style)
+/** Per-conversation buffer so repeat messages accumulate (messenger-style)
  *  into a single growing notification instead of replacing each other. */
 interface MessageBucket {
   title: string;
@@ -47,7 +47,7 @@ const MAX_LINES = 6;
  * Notify about an incoming chat message. Successive messages for the same
  * conversation are collapsed into ONE notification whose body lists them and
  * whose title carries a count (e.g. "Group name (3 messages)"), matching how
- * WhatsApp stacks unread messages.
+ * Modern messengers stack unread messages.
  */
 export function notifyMessage(opts: {
   conversationId: number;

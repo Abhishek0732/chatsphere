@@ -226,9 +226,18 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
           <p className="truncate text-sm font-semibold text-white">
             {user.me ? 'My status' : user.user.displayName}
           </p>
+          {/* Song shows right under the name — the way modern messengers surface it. */}
+          {item.musicUrl && item.musicTitle && (
+            <p className="flex items-center gap-1 truncate text-xs text-white/90">
+              <Music2 className="h-3 w-3 shrink-0 animate-pulse" />
+              <span className="truncate">
+                {item.musicTitle}
+                {item.musicArtist && <span className="text-white/60"> · {item.musicArtist}</span>}
+              </span>
+            </p>
+          )}
           <p className="text-xs text-white/60">{formatListTimestamp(item.createdAt)}</p>
         </div>
-        {item.musicUrl && <Music2 className="h-4 w-4 animate-pulse text-white/80" />}
         {user.me && (
           <button
             onClick={() => deleteStatus.mutate(item.id, { onSuccess: advance })}
@@ -295,15 +304,6 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
             </span>
           </div>
         )}
-        {item.musicUrl && item.musicTitle && (
-          <div className="mx-auto mb-3 flex max-w-[80%] items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur">
-            <Music2 className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-            <span className="truncate">
-              <span className="font-medium">{item.musicTitle}</span>
-              {item.musicArtist && <span className="text-white/70"> · {item.musicArtist}</span>}
-            </span>
-          </div>
-        )}
         {user.me ? (
           <button
             onClick={() => setShowViewers(true)}
@@ -314,7 +314,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
           </button>
         ) : (
           <div className="mx-auto w-full max-w-lg">
-            {/* Tagged in this status? Then you can put it on your own, like WhatsApp. */}
+            {/* Tagged in this status? Then you can put it on your own, like modern messengers. */}
             {item.canAdd && !added.has(item.id) && (
               <button
                 onClick={() =>
@@ -329,7 +329,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
                 {addToMine.isPending ? 'Adding…' : 'Add to my status'}
               </button>
             )}
-            {/* Quick emoji reactions (WhatsApp-style). */}
+            {/* Quick emoji reactions (messenger-style). */}
             <div className="mb-3 flex items-center justify-center gap-3">
               {REPLY_EMOJIS.map((e) => (
                 <button

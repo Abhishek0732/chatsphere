@@ -2,7 +2,7 @@ import type { ExportMessage } from '@/types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** One transcript line, WhatsApp-style: "[dd/mm/yyyy, hh:mm] Name: message". */
+/** One transcript line, messenger-style: "[dd/mm/yyyy, hh:mm] Name: message". */
 function formatLine(m: ExportMessage): string {
   const d = new Date(m.createdAt);
   const ts = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;

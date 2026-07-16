@@ -627,7 +627,7 @@ class SocketService {
     // Desktop notification when someone else messages us and the app isn't in
     // the foreground (backgrounded tab / another window). In-app toasts cover
     // the focused case, so we only fire the OS notification when hidden.
-    // Multiple messages accumulate into one WhatsApp-style stacked notification.
+    // Multiple messages accumulate into one messenger-style stacked notification.
     if (
       !isOwn &&
       typeof document !== 'undefined' &&

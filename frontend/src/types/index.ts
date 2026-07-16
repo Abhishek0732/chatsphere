@@ -86,7 +86,7 @@ export interface LinkPreview {
   url: string;
 }
 
-/** Quoted snapshot of a status a message answers (WhatsApp-style). */
+/** Quoted snapshot of a status a message answers (messenger-style). */
 export interface StatusRef {
   id: number;
   type: StatusType;
@@ -303,7 +303,7 @@ export interface ChatSendPayload {
   viewOnce?: boolean;
 }
 
-/** WhatsApp-style "Message info": who has seen one of my messages. */
+/** messenger-style "Message info": who has seen one of my messages. */
 export interface MessageInfo {
   readBy: User[];
   pending: User[];

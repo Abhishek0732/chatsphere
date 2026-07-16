@@ -102,7 +102,7 @@ public class StatusService {
     }
 
     /**
-     * Add someone else's status to my own — WhatsApp's "Add to my status", offered
+     * Add someone else's status to my own — the "Add to my status" flow, offered
      * to a person who was @mentioned in it.
      *
      * The copy is a normal status row that remembers where it came from, so it is
@@ -246,7 +246,7 @@ public class StatusService {
                 .forEach(c -> visible.add(c.getContactUserId()));
         visible.addAll(memberRepository.findConnectedUserIds(me));
         // A block hides statuses both ways: I don't see people I've blocked, and
-        // people who've blocked me don't see mine (WhatsApp-style).
+        // people who've blocked me don't see mine (messenger-style).
         visible.removeAll(blockService.blockRelatedUserIds(me));
         visible.add(me);
 
@@ -346,7 +346,7 @@ public class StatusService {
     /**
      * Reply or react to a status. Delivered as a normal chat message in the 1:1
      * conversation with the status owner, carrying a snapshot of the status so
-     * the recipient sees what it answers (WhatsApp-style).
+     * the recipient sees what it answers (messenger-style).
      */
     @Transactional
     public void reply(Long me, Long statusId, StatusReplyRequest req) {

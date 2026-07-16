@@ -15,7 +15,7 @@ import type { Message } from '@/types';
 const MAX_TILES = 4;
 
 /**
- * A WhatsApp-style photo album: images sent together render as one grid bubble
+ * A messenger-style photo album: images sent together render as one grid bubble
  * (2 side-by-side, 3 as a hero + pair, 4+ as a 2×2 with a "+N" overlay on the
  * last tile) rather than one message per image. Tapping a tile opens it in the
  * viewer. Incoming media still respects the tap-to-reveal gate — as one unit.

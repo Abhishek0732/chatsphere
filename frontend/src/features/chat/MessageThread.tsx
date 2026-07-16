@@ -53,7 +53,7 @@ function sameDay(a: string, b: string): boolean {
 /** Max gap between images still considered "sent together" (one album). */
 const ALBUM_WINDOW_MS = 60_000;
 
-/** A plain photo eligible to join a WhatsApp-style album (no reply/reaction/status). */
+/** A plain photo eligible to join a messenger-style album (no reply/reaction/status). */
 function albumable(m: Message): boolean {
   return (
     m.type === 'IMAGE' &&
@@ -148,7 +148,7 @@ export function MessageThread({ conversationId }: { conversationId: number }) {
   const blocked = useIsBlocked(other?.id);
   const typers = useChatStore((s) => s.typing[conversationId] ?? NO_TYPERS);
   const otherTypers = typers.filter((t) => t.userId !== myId);
-  // Hide a blocked user's typing indicator from the blocker (WhatsApp-style).
+  // Hide a blocked user's typing indicator from the blocker (messenger-style).
   const someoneTyping = otherTypers.length > 0 && !blocked;
   const pinnedMessages = useMemo(
     () => visibleMessages.filter((m) => m.pinned && !m.deleted),

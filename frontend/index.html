@@ -25,7 +25,9 @@
             s.accent === 'violet' ||
             s.accent === 'blurple' ||
             s.accent === 'indigo';
-          var acc = s.customAccent ? 'custom' : ver < 3 && oldDefault ? 'whatsapp' : s.accent || 'whatsapp';
+          var known = ['sky','indigo','blurple','emerald','blue','violet','rose','amber','graphite'];
+          var accent = known.indexOf(s.accent) >= 0 ? s.accent : 'sky';
+          var acc = s.customAccent ? 'custom' : ver < 3 && oldDefault ? 'sky' : accent;
           el.setAttribute('data-accent', acc);
           el.setAttribute('data-wallpaper', s.customWallpaper ? 'custom' : s.wallpaper || 'doodle');
           el.setAttribute('data-bg', ver < 3 && oldDefault ? 'minimal' : s.background || 'minimal');

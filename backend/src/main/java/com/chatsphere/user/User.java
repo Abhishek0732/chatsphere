@@ -43,7 +43,7 @@ public class User {
     private boolean protectAvatar = false;
 
     /**
-     * WhatsApp-style reciprocal read receipts. When false, this user does not send
+     * messenger-style reciprocal read receipts. When false, this user does not send
      * read receipts and does not see anyone else's (enforced for DIRECT chats;
      * group read receipts are always on). Defaults true.
      */
