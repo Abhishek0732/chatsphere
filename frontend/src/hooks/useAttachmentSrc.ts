@@ -4,7 +4,19 @@ import { useE2eeStore } from '@/store/e2eeStore';
 import { useAuthStore } from '@/store/authStore';
 import { directPeerId } from '@/utils/conversation';
 import { mediaSrc } from '@/utils/media';
-import type { Message } from '@/types';
+
+/**
+ * The minimal shape needed to render (and, if sealed, decrypt) an attachment.
+ * Both a full `Message` and a shared-media `MediaItem` satisfy it, so the same
+ * decrypt path serves the thread and the media grid.
+ */
+export interface DecryptableAttachment {
+  id: number;
+  conversationId: number;
+  attachmentUrl?: string;
+  attachmentMime?: string;
+  encrypted?: boolean;
+}
 
 /**
  * The URL to actually render for a message's attachment.
@@ -19,7 +31,7 @@ import type { Message } from '@/types';
  * loading: false }` if it cannot be read — the caller shows a placeholder rather
  * than a broken image.
  */
-export function useAttachmentSrc(message: Message): { src: string | null; loading: boolean } {
+export function useAttachmentSrc(message: DecryptableAttachment): { src: string | null; loading: boolean } {
   const myId = useAuthStore((s) => s.user?.id);
   const ready = useE2eeStore((s) => s.ready);
   const url = message.attachmentUrl;
@@ -75,7 +87,7 @@ export function useAttachmentSrc(message: Message): { src: string | null; loadin
  * through. Anything that cannot be read maps to null and the caller shows a
  * placeholder — never a broken image.
  */
-export function useAttachmentSrcs(messages: Message[]): Record<number, string | null> {
+export function useAttachmentSrcs(messages: DecryptableAttachment[]): Record<number, string | null> {
   const myId = useAuthStore((s) => s.user?.id);
   const ready = useE2eeStore((s) => s.ready);
   const [srcs, setSrcs] = useState<Record<number, string | null>>({});

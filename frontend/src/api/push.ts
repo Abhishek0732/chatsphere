@@ -24,3 +24,14 @@ export async function subscribePush(payload: PushSubscriptionPayload): Promise<v
 export async function unsubscribePush(endpoint: string): Promise<void> {
   await api.post('/push/unsubscribe', { endpoint, p256dh: '', auth: '' });
 }
+
+export interface PushTestResult {
+  enabled: boolean;
+  devices: number;
+}
+
+/** Fire a test notification to this user's own registered devices. */
+export async function testPush(): Promise<PushTestResult> {
+  const { data } = await api.post<PushTestResult>('/push/test');
+  return data;
+}

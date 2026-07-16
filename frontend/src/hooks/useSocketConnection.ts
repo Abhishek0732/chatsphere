@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { queryClient } from '@/services/queryClient';
 import { toast } from '@/store/toastStore';
 import { NAVIGATE_EVENT, requestNotificationPermission } from '@/utils/notifications';
+import { syncPushOnLogin } from '@/services/push';
 
 /**
  * Owns the WebSocket lifecycle for the authenticated app shell:
@@ -21,8 +22,14 @@ export function useSocketConnection() {
     if (!accessToken) return;
     socketService.connect();
 
-    // Ask for desktop-notification permission once we're signed in.
-    void requestNotificationPermission();
+    // Ask for desktop-notification permission once we're signed in — and, the
+    // moment it's granted, register this browser for Web Push so a CLOSED app
+    // still gets notified. (Without this, permission is granted but no push
+    // subscription is ever created in the same session, so closed-app
+    // notifications silently never arrive until the next reload.)
+    void requestNotificationPermission().then((perm) => {
+      if (perm === 'granted') void syncPushOnLogin();
+    });
 
     // Clicking an OS notification asks the app to open a chat; navigate in-SPA.
     const onNavigate = (e: Event) => {

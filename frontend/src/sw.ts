@@ -29,6 +29,9 @@ interface PushPayload {
   title?: string;
   body?: string;
   url?: string;
+  // A "does this work?" push from Settings — shown even if a tab is focused, so
+  // the click gives immediate feedback.
+  test?: boolean;
 }
 
 self.addEventListener('push', (event: PushEvent) => {
@@ -50,7 +53,7 @@ self.addEventListener('push', (event: PushEvent) => {
       // itself is handling notifications over the socket.
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       const focused = clients.some((c) => 'focused' in c && (c as WindowClient).focused);
-      if (focused) return;
+      if (focused && !data.test) return;
 
       await self.registration.showNotification(title, {
         body,

@@ -34,6 +34,7 @@ import { useUpdateProfile } from '@/hooks/useProfile';
 import { Avatar } from '@/components/ui/Avatar';
 import { toast } from '@/store/toastStore';
 import { disablePush, enablePush, pushState, type PushState } from '@/services/push';
+import { testPush } from '@/api/push';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -130,6 +131,24 @@ export function SettingsPanel() {
   };
 
   const enableNotifications = async () => setNotifPerm(await requestNotificationPermission());
+
+  // Fire a test push to this browser so the user can confirm OS notifications
+  // actually arrive (the SW shows a test even when the tab is focused).
+  const sendTest = async () => {
+    const res = await testPush().catch(() => null);
+    if (!res) return toast({ title: 'Could not send a test notification', variant: 'error' });
+    if (!res.enabled) {
+      toast({ title: 'Push is switched off on the server', variant: 'error' });
+    } else if (res.devices === 0) {
+      toast({ title: 'No device registered yet — turn notifications on first', variant: 'error' });
+    } else {
+      toast({
+        title: `Test sent to ${res.devices} device${res.devices > 1 ? 's' : ''}`,
+        description: 'It should pop up in a moment — even over other windows.',
+        variant: 'success',
+      });
+    }
+  };
   const protectAvatar = !!user?.protectAvatar;
   const toggleProtect = () => updateProfile.mutate({ protectAvatar: !protectAvatar });
   // Reciprocal privacy toggles (default ON): turning either off also hides the
@@ -449,11 +468,18 @@ export function SettingsPanel() {
                       : 'Off — you will only be notified while the app is open'}
               </span>
             </div>
-            {(push === 'on' || push === 'off') && (
-              <Button size="sm" variant="secondary" onClick={togglePush} disabled={pushBusy}>
-                {pushBusy ? '…' : push === 'on' ? 'Turn off' : 'Turn on'}
-              </Button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {push === 'on' && (
+                <Button size="sm" variant="ghost" onClick={sendTest}>
+                  Test
+                </Button>
+              )}
+              {(push === 'on' || push === 'off') && (
+                <Button size="sm" variant="secondary" onClick={togglePush} disabled={pushBusy}>
+                  {pushBusy ? '…' : push === 'on' ? 'Turn off' : 'Turn on'}
+                </Button>
+              )}
+            </div>
           </div>
           {/* Fallback: the browser supports notifications but not Web Push (or the
               server has no VAPID keys) — at least offer in-app alerts. */}

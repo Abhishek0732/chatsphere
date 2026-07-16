@@ -122,6 +122,35 @@ public class PushService {
         }
     }
 
+    /**
+     * Fire a single "does this actually work?" push to the calling user's OWN
+     * devices, regardless of whether they are online. Backs the Settings "Send
+     * test notification" button so the whole chain (subscription → VAPID → the
+     * browser's push service → service worker) can be verified in one click.
+     * The {@code test} flag tells the service worker to show it even if a tab is
+     * focused, so the click gives immediate feedback.
+     */
+    @Async
+    @Transactional
+    public void pushTest(Long userId) {
+        if (!isEnabled() || userId == null) return;
+        List<PushSubscription> subs = repository.findByUserIdIn(List.of(userId));
+        if (subs.isEmpty()) return;
+        String payload;
+        try {
+            Map<String, Object> body = new java.util.HashMap<>();
+            body.put("title", "ChatSphere");
+            body.put("body", "Test notification ✓ — push is working");
+            body.put("url", "/");
+            body.put("test", true);
+            payload = mapper.writeValueAsString(body);
+        } catch (Exception e) {
+            log.warn("Could not serialise test push: {}", e.getMessage());
+            return;
+        }
+        for (PushSubscription sub : subs) send(sub, payload);
+    }
+
     private void send(PushSubscription sub, String payload) {
         try {
             Notification notification = new Notification(

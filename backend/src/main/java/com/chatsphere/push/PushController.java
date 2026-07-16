@@ -34,6 +34,19 @@ public class PushController {
         return Map.of("enabled", pushService.isEnabled(), "publicKey", pushService.publicKey());
     }
 
+    /**
+     * Send a test notification to the caller's own devices so they can confirm
+     * OS notifications actually arrive when the app isn't focused. Returns how
+     * many devices are registered — 0 means "turn notifications on first".
+     */
+    @PostMapping("/test")
+    public Map<String, Object> test() {
+        Long me = SecurityUtils.currentUserId();
+        int devices = repository.findByUserIdIn(java.util.List.of(me)).size();
+        if (devices > 0) pushService.pushTest(me);
+        return Map.of("enabled", pushService.isEnabled(), "devices", devices);
+    }
+
     public record SubscribeRequest(String endpoint, String p256dh, String auth) {}
 
     /**

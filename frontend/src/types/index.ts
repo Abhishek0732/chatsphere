@@ -418,6 +418,11 @@ export interface MediaItem {
   attachmentUrl?: string;
   content?: string;
   createdAt: string;
+  // Present so an encrypted chat's shared-media grid can decrypt each item
+  // (conversationId → the peer whose key decrypts it) instead of showing ciphertext.
+  encrypted?: boolean;
+  conversationId: number;
+  attachmentMime?: string;
 }
 
 /** One line of an exported chat transcript (GET /conversations/{id}/export). */

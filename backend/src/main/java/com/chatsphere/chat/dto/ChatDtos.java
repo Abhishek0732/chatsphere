@@ -123,7 +123,9 @@ public final class ChatDtos {
     /** messenger-style "Message info": who has seen one of my messages, and who hasn't. */
     public record MessageInfoDto(List<UserDto> readBy, List<UserDto> pending) {}
 
-    /** A shared media/attachment item for the contact info panel. */
+    /** A shared media/attachment item for the contact info panel.
+     *  `encrypted` + `conversationId` let the client decrypt an attachment in an
+     *  end-to-end chat — without them the grid would render ciphertext as an image. */
     public record MediaItemDto(Long id, String type, String attachmentUrl, String content,
-                               java.time.Instant createdAt) {}
+                               java.time.Instant createdAt, boolean encrypted, Long conversationId) {}
 }

@@ -729,7 +729,7 @@ public class ChatService {
         };
         return rows.stream()
                 .map(m -> new MediaItemDto(m.getId(), m.getType().name(), m.getAttachmentUrl(),
-                        m.getContent(), m.getCreatedAt()))
+                        m.getContent(), m.getCreatedAt(), m.isEncrypted(), m.getConversationId()))
                 .toList();
     }
 
