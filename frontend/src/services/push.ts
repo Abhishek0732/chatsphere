@@ -14,11 +14,34 @@ import { getPushKey, subscribePush, unsubscribePush } from '@/api/push';
 
 export type PushState = 'unsupported' | 'denied' | 'off' | 'on';
 
+/** The state plus, when it isn't 'on', a human explanation of why. */
+export interface PushResult {
+  state: PushState;
+  reason?: string;
+}
+
 const supported = () =>
   typeof window !== 'undefined' &&
   'serviceWorker' in navigator &&
   'PushManager' in window &&
   'Notification' in window;
+
+const isIos = () =>
+  typeof navigator !== 'undefined' &&
+  (/iP(hone|ad|od)/.test(navigator.userAgent) ||
+    // iPadOS 13+ reports as a Mac; the touch points give it away.
+    (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1));
+
+/** Why background notifications aren't available at all in this context. */
+function unsupportedReason(): string {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return 'Notifications need a secure (https) connection. Open the app’s https address instead of http.';
+  }
+  if (isIos()) {
+    return 'On iPhone/iPad, add ChatSphere to your Home Screen and open it from there — Safari tabs can’t show background notifications.';
+  }
+  return 'This browser doesn’t support background notifications.';
+}
 
 /** The VAPID key arrives base64url-encoded; the browser wants raw bytes. */
 function urlBase64ToUint8Array(base64: string): Uint8Array {
@@ -50,31 +73,42 @@ export async function pushState(): Promise<PushState> {
  * Ask for permission (if needed) and register this browser with the server.
  * Returns the resulting state — callers use it to show why nothing happened.
  */
-export async function enablePush(): Promise<PushState> {
-  if (!supported()) return 'unsupported';
+export async function enablePush(): Promise<PushResult> {
+  if (!supported()) return { state: 'unsupported', reason: unsupportedReason() };
 
   const key = await getPushKey().catch(() => null);
-  if (!key?.enabled || !key.publicKey) return 'off'; // server has no VAPID keys
+  if (!key?.enabled || !key.publicKey) {
+    return { state: 'off', reason: 'Notifications aren’t set up on the server yet.' };
+  }
 
   const permission =
     Notification.permission === 'granted'
       ? 'granted'
       : await Notification.requestPermission();
-  if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'off';
+  if (permission === 'denied') return { state: 'denied' };
+  if (permission !== 'granted') {
+    return { state: 'off', reason: 'The permission prompt was dismissed — tap Turn on and choose Allow.' };
+  }
 
-  const reg = await navigator.serviceWorker.ready;
-  // Re-use the existing subscription if the browser already has one: creating a
-  // second one would leave a dead endpoint the server keeps pushing to.
-  const existing = await reg.pushManager.getSubscription();
-  const sub =
-    existing ??
-    (await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(key.publicKey),
-    }));
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    // Re-use the existing subscription if the browser already has one: creating a
+    // second one would leave a dead endpoint the server keeps pushing to.
+    const existing = await reg.pushManager.getSubscription();
+    const sub =
+      existing ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(key.publicKey),
+      }));
 
-  await subscribePush(toPayload(sub));
-  return 'on';
+    await subscribePush(toPayload(sub));
+    return { state: 'on' };
+  } catch {
+    // subscribe() or the server round-trip failed — report it rather than
+    // leaving the toggle looking like it just didn't respond.
+    return { state: 'off', reason: 'Couldn’t register this device for notifications. Please try again.' };
+  }
 }
 
 /** Turn push off for this browser (and stop the server pushing to a dead endpoint). */

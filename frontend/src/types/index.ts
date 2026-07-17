@@ -102,10 +102,18 @@ export interface MessageReaction {
 
 export type StatusType = 'IMAGE' | 'VIDEO' | 'TEXT';
 
+/** One photo/video within a status (a status can hold several — an album). */
+export interface StatusMedia {
+  url: string;
+  type: 'IMAGE' | 'VIDEO';
+}
+
 export interface StatusItem {
   id: number;
   type: StatusType;
   mediaUrl?: string | null;
+  /** The full album — 1+ items for a media status, empty for text. */
+  media?: StatusMedia[];
   caption?: string | null;
   bgColor?: string | null;
   musicUrl?: string | null;
@@ -138,6 +146,8 @@ export interface StatusViewer {
 export interface CreateStatusPayload {
   type: StatusType;
   mediaUrl?: string;
+  /** Several photos/videos posted together as one status frame. */
+  media?: StatusMedia[];
   caption?: string;
   bgColor?: string;
   musicUrl?: string;
@@ -166,6 +176,12 @@ export interface ReplyPreview {
   senderName: string;
   content: string | null;
   type: MessageType;
+  /**
+   * The quoted message is E2E-encrypted, so `content` arrives as ciphertext from
+   * the server and must be decrypted on this device before it's shown. (Set only
+   * on server-built previews; a locally-captured reply already holds plaintext.)
+   */
+  encrypted?: boolean;
 }
 
 export type ConversationType = 'DIRECT' | 'GROUP';

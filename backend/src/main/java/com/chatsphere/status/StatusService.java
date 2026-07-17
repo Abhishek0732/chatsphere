@@ -15,6 +15,8 @@ import com.chatsphere.status.dto.StatusDtos.*;
 import com.chatsphere.user.User;
 import com.chatsphere.user.UserRepository;
 import com.chatsphere.user.dto.UserDto;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class StatusService {
     private final ChatEventPublisher chatEventPublisher;
     private final StatusPrivacyRepository privacyRepository;
     private final StatusPrivacyUserRepository privacyUserRepository;
+    private final ObjectMapper objectMapper;
 
     public StatusService(StatusRepository statusRepository,
                          StatusViewRepository viewRepository,
@@ -50,7 +53,8 @@ public class StatusService {
                          NotificationService notificationService,
                          ChatEventPublisher chatEventPublisher,
                          StatusPrivacyRepository privacyRepository,
-                         StatusPrivacyUserRepository privacyUserRepository) {
+                         StatusPrivacyUserRepository privacyUserRepository,
+                         ObjectMapper objectMapper) {
         this.statusRepository = statusRepository;
         this.viewRepository = viewRepository;
         this.contactRepository = contactRepository;
@@ -63,6 +67,7 @@ public class StatusService {
         this.chatEventPublisher = chatEventPublisher;
         this.privacyRepository = privacyRepository;
         this.privacyUserRepository = privacyUserRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -73,7 +78,11 @@ public class StatusService {
         } catch (Exception e) {
             throw ApiException.badRequest("Invalid status type");
         }
-        if (type != Status.Type.TEXT && isBlank(req.mediaUrl())) {
+        // Several photos/videos picked at once form one album; a single pick (or an
+        // older client) just sends mediaUrl. The first album item is the primary.
+        List<StatusMediaDto> album = normalizeAlbum(req.media());
+        String primaryUrl = album.isEmpty() ? blankToNull(req.mediaUrl()) : album.get(0).url();
+        if (type != Status.Type.TEXT && primaryUrl == null) {
             throw ApiException.badRequest("Media is required");
         }
         if (type == Status.Type.TEXT && isBlank(req.caption())) {
@@ -82,7 +91,9 @@ public class StatusService {
         Status s = new Status();
         s.setUserId(userId);
         s.setType(type);
-        s.setMediaUrl(blankToNull(req.mediaUrl()));
+        s.setMediaUrl(primaryUrl);
+        // Only a real album (2+) needs the JSON; one item lives in mediaUrl alone.
+        s.setMediaJson(album.size() >= 2 ? writeAlbum(album) : null);
         s.setCaption(blankToNull(req.caption()));
         s.setBgColor(blankToNull(req.bgColor()));
         String musicUrl = blankToNull(req.musicUrl());
@@ -146,6 +157,7 @@ public class StatusService {
         copy.setUserId(me);
         copy.setType(src.getType());
         copy.setMediaUrl(src.getMediaUrl());
+        copy.setMediaJson(src.getMediaJson()); // carry the whole album, if any
         copy.setCaption(src.getCaption());
         copy.setBgColor(src.getBgColor());
         copy.setMusicUrl(src.getMusicUrl());
@@ -509,10 +521,56 @@ public class StatusService {
                 .map(UserDto::from)
                 .toList();
         User origin = s.getOriginalUserId() == null ? null : related.get(s.getOriginalUserId());
-        return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), s.getCaption(),
-                s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
+        return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), readAlbum(s),
+                s.getCaption(), s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
                 s.getMusicDurationMs(), s.getCreatedAt(), viewed, count, mentions,
                 origin == null ? null : UserDto.from(origin), canAdd);
+    }
+
+    /** Bound the album so one status can't carry an unbounded media list. */
+    private static final int MAX_ALBUM = 20;
+
+    /** Keep the well-formed items, normalise each type to IMAGE/VIDEO, cap the size. */
+    private List<StatusMediaDto> normalizeAlbum(List<StatusMediaDto> media) {
+        if (media == null || media.isEmpty()) return List.of();
+        List<StatusMediaDto> out = new ArrayList<>();
+        for (StatusMediaDto m : media) {
+            if (m == null || isBlank(m.url())) continue;
+            String type = "VIDEO".equalsIgnoreCase(m.type()) ? "VIDEO" : "IMAGE";
+            out.add(new StatusMediaDto(m.url().trim(), type));
+            if (out.size() >= MAX_ALBUM) break;
+        }
+        return out;
+    }
+
+    private String writeAlbum(List<StatusMediaDto> album) {
+        try {
+            return objectMapper.writeValueAsString(album);
+        } catch (Exception e) {
+            return null; // fall back to the single mediaUrl rather than fail the post
+        }
+    }
+
+    /**
+     * The status's media as a list — always at least one item for a media status.
+     * Reads the stored album JSON when present, otherwise synthesises a one-item
+     * list from mediaUrl. TEXT statuses have no media (empty list).
+     */
+    private List<StatusMediaDto> readAlbum(Status s) {
+        String json = s.getMediaJson();
+        if (json != null && !json.isBlank()) {
+            try {
+                List<StatusMediaDto> list =
+                        objectMapper.readValue(json, new TypeReference<List<StatusMediaDto>>() {});
+                if (list != null && !list.isEmpty()) return list;
+            } catch (Exception ignored) {
+                // corrupt JSON — fall through to the single-URL view
+            }
+        }
+        if (s.getMediaUrl() != null) {
+            return List.of(new StatusMediaDto(s.getMediaUrl(), s.getType().name()));
+        }
+        return List.of();
     }
 
     private static boolean isBlank(String s) {

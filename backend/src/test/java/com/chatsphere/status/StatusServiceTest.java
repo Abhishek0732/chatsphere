@@ -78,7 +78,8 @@ class StatusServiceTest {
     void setUp() {
         service = new StatusService(statusRepository, viewRepository, contactRepository,
                 memberRepository, userRepository, blockService, chatService, chatBroadcaster,
-                notificationService, chatEventPublisher, privacyRepository, privacyUserRepository);
+                notificationService, chatEventPublisher, privacyRepository, privacyUserRepository,
+                new com.fasterxml.jackson.databind.ObjectMapper());
 
         universe.clear();
         for (long id = 1; id <= 5; id++) universe.add(user(id, "user" + id));
@@ -153,7 +154,7 @@ class StatusServiceTest {
     class EncodeMentions {
 
         private CreateStatusRequest text(List<Long> mentions) {
-            return new CreateStatusRequest("TEXT", null, "hi @you", null,
+            return new CreateStatusRequest("TEXT", null, null, "hi @you", null,
                     null, null, null, null, mentions);
         }
 

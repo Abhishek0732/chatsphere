@@ -10,9 +10,18 @@ public final class StatusDtos {
 
     private StatusDtos() {}
 
+    /** One photo/video within a status. `type` is IMAGE or VIDEO. */
+    public record StatusMediaDto(String url, String type) {}
+
     public record CreateStatusRequest(
             @NotBlank String type,
             String mediaUrl,
+            /**
+             * Several photos/videos picked at once, shown together in one status
+             * frame. When present (2+ items) this wins; `mediaUrl` still carries the
+             * first item for older single-media consumers.
+             */
+            List<StatusMediaDto> media,
             String caption,
             String bgColor,
             String musicUrl,
@@ -32,6 +41,8 @@ public final class StatusDtos {
             Long id,
             String type,
             String mediaUrl,
+            /** The full album (1+ items). A single-media status has exactly one. */
+            List<StatusMediaDto> media,
             String caption,
             String bgColor,
             String musicUrl,

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { mediaSrc } from '@/utils/media';
 import { useAuthStore } from '@/store/authStore';
 import { StatusText } from './StatusText';
+import { StatusCollage } from './StatusCollage';
 import type { MusicSelection } from './musicLibrary';
 
 /** Must match StatusViewer, or the preview would lie about the timing. */
@@ -15,6 +16,8 @@ const MUSIC_CAP_MS = 30000;
 export interface StatusDraft {
   type: 'IMAGE' | 'VIDEO' | 'TEXT';
   mediaUrl?: string;
+  /** Album items when several were picked at once (1+). Empty/absent for text. */
+  media?: { url: string; type: 'IMAGE' | 'VIDEO' }[];
   caption?: string;
   bgColor?: string;
   music: MusicSelection | null;
@@ -45,6 +48,16 @@ export function StatusPreview({
   const [replayKey, setReplayKey] = useState(0);
   const [done, setDone] = useState(false);
 
+  // The album (several photos/videos in one frame) or the single media, as a list.
+  const album =
+    draft.media && draft.media.length > 0
+      ? draft.media
+      : draft.mediaUrl
+        ? [{ url: draft.mediaUrl, type: draft.type as 'IMAGE' | 'VIDEO' }]
+        : [];
+  // Multiple → a collage shown all at once (matches the viewer), not a carousel.
+  const isCollage = album.length > 1;
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef(0);
@@ -55,12 +68,14 @@ export function StatusPreview({
 
   const hasMusic = Boolean(draft.music);
 
-  // Drive the progress bar for photo/text; video reports its own progress.
+  // Drive the progress bar for photo/text/collage; a single video reports its own.
   useEffect(() => {
     setProgress(0);
     setDone(false);
     progressRef.current = 0;
-    if (draft.type === 'VIDEO') return;
+    if (!isCollage && draft.type === 'VIDEO') return;
+
+    const collageMs = Math.min(IMAGE_MS + (album.length - 1) * 1500, 20000);
 
     let raf = 0;
     let last: number | null = null;
@@ -68,11 +83,15 @@ export function StatusPreview({
       if (last == null) last = t;
       const dt = t - last;
       last = t;
-      const durationMs = hasMusic ? (musicDurRef.current ?? MUSIC_CAP_MS) : IMAGE_MS;
+      const durationMs = hasMusic
+        ? musicDurRef.current ?? MUSIC_CAP_MS
+        : isCollage
+          ? collageMs
+          : IMAGE_MS;
       progressRef.current += dt / durationMs;
       if (progressRef.current >= 1) {
         setProgress(1);
-        setDone(true); // hold on the last frame; the user replays if they want
+        setDone(true); // hold on the frame; the user replays if they want
         return;
       }
       setProgress(progressRef.current);
@@ -80,9 +99,11 @@ export function StatusPreview({
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.type, hasMusic, replayKey]);
 
   const replay = () => {
+    setDone(false);
     setReplayKey((k) => k + 1);
     const a = audioRef.current;
     if (a) {
@@ -118,14 +139,13 @@ export function StatusPreview({
         className="relative flex flex-1 items-center justify-center overflow-hidden"
         style={draft.type === 'TEXT' ? { backgroundImage: draft.bgColor } : undefined}
       >
-        {draft.type === 'IMAGE' && draft.mediaUrl && (
-          <img
-            src={mediaSrc(draft.mediaUrl)}
-            alt=""
-            className="max-h-full max-w-full object-contain"
-          />
-        )}
-        {draft.type === 'VIDEO' && draft.mediaUrl && (
+        {isCollage ? (
+          <div className="w-full px-3">
+            <StatusCollage media={album} />
+          </div>
+        ) : draft.type === 'IMAGE' && draft.mediaUrl ? (
+          <img src={mediaSrc(draft.mediaUrl)} alt="" className="max-h-full max-w-full object-contain" />
+        ) : draft.type === 'VIDEO' && draft.mediaUrl ? (
           <video
             key={`v-${replayKey}`}
             ref={videoRef}
@@ -139,12 +159,11 @@ export function StatusPreview({
             }}
             onEnded={() => setDone(true)}
           />
-        )}
-        {draft.type === 'TEXT' && (
+        ) : draft.type === 'TEXT' ? (
           <p className="max-w-lg px-8 text-center text-2xl font-semibold leading-snug text-white">
             <StatusText text={draft.caption ?? ''} names={draft.mentionNames ?? []} />
           </p>
-        )}
+        ) : null}
 
         {done && (
           <button

@@ -29,6 +29,15 @@ public class Status {
     @Column(name = "media_url", length = 512)
     private String mediaUrl;
 
+    /**
+     * A multi-photo/video status: the ordered album as JSON ([{ "url", "type" }, …]).
+     * NULL for a plain single-media or text status — in which case {@link #mediaUrl}
+     * alone describes the media. The first album item is mirrored into mediaUrl so
+     * everything that quotes a status (replies, reposts, previews) still has one URL.
+     */
+    @Column(name = "media_json", columnDefinition = "TEXT")
+    private String mediaJson;
+
     @Column(length = 700)
     private String caption;
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Eye, Image as ImageIcon, Music2, Type, Video, X } from 'lucide-react';
+import { Eye, Image as ImageIcon, Music2, Plus, Type, Video, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -32,7 +32,9 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const create = useCreateStatus();
   const { data: contacts } = useContacts();
   const [mode, setMode] = useState<'media' | 'text'>('media');
-  const [media, setMedia] = useState<Media | null>(null);
+  // A status can hold several photos/videos picked at once (one album frame);
+  // picking a single file is just an album of one.
+  const [media, setMedia] = useState<Media[]>([]);
   const [caption, setCaption] = useState('');
   const [text, setText] = useState('');
   const [bg, setBg] = useState(TEXT_BGS[0]);
@@ -50,7 +52,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const people = useMemo(() => (contacts ?? []).map((c) => c.user), [contacts]);
 
   const reset = () => {
-    setMedia(null);
+    setMedia([]);
     setCaption('');
     setText('');
     setMusic(null);
@@ -64,21 +66,47 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     onClose();
   };
 
-  const pickMedia = async (file?: File) => {
-    if (!file) return;
-    const err = uploadSizeError(file);
-    if (err) return toast({ title: err, variant: 'error' });
+  /** How many photos/videos one status frame may hold — matches the server cap. */
+  const MAX_MEDIA = 20;
+
+  const pickMedia = async (files?: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const room = MAX_MEDIA - media.length;
+    if (room <= 0) {
+      toast({ title: `Up to ${MAX_MEDIA} items per status`, variant: 'error' });
+      if (mediaInput.current) mediaInput.current.value = '';
+      return;
+    }
+    const chosen = Array.from(files).slice(0, room);
     setUploading(true);
     try {
-      const res = await uploadMedia(file);
-      setMedia({ url: res.url, type: res.contentType.startsWith('video/') ? 'VIDEO' : 'IMAGE' });
-    } catch {
-      toast({ title: 'Upload failed', variant: 'error' });
+      // Upload in order so the album keeps the order they were picked in.
+      for (const file of chosen) {
+        const err = uploadSizeError(file);
+        if (err) {
+          toast({ title: `${file.name}: ${err}`, variant: 'error' });
+          continue;
+        }
+        try {
+          const res = await uploadMedia(file);
+          setMedia((prev) => [
+            ...prev,
+            { url: res.url, type: res.contentType.startsWith('video/') ? 'VIDEO' : 'IMAGE' },
+          ]);
+        } catch {
+          toast({ title: `${file.name}: upload failed`, variant: 'error' });
+        }
+      }
+      if (files.length > room) {
+        toast({ title: `Added ${room}; a status holds up to ${MAX_MEDIA}`, variant: 'info' });
+      }
     } finally {
       setUploading(false);
       if (mediaInput.current) mediaInput.current.value = '';
     }
   };
+
+  const removeMedia = (idx: number) => setMedia((prev) => prev.filter((_, i) => i !== idx));
 
   const musicFields = music
     ? {
@@ -97,10 +125,13 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     const payload =
       mode === 'text'
         ? { type: 'TEXT' as const, caption: body, bgColor: bg, mentions, ...musicFields }
-        : media
+        : media.length > 0
           ? {
-              type: media.type,
-              mediaUrl: media.url,
+              // The status's own type mirrors the first item; each album item
+              // carries its own type in `media` so a mixed set renders right.
+              type: media[0].type,
+              mediaUrl: media[0].url,
+              media,
               caption: body || undefined,
               mentions,
               ...musicFields,
@@ -111,7 +142,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     create.mutate(payload, { onSuccess: close });
   };
 
-  const canPost = mode === 'text' ? text.trim().length > 0 : !!media;
+  const canPost = mode === 'text' ? text.trim().length > 0 : media.length > 0;
 
   // What the preview renders — the same values that get posted.
   const body = mode === 'text' ? text.trim() : caption.trim();
@@ -122,8 +153,9 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     mode === 'text'
       ? { type: 'TEXT', caption: body, bgColor: bg, music, mentionNames }
       : {
-          type: media?.type ?? 'IMAGE',
-          mediaUrl: media?.url,
+          type: media[0]?.type ?? 'IMAGE',
+          mediaUrl: media[0]?.url,
+          media,
           caption: body || undefined,
           music,
           mentionNames,
@@ -156,25 +188,64 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
           ref={mediaInput}
           type="file"
           accept="image/*,video/*"
+          multiple
           className="hidden"
-          onChange={(e) => pickMedia(e.target.files?.[0])}
+          onChange={(e) => pickMedia(e.target.files)}
         />
 
         {mode === 'media' ? (
-          media ? (
-            <div className="relative overflow-hidden rounded-2xl bg-black">
-              {media.type === 'IMAGE' ? (
-                <img src={mediaSrc(media.url)} alt="" className="max-h-72 w-full object-contain" />
-              ) : (
-                <video src={mediaSrc(media.url)} controls className="max-h-72 w-full" />
-              )}
-              <button
-                onClick={() => setMedia(null)}
-                className="absolute right-2 top-2 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70"
-                aria-label="Remove"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          media.length > 0 ? (
+            <div>
+              {/* Selected photos/videos — this whole set posts as one status frame. */}
+              <div className="grid grid-cols-3 gap-2">
+                {media.map((m, i) => (
+                  <div
+                    key={`${m.url}-${i}`}
+                    className="group relative aspect-square overflow-hidden rounded-xl bg-black"
+                  >
+                    {m.type === 'IMAGE' ? (
+                      <img src={mediaSrc(m.url)} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <video src={mediaSrc(m.url)} muted className="h-full w-full object-cover" />
+                    )}
+                    <span className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-[10px] font-semibold text-white">
+                      {i + 1}
+                    </span>
+                    {m.type === 'VIDEO' && (
+                      <Video className="absolute bottom-1 right-1 h-4 w-4 text-white drop-shadow" />
+                    )}
+                    <button
+                      onClick={() => removeMedia(i)}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                      aria-label="Remove"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {/* Add-more tile. */}
+                {media.length < MAX_MEDIA && (
+                  <button
+                    onClick={() => mediaInput.current?.click()}
+                    disabled={uploading}
+                    className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-brand-500 hover:text-brand-500 disabled:opacity-50 dark:border-slate-600"
+                  >
+                    {uploading ? (
+                      <Spinner className="h-5 w-5" />
+                    ) : (
+                      <>
+                        <Plus className="h-6 w-6" />
+                        <span className="text-[11px] font-medium">Add more</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                {media.length === 1
+                  ? '1 item · will post as a single status'
+                  : `${media.length} items · will post as one status frame`}
+              </p>
             </div>
           ) : (
             <button
@@ -190,7 +261,8 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
                     <ImageIcon className="h-7 w-7" />
                     <Video className="h-7 w-7" />
                   </div>
-                  <span className="text-sm font-medium">Choose a photo or video</span>
+                  <span className="text-sm font-medium">Choose photos or videos</span>
+                  <span className="text-xs text-slate-400">Pick several to post them in one frame</span>
                 </>
               )}
             </button>
@@ -230,7 +302,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
         )}
 
         {/* Caption (media only) */}
-        {mode === 'media' && media && (
+        {mode === 'media' && media.length > 0 && (
           <MentionField
             value={caption}
             onChange={setCaption}

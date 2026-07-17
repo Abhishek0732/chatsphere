@@ -817,7 +817,8 @@ public class ChatService {
         String name = senders.containsKey(target.getSenderId())
                 ? senders.get(target.getSenderId()).getDisplayName() : "Unknown";
         String preview = target.isDeleted() ? null : previewText(target);
-        return new ReplyPreview(target.getId(), name, preview, target.getType().name());
+        boolean enc = !target.isDeleted() && target.isEncrypted();
+        return new ReplyPreview(target.getId(), name, preview, target.getType().name(), enc);
     }
 
     /** Group a message's reactions into (emoji -> userIds). */
@@ -1024,11 +1025,18 @@ public class ChatService {
         String name = userRepository.findById(target.getSenderId())
                 .map(User::getDisplayName).orElse("Unknown");
         String preview = target.isDeleted() ? null : previewText(target);
+        boolean enc = !target.isDeleted() && target.isEncrypted();
         return new com.chatsphere.chat.dto.ChatDtos.ReplyPreview(
-                target.getId(), name, preview, target.getType().name());
+                target.getId(), name, preview, target.getType().name(), enc);
     }
 
     private String previewText(Message m) {
+        // An E2E message is unreadable to the server, so we can't build a text
+        // preview here. Hand the ciphertext straight through (flagged via
+        // ReplyPreview.encrypted); the client decrypts it and builds the label.
+        if (m.isEncrypted()) {
+            return m.getContent();
+        }
         return switch (m.getType()) {
             case IMAGE -> "📷 Photo";
             case FILE -> "📎 " + (m.getContent() == null ? "Attachment" : m.getContent());

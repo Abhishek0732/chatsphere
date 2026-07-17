@@ -4,7 +4,7 @@ import { useDecryptedStore } from '@/store/decryptedStore';
 import { directPeerId } from '@/utils/conversation';
 import { useAuthStore } from '@/store/authStore';
 import { useE2eeStore } from '@/store/e2eeStore';
-import type { ConversationSummary, Message } from '@/types';
+import type { ConversationSummary, Message, MessageType, ReplyPreview } from '@/types';
 
 /** Shown when a message cannot be decrypted (a key we no longer have). */
 export const UNREADABLE = '🔒 Message can’t be read on this device';
@@ -33,14 +33,27 @@ export function useDecryptedMessages(messages: Message[], conversationId: number
 
   const peerId = conversationId != null && myId != null ? directPeerId(conversationId, myId) : null;
 
-  // Anything encrypted that we have not decrypted yet.
-  const pending = useMemo(
-    () =>
-      messages.filter(
-        (m) => m.encrypted && m.content && !(cacheKey(m) in byKey) && !m.deleted,
-      ),
-    [messages, byKey],
-  );
+  // Every ciphertext still awaiting decryption: a message's own body, plus the
+  // quoted body of any encrypted reply preview. A reply quotes a message in this
+  // same conversation, so its ciphertext decrypts under the same key — and it is
+  // cached under the ORIGINAL message's id, which is exactly `reply.id`. That both
+  // de-dupes it against the quoted message's own decryption and lets the quote
+  // resolve even when the original isn't currently loaded in the thread.
+  const pending = useMemo(() => {
+    const items: Array<{ key: string; ct: string }> = [];
+    const seen = new Set<string>();
+    const add = (key: string, ct: string | null | undefined) => {
+      if (!ct || seen.has(key) || key in byKey) return;
+      seen.add(key);
+      items.push({ key, ct });
+    };
+    for (const m of messages) {
+      if (m.deleted) continue;
+      if (m.encrypted) add(cacheKey(m), m.content);
+      if (m.replyTo?.encrypted) add(String(m.replyTo.id), m.replyTo.content);
+    }
+    return items;
+  }, [messages, byKey]);
 
   useEffect(() => {
     if (!ready || peerId == null || pending.length === 0) return;
@@ -48,9 +61,9 @@ export function useDecryptedMessages(messages: Message[], conversationId: number
 
     void (async () => {
       const results = await Promise.all(
-        pending.map(async (m): Promise<[string, string | null]> => {
-          const plain = await decryptFrom(peerId, m.content).catch(() => null);
-          return [cacheKey(m), plain];
+        pending.map(async ({ key, ct }): Promise<[string, string | null]> => {
+          const plain = await decryptFrom(peerId, ct).catch(() => null);
+          return [key, plain];
         }),
       );
       if (!cancelled) putMany(results);
@@ -64,10 +77,11 @@ export function useDecryptedMessages(messages: Message[], conversationId: number
   return useMemo(
     () =>
       messages.map((m) => {
-        if (!m.encrypted || m.deleted) return m;
+        const replyTo = decryptReply(m.replyTo, byKey);
+        if (!m.encrypted || m.deleted) return replyTo === m.replyTo ? m : { ...m, replyTo };
         const plain = byKey[cacheKey(m)];
-        if (plain === undefined) return { ...m, content: '' }; // still decrypting
-        if (plain === null) return { ...m, content: UNREADABLE };
+        if (plain === undefined) return { ...m, content: '', replyTo }; // still decrypting
+        if (plain === null) return { ...m, content: UNREADABLE, replyTo };
 
         // An attachment's body carries the caption plus the real filename and mime
         // type — none of which exist anywhere outside this ciphertext, because the
@@ -80,13 +94,44 @@ export function useDecryptedMessages(messages: Message[], conversationId: number
               content: meta.c ?? '',
               attachmentName: meta.n || m.attachmentName,
               attachmentMime: meta.m || m.attachmentMime,
+              replyTo,
             };
           }
         }
-        return { ...m, content: plain };
+        return { ...m, content: plain, replyTo };
       }),
     [messages, byKey],
   );
+}
+
+/**
+ * Resolve an encrypted reply preview to readable text. The server can't read the
+ * quoted message, so it hands us the ciphertext (flagged `encrypted`) exactly as it
+ * sits in storage; we decrypt it here and build the same one-line label the sender
+ * saw. A locally-captured reply (no `encrypted` flag) already holds plaintext and is
+ * returned untouched, so the `===` identity check upstream stays a no-op for it.
+ */
+function decryptReply(
+  reply: ReplyPreview | null | undefined,
+  byKey: Record<string, string | null>,
+): ReplyPreview | null | undefined {
+  if (!reply?.encrypted || !reply.content) return reply;
+  const plain = byKey[String(reply.id)];
+  const content =
+    plain === undefined ? '' : plain === null ? UNREADABLE : replyPreviewText(reply.type, plain);
+  return { ...reply, content, encrypted: false };
+}
+
+/** Build a reply quote's one line from decrypted plaintext, mirroring the sender's. */
+function replyPreviewText(type: MessageType, plain: string): string {
+  if (type === 'TEXT') return plain;
+  const meta = parseAttachmentBody(plain);
+  const caption = meta?.c?.trim();
+  if (type === 'IMAGE') return caption ? `📷 ${caption}` : '📷 Photo';
+  const mime = meta?.m ?? '';
+  if (mime.startsWith('audio/')) return caption ? `🎤 ${caption}` : '🎤 Voice message';
+  if (mime.startsWith('video/')) return caption ? `🎥 ${caption}` : '🎥 Video';
+  return `📎 ${meta?.n || 'Attachment'}`;
 }
 
 /** `{c: caption, n: name, m: mime}` — the sealed metadata of an encrypted attachment. */

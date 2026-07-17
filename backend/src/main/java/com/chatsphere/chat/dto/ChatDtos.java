@@ -49,7 +49,8 @@ public final class ChatDtos {
     public record ReactionDto(String emoji, List<Long> userIds) {}
 
     /** Lightweight snapshot of the message being replied to. */
-    public record ReplyPreview(Long id, String senderName, String content, String type) {}
+    public record ReplyPreview(Long id, String senderName, String content, String type,
+                               boolean encrypted) {}
 
     /** Snapshot of the status a message replies/reacts to (messenger-style quote). */
     public record StatusRef(Long id, String type, String mediaUrl, String caption, String bgColor) {}

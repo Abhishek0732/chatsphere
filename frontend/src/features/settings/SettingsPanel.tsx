@@ -119,12 +119,27 @@ export function SettingsPanel() {
   const togglePush = async () => {
     setPushBusy(true);
     try {
-      const next = push === 'on' ? await disablePush() : await enablePush();
-      setPush(next);
+      if (push === 'on') {
+        setPush(await disablePush());
+        return;
+      }
+      const { state, reason } = await enablePush();
+      setPush(state);
       setNotifPerm(notificationPermission());
-      if (next === 'on') toast({ title: 'Notifications on, even when closed', variant: 'success' });
-      else if (next === 'denied')
+      if (state === 'on') {
+        toast({ title: 'Notifications on, even when closed', variant: 'success' });
+      } else if (state === 'denied') {
         toast({ title: 'Blocked — enable notifications in your browser settings', variant: 'error' });
+      } else {
+        // 'off' or 'unsupported' — say WHY instead of silently flipping back.
+        toast({
+          title: 'Couldn’t turn on notifications',
+          description: reason ?? 'Please try again.',
+          variant: 'error',
+        });
+      }
+    } catch {
+      toast({ title: 'Couldn’t turn on notifications', description: 'Please try again.', variant: 'error' });
     } finally {
       setPushBusy(false);
     }

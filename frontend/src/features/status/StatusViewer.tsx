@@ -15,6 +15,7 @@ import {
   useStatusViewers,
 } from '@/hooks/useStatus';
 import { StatusText } from './StatusText';
+import { StatusCollage } from './StatusCollage';
 import type { StatusUser } from '@/types';
 
 const IMAGE_MS = 5000;
@@ -70,6 +71,16 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
 
   const user = users[userIndex];
   const item = user?.items[itemIndex];
+  // The frame's media as a list: the album if the server sent one, else the single
+  // mediaUrl. Empty for a text status.
+  const album = useMemo(() => {
+    if (!item) return [];
+    if (item.media && item.media.length > 0) return item.media;
+    return item.mediaUrl ? [{ url: item.mediaUrl, type: item.type as 'IMAGE' | 'VIDEO' }] : [];
+  }, [item]);
+  // Several photos/videos in one frame render as a collage (all at once), not a
+  // carousel — so the whole set is a single tap-through-able story frame.
+  const isCollage = album.length > 1;
   const mentionNames = useMemo(
     () => (item?.mentions ?? []).map((m) => m.displayName),
     [item?.mentions],
@@ -103,7 +114,15 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
     }
   };
 
-  // Drive progress for image/text; mark viewed on show.
+  // Mark the frame seen once, when it's first shown — not again per album slide.
+  useEffect(() => {
+    if (!item) return;
+    if (!user.me && !item.viewed) markViewed.mutate(item.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIndex, itemIndex]);
+
+  // Drive the progress bar for a photo/text/collage frame (a single video reports
+  // its own progress). A collage shows every photo at once, so it's one timed frame.
   useEffect(() => {
     if (!item) return;
     setProgress(0);
@@ -114,8 +133,11 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
       item.musicUrl && item.musicDurationMs
         ? Math.min(item.musicDurationMs, MUSIC_CAP_MS)
         : null;
-    if (!user.me && !item.viewed) markViewed.mutate(item.id);
-    if (item.type === 'VIDEO') return; // video drives its own progress
+    if (!isCollage && item.type === 'VIDEO') return; // the video drives its own progress
+
+    // A collage holds more to look at, so give it a little longer than a single
+    // photo — scaled by how many tiles it has, capped so it never drags.
+    const collageMs = Math.min(IMAGE_MS + (album.length - 1) * 1500, 20000);
 
     let raf = 0;
     let last: number | null = null;
@@ -128,9 +150,13 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
       if (last == null) last = t;
       const dt = t - last;
       last = t;
-      // Photo/text: 5s, unless it has music — then follow the song (≤30s).
-      // Before the song's length is known, assume the 30s cap.
-      const durationMs = item.musicUrl ? musicDurRef.current ?? MUSIC_CAP_MS : IMAGE_MS;
+      // With music, the song sets the timeline (≤30s); otherwise 5s for a single
+      // photo/text, or the scaled duration for a collage.
+      const durationMs = item.musicUrl
+        ? musicDurRef.current ?? MUSIC_CAP_MS
+        : isCollage
+          ? collageMs
+          : IMAGE_MS;
       progressRef.current += dt / durationMs;
       if (progressRef.current >= 1) {
         setProgress(1);
@@ -207,7 +233,8 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex flex-col bg-black">
-      {/* Progress segments */}
+      {/* Progress segments — one per status frame. A collage (multiple photos in
+          one frame) is a single frame, so it's still one segment. */}
       <div className="flex gap-1 px-3 pt-3">
         {user.items.map((it, i) => (
           <div key={it.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/25">
@@ -263,10 +290,14 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
         onPointerUp={onUp}
         style={item.type === 'TEXT' ? { backgroundImage: item.bgColor ?? undefined } : undefined}
       >
-        {item.type === 'IMAGE' && (
+        {/* Multiple photos/videos → a collage, all shown together in this frame. */}
+        {isCollage ? (
+          <div className="w-full px-3">
+            <StatusCollage media={album} />
+          </div>
+        ) : item.type === 'IMAGE' ? (
           <img src={mediaSrc(item.mediaUrl)} alt="" className="max-h-full max-w-full object-contain" />
-        )}
-        {item.type === 'VIDEO' && (
+        ) : item.type === 'VIDEO' ? (
           <video
             key={item.id}
             ref={videoRef}
@@ -280,8 +311,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
             }}
             onEnded={advance}
           />
-        )}
-        {item.type === 'TEXT' && (
+        ) : (
           <p className="max-w-lg px-8 text-center text-2xl font-semibold leading-snug text-white">
             <StatusText text={item.caption ?? ''} names={mentionNames} />
           </p>
@@ -379,7 +409,7 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
           ref={audioRef}
           src={mediaSrc(item.musicUrl)}
           autoPlay
-          loop={item.type === 'VIDEO'}
+          loop={item.type === 'VIDEO' || isCollage}
           onLoadedMetadata={(e) => {
             const d = e.currentTarget.duration;
             musicDurRef.current = Number.isFinite(d)
