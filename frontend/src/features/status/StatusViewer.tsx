@@ -129,9 +129,10 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
     progressRef.current = 0;
     // Prefer the duration stored with the status (library/device track) so the
     // timeline is right from frame one; fall back to the audio metadata below.
+    // A scrubbed segment starts partway in, so the remaining length is what plays.
     musicDurRef.current =
       item.musicUrl && item.musicDurationMs
-        ? Math.min(item.musicDurationMs, MUSIC_CAP_MS)
+        ? Math.min(item.musicDurationMs - (item.musicStartMs ?? 0), MUSIC_CAP_MS)
         : null;
     if (!isCollage && item.type === 'VIDEO') return; // the video drives its own progress
 
@@ -409,12 +410,29 @@ export function StatusViewer({ users: incoming, startUserIndex, onClose }: Props
           ref={audioRef}
           src={mediaSrc(item.musicUrl)}
           autoPlay
-          loop={item.type === 'VIDEO' || isCollage}
           onLoadedMetadata={(e) => {
-            const d = e.currentTarget.duration;
+            const a = e.currentTarget;
+            const startMs = item.musicStartMs ?? 0;
+            // Begin at the scrubbed offset the poster chose.
+            if (startMs > 0 && Number.isFinite(a.duration)) a.currentTime = startMs / 1000;
+            const d = a.duration;
             musicDurRef.current = Number.isFinite(d)
-              ? Math.min(d * 1000, MUSIC_CAP_MS)
+              ? Math.min(d * 1000 - startMs, MUSIC_CAP_MS)
               : MUSIC_CAP_MS;
+          }}
+          onTimeUpdate={(e) => {
+            // Keep looping within the chosen [start, start+window] segment (for a
+            // video/collage the music plays underneath and would otherwise drift
+            // back to 0 on loop).
+            const a = e.currentTarget;
+            const startMs = item.musicStartMs ?? 0;
+            const windowMs = Math.min(
+              (Number.isFinite(a.duration) ? a.duration * 1000 : MUSIC_CAP_MS) - startMs,
+              MUSIC_CAP_MS,
+            );
+            if ((item.type === 'VIDEO' || isCollage) && a.currentTime * 1000 >= startMs + windowMs) {
+              a.currentTime = startMs / 1000;
+            }
           }}
         />
       )}

@@ -61,9 +61,12 @@ export function StatusPreview({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef(0);
-  // Song length (ms, capped) once the audio metadata resolves.
+  // Song length (ms, capped) once the audio metadata resolves. A scrubbed segment
+  // starts partway in, so only the remaining length plays.
   const musicDurRef = useRef<number | null>(
-    draft.music?.durationMs ? Math.min(draft.music.durationMs, MUSIC_CAP_MS) : null,
+    draft.music?.durationMs
+      ? Math.min(draft.music.durationMs - (draft.music.startMs ?? 0), MUSIC_CAP_MS)
+      : null,
   );
 
   const hasMusic = Boolean(draft.music);
@@ -210,12 +213,25 @@ export function StatusPreview({
           ref={audioRef}
           src={mediaSrc(draft.music.url)}
           autoPlay
-          loop={draft.type === 'VIDEO'}
           onLoadedMetadata={(e) => {
-            const d = e.currentTarget.duration;
+            const a = e.currentTarget;
+            const startMs = draft.music?.startMs ?? 0;
+            if (startMs > 0 && Number.isFinite(a.duration)) a.currentTime = startMs / 1000;
+            const d = a.duration;
             musicDurRef.current = Number.isFinite(d)
-              ? Math.min(d * 1000, MUSIC_CAP_MS)
+              ? Math.min(d * 1000 - startMs, MUSIC_CAP_MS)
               : MUSIC_CAP_MS;
+          }}
+          onTimeUpdate={(e) => {
+            const a = e.currentTarget;
+            const startMs = draft.music?.startMs ?? 0;
+            const windowMs = Math.min(
+              (Number.isFinite(a.duration) ? a.duration * 1000 : MUSIC_CAP_MS) - startMs,
+              MUSIC_CAP_MS,
+            );
+            if ((draft.type === 'VIDEO' || isCollage) && a.currentTime * 1000 >= startMs + windowMs) {
+              a.currentTime = startMs / 1000;
+            }
           }}
         />
       )}

@@ -56,6 +56,10 @@ public class Status {
     @Column(name = "music_duration_ms")
     private Integer musicDurationMs;
 
+    /** Offset (ms) into the track where playback starts — a scrubbed segment. */
+    @Column(name = "music_start_ms")
+    private Integer musicStartMs;
+
     /** Ids of the users @mentioned in the caption/text, as a CSV (e.g. "3,7"). */
     @Column(length = 512)
     private String mentions;

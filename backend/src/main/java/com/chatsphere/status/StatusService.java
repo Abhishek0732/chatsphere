@@ -103,6 +103,8 @@ public class StatusService {
             s.setMusicArtist(blankToNull(req.musicArtist()));
             Integer dur = req.musicDurationMs();
             s.setMusicDurationMs(dur != null && dur > 0 ? dur : null);
+            Integer start = req.musicStartMs();
+            s.setMusicStartMs(start != null && start > 0 ? start : null);
         }
         s.setMentions(encodeMentions(userId, req.mentions()));
         s.setExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
@@ -164,6 +166,7 @@ public class StatusService {
         copy.setMusicTitle(src.getMusicTitle());
         copy.setMusicArtist(src.getMusicArtist());
         copy.setMusicDurationMs(src.getMusicDurationMs());
+        copy.setMusicStartMs(src.getMusicStartMs());
         // The tags travel with the caption purely so "@Alice" still renders as a
         // tag in the copy. Nobody is notified a second time — being tagged in the
         // original already told them.
@@ -523,7 +526,7 @@ public class StatusService {
         User origin = s.getOriginalUserId() == null ? null : related.get(s.getOriginalUserId());
         return new StatusItemDto(s.getId(), s.getType().name(), s.getMediaUrl(), readAlbum(s),
                 s.getCaption(), s.getBgColor(), s.getMusicUrl(), s.getMusicTitle(), s.getMusicArtist(),
-                s.getMusicDurationMs(), s.getCreatedAt(), viewed, count, mentions,
+                s.getMusicDurationMs(), s.getMusicStartMs(), s.getCreatedAt(), viewed, count, mentions,
                 origin == null ? null : UserDto.from(origin), canAdd);
     }
 

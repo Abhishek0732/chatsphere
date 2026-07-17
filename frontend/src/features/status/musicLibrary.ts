@@ -8,6 +8,8 @@ export interface MusicSelection {
   title: string;
   artist: string;
   durationMs: number;
+  /** Where in the track playback starts (ms) — a scrubbed segment. Defaults to 0. */
+  startMs?: number;
 }
 
 export interface LibraryTrack {

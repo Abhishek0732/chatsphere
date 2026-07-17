@@ -28,6 +28,8 @@ public final class StatusDtos {
             String musicTitle,
             String musicArtist,
             Integer musicDurationMs,
+            /** Where in the track to start playing (ms) — a scrubbed segment. */
+            Integer musicStartMs,
             /** Ids of the contacts @mentioned in the caption/text. */
             List<Long> mentions) {}
 
@@ -49,6 +51,7 @@ public final class StatusDtos {
             String musicTitle,
             String musicArtist,
             Integer musicDurationMs,
+            Integer musicStartMs,
             Instant createdAt,
             boolean viewed,
             long viewCount,

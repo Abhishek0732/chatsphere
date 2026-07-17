@@ -114,6 +114,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
         musicTitle: music.title,
         musicArtist: music.artist,
         musicDurationMs: music.durationMs || undefined,
+        musicStartMs: music.startMs || undefined,
       }
     : {};
 

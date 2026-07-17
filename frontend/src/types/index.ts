@@ -120,6 +120,7 @@ export interface StatusItem {
   musicTitle?: string | null;
   musicArtist?: string | null;
   musicDurationMs?: number | null;
+  musicStartMs?: number | null;
   createdAt: string;
   viewed: boolean;
   viewCount: number;
@@ -154,6 +155,7 @@ export interface CreateStatusPayload {
   musicTitle?: string;
   musicArtist?: string;
   musicDurationMs?: number;
+  musicStartMs?: number;
   /** Ids of the contacts @mentioned in the caption/text. */
   mentions?: number[];
 }

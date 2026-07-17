@@ -155,7 +155,7 @@ class StatusServiceTest {
 
         private CreateStatusRequest text(List<Long> mentions) {
             return new CreateStatusRequest("TEXT", null, null, "hi @you", null,
-                    null, null, null, null, mentions);
+                    null, null, null, null, null, mentions);
         }
 
         @Test
