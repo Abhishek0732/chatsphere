@@ -118,13 +118,18 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
     : {};
 
   const post = () => {
-    // Only tags still present in the posted text count.
+    // Only tags still present in the typed text count.
     const ids = mentionsIn(body, tagged.current);
     const mentions = ids.length > 0 ? ids : undefined;
+    // A mention only TAGS the person (they get notified + the "add to my status"
+    // button). The "@Name" is stripped from the caption so it isn't shown to
+    // everyone — for a text status that leaves nothing, fall back to the raw text.
+    const cleaned = stripTags(body);
+    const textCaption = cleaned || body;
 
     const payload =
       mode === 'text'
-        ? { type: 'TEXT' as const, caption: body, bgColor: bg, mentions, ...musicFields }
+        ? { type: 'TEXT' as const, caption: textCaption, bgColor: bg, mentions, ...musicFields }
         : media.length > 0
           ? {
               // The status's own type mirrors the first item; each album item
@@ -132,7 +137,7 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
               type: media[0].type,
               mediaUrl: media[0].url,
               media,
-              caption: body || undefined,
+              caption: cleaned || undefined,
               mentions,
               ...musicFields,
             }
@@ -149,16 +154,36 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
   const mentionNames = people
     .filter((p) => body.includes(`@${p.displayName}`))
     .map((p) => p.displayName);
+
+  // Remove the "@Name" tag tokens from a caption: a mention tags the person, it
+  // doesn't put their name in the text everyone sees. Longest token first so
+  // "@John Doe" is stripped before a shorter "@John".
+  const stripTags = (t: string): string => {
+    let out = t;
+    [...tagged.current.keys()]
+      .sort((a, b) => b.length - a.length)
+      .forEach((token) => {
+        out = out.split(token).join('');
+      });
+    return out
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\s+([,.!?…])/g, '$1')
+      .trim();
+  };
+  // The caption viewers actually see (no @tags). Text status keeps its raw text
+  // if stripping would empty it.
+  const shownCaption = mode === 'text' ? stripTags(body) || body : stripTags(body);
+
   const draft: StatusDraft =
     mode === 'text'
-      ? { type: 'TEXT', caption: body, bgColor: bg, music, mentionNames }
+      ? { type: 'TEXT', caption: shownCaption, bgColor: bg, music, mentionNames: [] }
       : {
           type: media[0]?.type ?? 'IMAGE',
           mediaUrl: media[0]?.url,
           media,
-          caption: body || undefined,
+          caption: shownCaption || undefined,
           music,
-          mentionNames,
+          mentionNames: [],
         };
 
   return (
@@ -311,6 +336,23 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
             placeholder="Add a caption… use @ to mention"
             className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
+        )}
+
+        {/* Who's tagged — a mention notifies them and lets them add the status,
+            but their name is NOT shown in the caption, so surface it here. */}
+        {mentionNames.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span>Tagged:</span>
+            {mentionNames.map((n) => (
+              <span
+                key={n}
+                className="rounded-full bg-brand-500/15 px-2 py-0.5 font-medium text-brand-600 dark:text-brand-400"
+              >
+                @{n}
+              </span>
+            ))}
+            <span className="text-slate-400">· only they can add it, not shown in caption</span>
+          </div>
         )}
 
         {/* Music */}

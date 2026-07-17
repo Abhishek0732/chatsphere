@@ -19,7 +19,7 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
-      includeAssets: ['favicon.svg', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'robots.txt'],
       manifest: {
         name: 'ChatSphere',
         short_name: 'ChatSphere',

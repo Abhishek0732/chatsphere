@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   User,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,23 @@ import { DeleteAccountModal } from './DeleteAccountModal';
 import { QrModal } from '@/features/contacts/QrModal';
 
 type SettingKey = 'appearance' | 'privacy' | 'notifications' | 'ringtone';
+
+/** A settings row as data, so the search box can filter it. */
+interface RowDef {
+  key: string;
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  /** Extra search terms (synonyms) not shown in the row. */
+  keywords?: string;
+  onClick?: () => void;
+  right?: ReactNode;
+  danger?: boolean;
+}
+interface SectionDef {
+  title: string;
+  rows: RowDef[];
+}
 
 /** A single settings row: tertiary icon + label (+subtitle) and a chevron/toggle. */
 function Row({
@@ -109,6 +127,8 @@ export function SettingsPanel() {
   const [pwOpen, setPwOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ringtone = useRingtoneStore((s) => s.ringtone);
   const setRingtone = useRingtoneStore((s) => s.setRingtone);
   // Closing any settings modal also silences a ringtone preview left playing.
@@ -198,32 +218,221 @@ export function SettingsPanel() {
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-color-scheme: dark)').matches);
 
+  // The settings as data so search can filter them. `keywords` holds synonyms a
+  // user might type that aren't in the visible title/subtitle.
+  const sections: SectionDef[] = [
+    {
+      title: 'General',
+      rows: [
+        {
+          key: 'dark-mode',
+          icon: <Moon className="h-5 w-5" />,
+          title: 'Dark Mode',
+          keywords: 'theme appearance light dark',
+          onClick: () => setTheme(isDark ? 'light' : 'dark'),
+          right: (
+            <span
+              className={cn(
+                'relative h-6 w-11 rounded-full transition-colors',
+                isDark ? 'bg-primary' : 'bg-surface-container-highest',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
+                  isDark ? 'left-[22px]' : 'left-0.5',
+                )}
+              />
+            </span>
+          ),
+        },
+        {
+          key: 'account',
+          icon: <User className="h-5 w-5" />,
+          title: 'Account',
+          keywords: 'profile name username avatar',
+          onClick: () => navigate('/profile'),
+        },
+      ],
+    },
+    {
+      title: 'Communication',
+      rows: [
+        {
+          key: 'chats',
+          icon: <MessageSquareText className="h-5 w-5" />,
+          title: 'Chats',
+          subtitle: 'Theme, Wallpaper, History',
+          keywords: 'wallpaper background bubble export',
+          onClick: () => setOpenModal('appearance'),
+        },
+        {
+          key: 'ringtone',
+          icon: <Music2 className="h-5 w-5" />,
+          title: 'Call ringtone',
+          subtitle: RINGTONES.find((r) => r.id === ringtone)?.label ?? 'Classic',
+          keywords: 'sound tone ring call',
+          onClick: () => setOpenModal('ringtone'),
+        },
+        {
+          key: 'notifications',
+          icon: notifPerm === 'granted' ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />,
+          title: 'Notifications',
+          keywords: 'push alerts sound mute',
+          onClick: () => setOpenModal('notifications'),
+        },
+      ],
+    },
+    {
+      title: 'Privacy & Security',
+      rows: [
+        {
+          key: 'privacy',
+          icon: <ShieldCheck className="h-5 w-5" />,
+          title: 'Privacy',
+          keywords: 'profile photo protection last seen presence',
+          onClick: () => setOpenModal('privacy'),
+        },
+        {
+          key: 'password',
+          icon: <Lock className="h-5 w-5" />,
+          title: 'Change password',
+          subtitle: 'Update your account password',
+          keywords: 'security login credentials',
+          onClick: () => setPwOpen(true),
+        },
+        {
+          key: 'blocked',
+          icon: <Ban className="h-5 w-5" />,
+          title: 'Blocked contacts',
+          subtitle: "People you've blocked",
+          keywords: 'unblock spam',
+          onClick: () => setBlockedOpen(true),
+        },
+        {
+          key: 'storage',
+          icon: <Database className="h-5 w-5" />,
+          title: 'Storage and Data',
+          keywords: 'cache media download usage',
+          onClick: soon,
+        },
+      ],
+    },
+    {
+      title: 'Support',
+      rows: [
+        {
+          key: 'help',
+          icon: <HelpCircle className="h-5 w-5" />,
+          title: 'Help Center',
+          keywords: 'support faq contact',
+          onClick: soon,
+        },
+        {
+          key: 'invite',
+          icon: <Share2 className="h-5 w-5 text-primary" />,
+          title: 'Invite Friends',
+          subtitle: 'Share your personal add-me link',
+          keywords: 'share link add me referral',
+          onClick: () => setInviteOpen(true),
+          right: <span />,
+        },
+      ],
+    },
+    {
+      title: 'Account',
+      rows: [
+        {
+          key: 'logout',
+          icon: <LogOut className="h-5 w-5" />,
+          title: logout.isPending ? 'Signing out…' : 'Log Out',
+          keywords: 'sign out exit',
+          danger: true,
+          onClick: () => logout.mutate(),
+          right: <span />,
+        },
+        {
+          key: 'delete',
+          icon: <Trash2 className="h-5 w-5" />,
+          title: 'Delete Account',
+          subtitle: 'Permanently close this account',
+          keywords: 'remove close deactivate',
+          danger: true,
+          onClick: () => setDeleteOpen(true),
+          right: <span />,
+        },
+      ],
+    },
+  ];
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? sections
+        .map((s) => ({
+          ...s,
+          rows: s.rows.filter((r) =>
+            `${s.title} ${r.title} ${r.subtitle ?? ''} ${r.keywords ?? ''}`
+              .toLowerCase()
+              .includes(q),
+          ),
+        }))
+        .filter((s) => s.rows.length > 0)
+    : sections;
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery('');
+  };
+
   return (
     <div className="min-h-full bg-surface pb-20 text-on-surface">
       {/* Top app bar */}
-      <header className="glass-panel sticky top-0 z-20 flex h-16 items-center justify-between border-x-0 border-t-0 px-5">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/')}
-            className="text-primary transition active:scale-95 md:hidden"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </button>
-          <h1 className="text-xl font-bold text-primary">Settings</h1>
-        </div>
-        <button
-          onClick={soon}
-          className="rounded-full p-2 text-on-surface-variant transition hover:bg-white/5"
-          aria-label="Search settings"
-        >
-          <Search className="h-5 w-5" />
-        </button>
+      <header className="glass-panel sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-x-0 border-t-0 px-5">
+        {searchOpen ? (
+          <>
+            <Search className="h-5 w-5 shrink-0 text-on-surface-variant" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
+              placeholder="Search settings…"
+              className="min-w-0 flex-1 bg-transparent text-base text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+            />
+            <button
+              onClick={closeSearch}
+              className="shrink-0 rounded-full p-2 text-on-surface-variant transition hover:bg-white/5"
+              aria-label="Close search"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/')}
+                className="text-primary transition active:scale-95 md:hidden"
+                aria-label="Back"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+              <h1 className="text-xl font-bold text-primary">Settings</h1>
+            </div>
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="rounded-full p-2 text-on-surface-variant transition hover:bg-white/5"
+              aria-label="Search settings"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </header>
 
       <main className="mx-auto max-w-lg space-y-6 px-5 pt-6">
-        {/* Profile summary */}
-        {user && (
+        {/* Profile summary — hidden while searching so results stand alone. */}
+        {!q && user && (
           <Link to="/profile" className="glass-card flex items-center gap-4 rounded-xl p-4">
             <div className="relative">
               <Avatar
@@ -257,103 +466,27 @@ export function SettingsPanel() {
           </Link>
         )}
 
-        <Section title="General">
-          <Row
-            icon={<Moon className="h-5 w-5" />}
-            title="Dark Mode"
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            right={
-              <span
-                className={cn(
-                  'relative h-6 w-11 rounded-full transition-colors',
-                  isDark ? 'bg-primary' : 'bg-surface-container-highest',
-                )}
-              >
-                <span
-                  className={cn(
-                    'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
-                    isDark ? 'left-[22px]' : 'left-0.5',
-                  )}
-                />
-              </span>
-            }
-          />
-          <Row
-            icon={<User className="h-5 w-5" />}
-            title="Account"
-            onClick={() => navigate('/profile')}
-          />
-        </Section>
+        {filtered.map((section) => (
+          <Section key={section.title} title={section.title}>
+            {section.rows.map((row) => (
+              <Row
+                key={row.key}
+                icon={row.icon}
+                title={row.title}
+                subtitle={row.subtitle}
+                onClick={row.onClick}
+                right={row.right}
+                danger={row.danger}
+              />
+            ))}
+          </Section>
+        ))}
 
-        <Section title="Communication">
-          <Row
-            icon={<MessageSquareText className="h-5 w-5" />}
-            title="Chats"
-            subtitle="Theme, Wallpaper, History"
-            onClick={() => setOpenModal('appearance')}
-          />
-          <Row
-            icon={<Music2 className="h-5 w-5" />}
-            title="Call ringtone"
-            subtitle={RINGTONES.find((r) => r.id === ringtone)?.label ?? 'Classic'}
-            onClick={() => setOpenModal('ringtone')}
-          />
-          <Row
-            icon={notifPerm === 'granted' ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
-            title="Notifications"
-            onClick={() => setOpenModal('notifications')}
-          />
-        </Section>
-
-        <Section title="Privacy & Security">
-          <Row
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="Privacy"
-            onClick={() => setOpenModal('privacy')}
-          />
-          <Row
-            icon={<Lock className="h-5 w-5" />}
-            title="Change password"
-            subtitle="Update your account password"
-            onClick={() => setPwOpen(true)}
-          />
-          <Row
-            icon={<Ban className="h-5 w-5" />}
-            title="Blocked contacts"
-            subtitle="People you've blocked"
-            onClick={() => setBlockedOpen(true)}
-          />
-          <Row icon={<Database className="h-5 w-5" />} title="Storage and Data" onClick={soon} />
-        </Section>
-
-        <Section title="Support">
-          <Row icon={<HelpCircle className="h-5 w-5" />} title="Help Center" onClick={soon} />
-          <Row
-            icon={<Share2 className="h-5 w-5 text-primary" />}
-            title="Invite Friends"
-            subtitle="Share your personal add-me link"
-            onClick={() => setInviteOpen(true)}
-            right={<span />}
-          />
-        </Section>
-
-        <Section title="Account">
-          <Row
-            icon={<LogOut className="h-5 w-5" />}
-            title={logout.isPending ? 'Signing out…' : 'Log Out'}
-            danger
-            onClick={() => logout.mutate()}
-            right={<span />}
-          />
-          <Row
-            icon={<Trash2 className="h-5 w-5" />}
-            title="Delete Account"
-            subtitle="Permanently close this account"
-            danger
-            onClick={() => setDeleteOpen(true)}
-            right={<span />}
-          />
-        </Section>
+        {q && filtered.length === 0 && (
+          <p className="py-10 text-center text-sm text-on-surface-variant">
+            No settings match “{query.trim()}”.
+          </p>
+        )}
       </main>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
