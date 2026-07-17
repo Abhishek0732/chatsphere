@@ -253,11 +253,18 @@ export async function decryptFrom(peerId: number, envelope: string): Promise<str
  * thumbnail derived from it.
  */
 export async function encryptFileFor(peerId: number, file: File): Promise<File | null> {
-  const key = await keyForPeer(peerId);
-  if (!key) return null;
-  const sealed = await encryptBytes(await file.arrayBuffer(), key);
-  // The real name and type travel inside the ENCRYPTED message, not here.
-  return new File([sealed], 'attachment.enc', { type: 'application/octet-stream' });
+  try {
+    const key = await keyForPeer(peerId);
+    if (!key) return null;
+    const sealed = await encryptBytes(await file.arrayBuffer(), key);
+    // The real name and type travel inside the ENCRYPTED message, not here.
+    return new File([sealed], 'attachment.enc', { type: 'application/octet-stream' });
+  } catch {
+    // No WebCrypto here (e.g. served over plain http, not a secure context), or a
+    // key problem. Return null so the caller uploads the file in the clear — the
+    // same graceful fallback text messages already use — instead of failing.
+    return null;
+  }
 }
 
 /**

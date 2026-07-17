@@ -32,11 +32,6 @@ const MENTION_LIMIT = 8;
  */
 const MENTION_RE = /(?:^|\s)@([^\s@]{0,24}(?:\s[^\s@]{0,24})?)$/;
 
-/** WebCrypto's subtle API — the thing that seals encrypted-chat media — only
- *  exists in a secure context (https or localhost), never over plain http. */
-const secureCrypto = () =>
-  typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined';
-
 interface PendingAttachment {
   url: string;
   fileName: string;
@@ -279,21 +274,6 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
     const tooBig = list.find((f) => uploadSizeError(f));
     if (tooBig) {
       toast({ title: `${tooBig.name}: File too large`, variant: 'error' });
-      resetFileInputs();
-      return;
-    }
-    // A direct chat is end-to-end encrypted, so each file is sealed with WebCrypto
-    // before upload — and crypto.subtle only exists in a secure context. Over plain
-    // http on a LAN IP it's absent, so the seal would throw a bare "Upload failed".
-    // Catch it up front with an explanation that points at the https address.
-    const willEncrypt = myId != null && directPeerId(conversationId, myId) != null;
-    if (willEncrypt && !secureCrypto()) {
-      toast({
-        title: 'Can’t send media in this chat',
-        description:
-          'Encrypted chats seal media on your device, which needs a secure (https) connection. Open the app’s https address instead of http.',
-        variant: 'error',
-      });
       resetFileInputs();
       return;
     }
