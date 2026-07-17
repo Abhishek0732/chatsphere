@@ -15,6 +15,8 @@ import {
   LogOut,
   MessageSquareText,
   Moon,
+  Music2,
+  Play,
   QrCode,
   Search,
   Share2,
@@ -35,6 +37,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { toast } from '@/store/toastStore';
 import { disablePush, enablePush, pushState, type PushState } from '@/services/push';
 import { testPush } from '@/api/push';
+import { useRingtoneStore } from '@/store/ringtoneStore';
+import { RINGTONES, previewRingtone, stopRingtone } from '@/features/call/ringtone';
 import { cn } from '@/utils/cn';
 import { AppearanceStudio } from './AppearanceStudio';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -43,7 +47,7 @@ import { InviteFriendsModal } from './InviteFriendsModal';
 import { DeleteAccountModal } from './DeleteAccountModal';
 import { QrModal } from '@/features/contacts/QrModal';
 
-type SettingKey = 'appearance' | 'privacy' | 'notifications';
+type SettingKey = 'appearance' | 'privacy' | 'notifications' | 'ringtone';
 
 /** A single settings row: tertiary icon + label (+subtitle) and a chevron/toggle. */
 function Row({
@@ -105,7 +109,13 @@ export function SettingsPanel() {
   const [pwOpen, setPwOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const close = () => setOpenModal(null);
+  const ringtone = useRingtoneStore((s) => s.ringtone);
+  const setRingtone = useRingtoneStore((s) => s.setRingtone);
+  // Closing any settings modal also silences a ringtone preview left playing.
+  const close = () => {
+    stopRingtone();
+    setOpenModal(null);
+  };
 
   // Web Push: whether THIS browser is registered to be notified while the app is
   // closed. Distinct from the permission prompt — permission alone notifies you
@@ -283,6 +293,12 @@ export function SettingsPanel() {
             onClick={() => setOpenModal('appearance')}
           />
           <Row
+            icon={<Music2 className="h-5 w-5" />}
+            title="Call ringtone"
+            subtitle={RINGTONES.find((r) => r.id === ringtone)?.label ?? 'Classic'}
+            onClick={() => setOpenModal('ringtone')}
+          />
+          <Row
             icon={notifPerm === 'granted' ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
             title="Notifications"
             onClick={() => setOpenModal('notifications')}
@@ -447,6 +463,57 @@ export function SettingsPanel() {
                 />
               </button>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={openModal === 'ringtone'} onClose={close} title="Call ringtone">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3.5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container">
+              <Music2 className="h-6 w-6" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-on-surface">Incoming call ringtone</p>
+              <p className="text-sm text-on-surface-variant">
+                Pick the tone that plays for incoming calls. A web app can’t use your phone’s
+                system ringtone, so choose one here — saved on this device.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {RINGTONES.map((r) => {
+              const selected = r.id === ringtone;
+              return (
+                <div
+                  key={r.id}
+                  className={cn(
+                    'flex items-center gap-3 rounded-2xl border px-4 py-3 transition',
+                    selected
+                      ? 'border-primary/60 bg-primary-container/40'
+                      : 'border-white/10 bg-white/[0.04]',
+                  )}
+                >
+                  <button
+                    onClick={() => previewRingtone(r.id)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-on-surface hover:bg-white/20"
+                    aria-label={`Preview ${r.label}`}
+                  >
+                    <Play className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRingtone(r.id);
+                      previewRingtone(r.id);
+                    }}
+                    className="min-w-0 flex-1 text-left text-sm font-medium text-on-surface"
+                  >
+                    {r.label}
+                  </button>
+                  {selected && <Check className="h-5 w-5 shrink-0 text-primary" />}
+                </div>
+              );
+            })}
           </div>
         </div>
       </Modal>

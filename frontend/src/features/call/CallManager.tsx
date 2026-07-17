@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useCallStore } from '@/store/callStore';
+import { useRingtoneStore } from '@/store/ringtoneStore';
 import { getActiveCall, registerDevice } from '@/api/calls';
 import { startRingtone, stopRingtone } from './ringtone';
 import { mediaService } from './mediaService';
@@ -35,6 +36,7 @@ export function CallManager() {
   const call = useCallStore((s) => s.call);
   const phase = call?.phase;
   const callId = call?.callId;
+  const ringtone = useRingtoneStore((s) => s.ringtone);
 
   // Register device + resume a live call once, on mount.
   useEffect(() => {
@@ -46,13 +48,13 @@ export function CallManager() {
       .catch(() => {});
   }, []);
 
-  // Ringtone follows the phase.
+  // Ringtone follows the phase; incoming uses the user's chosen tone.
   useEffect(() => {
-    if (phase === 'incoming') startRingtone('incoming');
+    if (phase === 'incoming') startRingtone('incoming', ringtone);
     else if (phase === 'outgoing') startRingtone('outgoing');
     else stopRingtone();
     return () => stopRingtone();
-  }, [phase, callId]);
+  }, [phase, callId, ringtone]);
 
   // Media plane: open the peer-to-peer connection once active; tear down otherwise.
   useEffect(() => {
