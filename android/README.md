@@ -248,6 +248,20 @@ If you host over https (or an https tunnel like Cloudflare), everything works.
   must be running.
 - Confirm the URL opens in the phone's Chrome first.
 
+**Media won't send over a Cloudflare tunnel URL (but chat works)**
+- Text sends fine and photos/videos fail? That's the tunnel, not the app.
+  `cloudflared` defaults to **QUIC**, which runs over UDP, and Linux ships a
+  208 KB UDP buffer — small JSON requests don't care, a multi-megabyte upload
+  stalls on it and dies.
+- Start the tunnel over TCP instead: `./scripts/tunnel.sh` (or add
+  `--protocol http2` to your own `cloudflared tunnel --url …`). `build-apk.sh`
+  already does this.
+- Prefer QUIC? Raise the buffers first:
+  `sudo sysctl -w net.core.rmem_max=7500000 net.core.wmem_max=7500000`, then
+  `CF_PROTOCOL=quic ./scripts/tunnel.sh`.
+- Cloudflare also caps any single request body at **100 MB**, whatever the app
+  allows. The upload toast now names the actual reason.
+
 **Camera / microphone / notifications don't work**
 - The URL must be **https** (see the section above).
 - Also check the app's permissions: phone **Settings → Apps → ChatSphere →

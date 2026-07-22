@@ -18,7 +18,7 @@ import { useResetOnClose } from '@/hooks/useResetOnClose';
 import { ConversationMediaPreview } from '@/features/chat/ConversationMediaPreview';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
-import { uploadMedia, uploadSizeError } from '@/api/media';
+import { uploadMedia, uploadSizeError, uploadErrorMessage } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { cn } from '@/utils/cn';
 import { Skeleton, SkeletonList } from '@/components/ui/Skeleton';
@@ -96,8 +96,8 @@ export function GroupInfoModal({ open, onClose, groupId }: GroupInfoModalProps) 
     try {
       const result = await uploadMedia(file);
       updateGroup.mutate({ name: group.name, avatarUrl: result.url });
-    } catch {
-      toast({ title: 'Could not upload group photo', variant: 'error' });
+    } catch (err) {
+      toast({ title: 'Could not upload group photo', description: uploadErrorMessage(err), variant: 'error' });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';

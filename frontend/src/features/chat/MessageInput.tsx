@@ -9,7 +9,7 @@ import { useGroup } from '@/hooks/useGroups';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
-import { uploadMedia, uploadSizeError, isUploadAbort } from '@/api/media';
+import { uploadMedia, uploadSizeError, isUploadAbort, uploadErrorMessage } from '@/api/media';
 import { compressImage } from '@/utils/imageCompress';
 import { encryptFileFor } from '@/services/e2ee';
 import { directPeerId } from '@/utils/conversation';
@@ -321,7 +321,9 @@ export function MessageInput({ conversationId }: { conversationId: number }) {
       textareaRef.current?.focus();
     } catch (err) {
       // A user-cancelled upload is not an error — say nothing.
-      if (!isUploadAbort(err)) toast({ title: 'Upload failed', variant: 'error' });
+      if (!isUploadAbort(err)) {
+        toast({ title: 'Upload failed', description: uploadErrorMessage(err), variant: 'error' });
+      }
     } finally {
       setUploading(false);
       setUploadPct(0);

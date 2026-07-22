@@ -52,7 +52,12 @@ command -v cloudflared >/dev/null 2>&1 || {
 
 LOG="$(mktemp)"
 echo "▶ Starting Cloudflare tunnel on http://localhost:$PORT …"
-cloudflared tunnel --url "http://localhost:$PORT" >"$LOG" 2>&1 &
+# --protocol http2 on purpose. cloudflared defaults to QUIC, which rides on UDP,
+# and Linux ships a 208 KB UDP buffer (net.core.rmem_max). Small JSON requests
+# never notice; a multi-megabyte photo upload stalls and dies on it, which looks
+# exactly like "media doesn't work on the tunnel URL". http2 is plain TCP and has
+# no such ceiling. Override with CF_PROTOCOL=quic if you have raised the buffers.
+cloudflared tunnel --url "http://localhost:$PORT" --protocol "${CF_PROTOCOL:-http2}" >"$LOG" 2>&1 &
 TUNNEL_PID=$!
 trap 'kill "$TUNNEL_PID" 2>/dev/null || true' EXIT
 

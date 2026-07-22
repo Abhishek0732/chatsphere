@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MoreVertical, Plus, Search, UserPlus, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CircleUserRound, MoreVertical, Plus, Search, UserPlus, Users } from 'lucide-react';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { Logo } from '@/components/ui/Logo';
 import { useConversations } from '@/hooks/useConversations';
@@ -28,6 +29,7 @@ export function ConversationList() {
   const [groupOpen, setGroupOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Close the header menu when clicking anywhere outside it.
   useEffect(() => {
@@ -119,6 +121,12 @@ export function ConversationList() {
                   className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
                 >
                   <UserPlus className="h-4 w-4" /> Add contact
+                </button>
+                <button
+                  onClick={menuAction(() => navigate('/profile'))}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-on-surface transition hover:bg-white/5"
+                >
+                  <CircleUserRound className="h-4 w-4" /> Profile
                 </button>
               </div>
             )}

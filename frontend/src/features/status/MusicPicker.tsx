@@ -6,7 +6,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { cn } from '@/utils/cn';
 import { mediaSrc } from '@/utils/media';
-import { uploadMedia, uploadSizeError } from '@/api/media';
+import { uploadMedia, uploadSizeError, uploadErrorMessage } from '@/api/media';
 import { getMusicCategories, searchMusic, type CatalogTrack } from '@/api/music';
 import { toast } from '@/store/toastStore';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -163,8 +163,8 @@ export function MusicPicker({ open, onClose, onSelect }: Props) {
       const [res, durationMs] = await Promise.all([uploadMedia(file), readDuration(file)]);
       const title = file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My audio';
       beginTrim({ url: res.url, title, artist: 'From device', durationMs });
-    } catch {
-      toast({ title: 'Upload failed', variant: 'error' });
+    } catch (err) {
+      toast({ title: 'Upload failed', description: uploadErrorMessage(err), variant: 'error' });
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';

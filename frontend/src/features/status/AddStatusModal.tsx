@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/utils/cn';
-import { uploadMedia, uploadSizeError } from '@/api/media';
+import { uploadMedia, uploadSizeError, uploadErrorMessage } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { mediaSrc } from '@/utils/media';
 import { useCreateStatus } from '@/hooks/useStatus';
@@ -93,8 +93,12 @@ export function AddStatusModal({ open, onClose }: { open: boolean; onClose: () =
             ...prev,
             { url: res.url, type: res.contentType.startsWith('video/') ? 'VIDEO' : 'IMAGE' },
           ]);
-        } catch {
-          toast({ title: `${file.name}: upload failed`, variant: 'error' });
+        } catch (err) {
+          toast({
+            title: `${file.name}: upload failed`,
+            description: uploadErrorMessage(err),
+            variant: 'error',
+          });
         }
       }
       if (files.length > room) {

@@ -6,7 +6,7 @@ import { AtSign, Camera, Check, Lock, Mail, Pencil, Trash2, UserRound } from 'lu
 import { Avatar } from '@/components/ui/Avatar';
 import { Spinner, FullPageSpinner } from '@/components/ui/Spinner';
 import { useMe, useUpdateProfile } from '@/hooks/useProfile';
-import { uploadMedia, uploadSizeError } from '@/api/media';
+import { uploadMedia, uploadSizeError, uploadErrorMessage } from '@/api/media';
 import { toast } from '@/store/toastStore';
 import { useImageViewer } from '@/store/imageViewerStore';
 import { cn } from '@/utils/cn';
@@ -64,8 +64,8 @@ export function ProfilePanel() {
       const result = await uploadMedia(file);
       setAvatarUrl(result.url);
       updateProfile.mutate({ displayName: me?.displayName ?? '', about: me?.about, avatarUrl: result.url });
-    } catch {
-      toast({ title: 'Avatar upload failed', variant: 'error' });
+    } catch (err) {
+      toast({ title: 'Avatar upload failed', description: uploadErrorMessage(err), variant: 'error' });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
