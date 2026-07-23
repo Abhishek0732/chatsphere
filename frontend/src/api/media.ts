@@ -21,14 +21,19 @@ export function uploadSizeError(file: File): string | null {
  * 502/504 and Cloudflare's own 520-524 are what a tunnel emits when it drops a
  * connection mid-body, which is the common way a multi-megabyte upload dies on
  * a public tunnel while every small JSON request sails through.
+ *
+ * 429 is deliberately NOT here. It is the server saying "slow down" (our own
+ * rate limiter, or a proxy's) — retrying it instantly just spends another token
+ * against the same bucket, gets another 429, and lengthens the lockout. The user
+ * has to wait out the window, so we surface that instead of hammering.
  */
-const RETRIABLE = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+const RETRIABLE = new Set([408, 425, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
 
 function isRetriable(err: unknown): boolean {
   if (isUploadAbort(err)) return false;
   const status = (err as { response?: { status?: number } })?.response?.status;
   // No response at all = the connection itself failed (dropped tunnel, flaky
-  // mobile data). Retry that; a real rejection (413, 401) has a status.
+  // mobile data). Retry that; a real rejection (413, 429, 401) has a status.
   return status === undefined || RETRIABLE.has(status);
 }
 
@@ -90,6 +95,15 @@ export function uploadErrorMessage(err: unknown): string {
   }
   if (status === 413) {
     return `Too large for the connection — the limit is ${MAX_UPLOAD_LABEL}, and a public tunnel may cap it lower.`;
+  }
+  if (status === 429) {
+    const retryAfter = Number(
+      (err as { response?: { headers?: Record<string, string> } })?.response?.headers?.['retry-after'],
+    );
+    const wait = Number.isFinite(retryAfter) && retryAfter > 0
+      ? `about ${Math.ceil(retryAfter / 60)} min`
+      : 'a minute';
+    return `Too many uploads in a short time — wait ${wait} and try again.`;
   }
   if (status === 401 || status === 403) return 'Your session expired — sign in again.';
   if (status === 415) return 'That file type is not accepted.';

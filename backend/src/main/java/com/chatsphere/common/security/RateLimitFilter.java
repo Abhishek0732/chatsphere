@@ -53,7 +53,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Limit("/api/auth/forgot-password", 5, Duration.ofMinutes(10)),
             new Limit("/api/auth/reset-password", 5, Duration.ofMinutes(10)),
             new Limit("/api/account/password", 5, Duration.ofMinutes(10)),
-            new Limit("/api/media/upload", 60, Duration.ofMinutes(1)),
+            // Generous on purpose: selecting an album (30-40 photos) to send is one
+            // burst of that many upload calls, and each may re-send once on a dropped
+            // tunnel connection. 60/min tripped on ordinary multi-select sends. This is
+            // still a per-authenticated-user bucket, so it bounds abuse without
+            // punishing a normal "send these 40 pictures" action.
+            new Limit("/api/media/upload", 240, Duration.ofMinutes(1)),
             // Outbound third-party call.
             new Limit("/api/music", 30, Duration.ofMinutes(1)),
             // Full-text search over every message the user can see.
