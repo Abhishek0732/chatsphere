@@ -42,6 +42,14 @@ public class ConversationMember {
     @Column(name = "cleared_up_to_message_id")
     private Long clearedUpToMessageId;
 
+    /**
+     * Per-user "delete conversation" marker: the whole chat is hidden from this
+     * member's list while the conversation's last_message_id is &lt;= this value.
+     * A newer message (last_message_id climbs past it) brings the chat back.
+     */
+    @Column(name = "hidden_up_to_message_id")
+    private Long hiddenUpToMessageId;
+
     @Column(name = "joined_at", insertable = false, updatable = false)
     private Instant joinedAt;
 }

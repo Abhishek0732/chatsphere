@@ -85,6 +85,18 @@ export async function clearConversation(conversationId: number): Promise<void> {
   await api.delete(`/conversations/${conversationId}/messages`);
 }
 
+/**
+ * Delete a whole conversation from the list. forEveryone=false ("delete for me")
+ * hides it only for the caller — it reappears if the other person messages again.
+ * forEveryone=true also removes it from the other participant's list.
+ */
+export async function deleteConversation(
+  conversationId: number,
+  forEveryone: boolean,
+): Promise<void> {
+  await api.delete(`/conversations/${conversationId}`, { params: { forEveryone } });
+}
+
 /** Set (ttlSeconds) or clear (null) the disappearing-messages timer. */
 export async function setDisappearing(
   conversationId: number,

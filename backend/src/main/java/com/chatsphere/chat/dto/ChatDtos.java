@@ -117,6 +117,9 @@ public final class ChatDtos {
 
     public record MessageDeletedEvent(Long conversationId, Long messageId) {}
 
+    /** Pushed to members when a whole conversation is "deleted for everyone". */
+    public record ConversationDeletedEvent(Long conversationId) {}
+
     /** A single line of an exported chat transcript (text-only). */
     public record ExportMessageDto(String senderName, String type, String content,
                                    java.time.Instant createdAt, boolean deleted) {}

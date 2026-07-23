@@ -46,11 +46,18 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     Optional<Conversation> findByDirectKey(String directKey);
 
+    /**
+     * The user's chat list. A conversation the user has "deleted for me" (its
+     * member row carries a hidden_up_to_message_id) drops off the list until a
+     * newer message arrives — i.e. while last_message_id has not climbed past the
+     * hidden marker. COALESCE handles a conversation with no messages yet (id 0).
+     */
     @Query("""
-            SELECT c FROM Conversation c
-            WHERE c.id IN (
-                SELECT m.conversationId FROM ConversationMember m WHERE m.userId = :userId
-            )
+            SELECT c FROM Conversation c, ConversationMember m
+            WHERE m.conversationId = c.id
+              AND m.userId = :userId
+              AND (m.hiddenUpToMessageId IS NULL
+                   OR m.hiddenUpToMessageId < COALESCE(c.lastMessageId, 0))
             ORDER BY c.updatedAt DESC
             """)
     List<Conversation> findAllForUser(@Param("userId") Long userId);

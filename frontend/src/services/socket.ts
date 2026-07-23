@@ -14,6 +14,7 @@ import {
   applyReadReceipt,
   bumpConversation,
   markMessageDeleted,
+  removeConversation,
   replaceMessage,
   upsertMessage,
 } from './messageCache';
@@ -30,6 +31,7 @@ import type {
   CallSignal,
   CallType,
   ChatSendPayload,
+  ConversationDeletedEvent,
   DisappearingEvent,
   Message,
   MessageDeletedEvent,
@@ -214,6 +216,13 @@ class SocketService {
     client.subscribe('/user/queue/message-deleted', (frame: IMessage) => {
       const event = parse<MessageDeletedEvent>(frame.body);
       if (event) markMessageDeleted(event.conversationId, event.messageId);
+    });
+
+    // Whole-conversation "delete for everyone": drop it from my list. If I have
+    // it open, ChatPage falls back to "Conversation not found" once it's gone.
+    client.subscribe('/user/queue/conversation-deleted', (frame: IMessage) => {
+      const event = parse<ConversationDeletedEvent>(frame.body);
+      if (event) removeConversation(event.conversationId);
     });
 
     // In-place message updates (edit / pin / reaction).

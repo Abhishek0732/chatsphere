@@ -1,5 +1,6 @@
 package com.chatsphere.chat;
 
+import com.chatsphere.chat.dto.ChatDtos.ConversationDeletedEvent;
 import com.chatsphere.chat.dto.ChatDtos.DisappearingEvent;
 import com.chatsphere.chat.dto.ChatDtos.MessageDeletedEvent;
 import com.chatsphere.chat.dto.ChatDtos.MessageDto;
@@ -44,6 +45,11 @@ public class ChatBroadcaster {
 
     public void sendDeletionToMembers(MessageDeletedEvent event, List<Long> memberUserIds) {
         relay.toUsers(usernames(memberUserIds), "/queue/message-deleted", event);
+    }
+
+    /** Tell members a whole conversation was deleted for everyone — drop it from their list. */
+    public void sendConversationDeleted(ConversationDeletedEvent event, List<Long> memberUserIds) {
+        relay.toUsers(usernames(memberUserIds), "/queue/conversation-deleted", event);
     }
 
     /** Push an in-place message update (edit / pin / reaction) to members. */

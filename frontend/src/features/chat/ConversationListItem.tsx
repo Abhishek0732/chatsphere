@@ -1,14 +1,15 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Eraser, LogOut, MoreVertical, Users } from 'lucide-react';
+import { Eraser, LogOut, MoreVertical, Trash2, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DeleteChatDialog } from '@/components/ui/DeleteChatDialog';
 import { PresenceDot } from '@/components/ui/PresenceDot';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useImageViewer } from '@/store/imageViewerStore';
-import { useClearChat } from '@/hooks/useConversations';
+import { useClearChat, useDeleteChat } from '@/hooks/useConversations';
 import { useLeaveGroup } from '@/hooks/useGroups';
 import { useIsBlocked } from '@/hooks/useBlocks';
 import { formatListTimestamp } from '@/utils/format';
@@ -38,9 +39,11 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
       : 'typing…';
   const openViewer = useImageViewer((s) => s.open);
   const clearChat = useClearChat();
+  const deleteChat = useDeleteChat();
   const leaveGroup = useLeaveGroup();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirm, setConfirm] = useState<{
     title: string;
     message: string;
@@ -71,6 +74,13 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
       icon: <Eraser className="h-7 w-7" />,
       onConfirm: () => clearChat.mutate(conversation.id),
     });
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(false);
+    setDeleteOpen(true);
   };
 
   const handleLeave = (e: React.MouseEvent) => {
@@ -169,18 +179,27 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
 
       {menuOpen && (
         <div className="absolute right-2 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white text-sm shadow-xl dark:border-white/10 dark:bg-[#17233c]">
-          <button
-            onClick={handleClear}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
-          >
-            <Eraser className="h-4 w-4" /> Clear chat
-          </button>
-          {conversation.type === 'GROUP' && (
+          {conversation.type === 'GROUP' ? (
+            <>
+              <button
+                onClick={handleClear}
+                className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Eraser className="h-4 w-4" /> Clear chat
+              </button>
+              <button
+                onClick={handleLeave}
+                className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <LogOut className="h-4 w-4" /> Leave group
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleLeave}
+              onClick={handleDelete}
               className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
-              <LogOut className="h-4 w-4" /> Leave group
+              <Trash2 className="h-4 w-4" /> Delete chat
             </button>
           )}
         </div>
@@ -195,6 +214,18 @@ function ConversationListItemInner({ conversation }: { conversation: Conversatio
         icon={confirm?.icon}
         onConfirm={() => confirm?.onConfirm()}
         onClose={() => setConfirm(null)}
+      />
+
+      <DeleteChatDialog
+        open={deleteOpen}
+        name={conversation.name ?? 'this chat'}
+        onDeleteForEveryone={() =>
+          deleteChat.mutate({ conversationId: conversation.id, forEveryone: true })
+        }
+        onDeleteForMe={() =>
+          deleteChat.mutate({ conversationId: conversation.id, forEveryone: false })
+        }
+        onClose={() => setDeleteOpen(false)}
       />
     </div>
   );

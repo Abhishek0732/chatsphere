@@ -2,14 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   clearConversation,
+  deleteConversation,
   getCommonGroups,
   getConversations,
   getOrCreateDirect,
   markConversationRead,
 } from '@/api/conversations';
 import { queryKeys } from '@/api/queryKeys';
-import { clearConversationMessages, clearUnread } from '@/services/messageCache';
+import { clearConversationMessages, clearUnread, removeConversation } from '@/services/messageCache';
 import { useDecryptedPreviews } from '@/hooks/useDecrypted';
+import { useChatStore } from '@/store/chatStore';
+import { toast } from '@/store/toastStore';
 import type { ConversationSummary } from '@/types';
 
 export function useConversations() {
@@ -75,5 +78,29 @@ export function useClearChat() {
     onSuccess: (_data, conversationId) => {
       clearConversationMessages(conversationId);
     },
+  });
+}
+
+/**
+ * Delete a conversation from the list. "Delete for me" hides it only for the
+ * caller (it comes back on a new message); "delete for everyone" removes it from
+ * the other participant's list too. Removes the row optimistically and, if the
+ * deleted chat is the one open, navigates home.
+ */
+export function useDeleteChat() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: ({ conversationId, forEveryone }: { conversationId: number; forEveryone: boolean }) =>
+      deleteConversation(conversationId, forEveryone),
+    onSuccess: (_data, { conversationId }) => {
+      removeConversation(conversationId);
+      void qc.invalidateQueries({ queryKey: queryKeys.conversations });
+      if (useChatStore.getState().activeConversationId === conversationId) {
+        navigate('/');
+      }
+    },
+    onError: () => toast({ title: 'Could not delete chat', variant: 'error' }),
   });
 }

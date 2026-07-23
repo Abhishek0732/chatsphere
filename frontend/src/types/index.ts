@@ -332,6 +332,10 @@ export interface MessageDeletedEvent {
   messageId: number;
 }
 
+export interface ConversationDeletedEvent {
+  conversationId: number;
+}
+
 export interface TypingEvent {
   conversationId: number;
   userId: number;

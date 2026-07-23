@@ -121,6 +121,14 @@ export function clearConversationMessages(conversationId: number): void {
   );
 }
 
+/** Drop a conversation from the list entirely ("delete chat") and forget its messages. */
+export function removeConversation(conversationId: number): void {
+  queryClient.setQueryData<ConversationSummary[]>(queryKeys.conversations, (prev) =>
+    (prev ?? []).filter((c) => c.id !== conversationId),
+  );
+  queryClient.removeQueries({ queryKey: queryKeys.messages(conversationId) });
+}
+
 /** Reset unread count for a conversation (after opening / read). */
 export function clearUnread(conversationId: number): void {
   queryClient.setQueryData<ConversationSummary[]>(queryKeys.conversations, (prev) =>

@@ -86,6 +86,25 @@ public class ChatController {
     }
 
     /**
+     * Delete a whole conversation from the caller's chat list. forEveryone=true
+     * also removes it from every other member's list (and pushes them a removal
+     * event); the default (false) is "delete for me". No message rows are deleted
+     * — see {@link ChatService#deleteConversationForUser}.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       @RequestParam(name = "forEveryone", defaultValue = "false") boolean forEveryone) {
+        Long me = SecurityUtils.currentUserId();
+        // Snapshot members BEFORE the delete so we can still notify them.
+        List<Long> members = forEveryone ? chatService.memberUserIds(id) : List.of();
+        chatService.deleteConversationForUser(me, id, forEveryone);
+        if (forEveryone) {
+            broadcaster.sendConversationDeleted(new ConversationDeletedEvent(id), members);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Set (or clear, with a null/0 ttl) the disappearing-messages timer for a
      * conversation. Any member may change it; everyone is told over STOMP.
      */

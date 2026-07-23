@@ -327,6 +327,50 @@ public class ChatService {
         memberRepository.save(member);
     }
 
+    /**
+     * "Delete chat": removes a conversation from a member's list (not just its
+     * messages, the way {@link #clearConversationForUser} does). A hidden marker
+     * is set at the current last message, so the chat resurfaces only if a newer
+     * message arrives.
+     *
+     * <p>forEveryone applies the same hide to EVERY member, so the other person's
+     * copy disappears too (the controller then broadcasts a removal event). "Delete
+     * for me" (forEveryone=false) touches only the caller's row. No message rows are
+     * deleted either way — hiding via per-member floors is O(members), avoids the
+     * cost and FK/object-store fallout of a mass row delete, and lets the chat come
+     * back cleanly on a new message.
+     */
+    @Transactional
+    public void deleteConversationForUser(Long userId, Long conversationId, boolean forEveryone) {
+        List<ConversationMember> members = memberRepository.findByConversationId(conversationId);
+        ConversationMember me = members.stream()
+                .filter(m -> Objects.equals(m.getUserId(), userId))
+                .findFirst()
+                .orElseThrow(() -> ApiException.forbidden("You are not a member of this conversation"));
+
+        // Hide floor = the conversation's newest message. A later message climbs
+        // past it and the chat reappears; this exact id is what the list query
+        // compares against (Conversation.lastMessageId).
+        Long lastId = conversationRepository.findById(conversationId)
+                .map(Conversation::getLastMessageId).orElse(null);
+        if (lastId == null) {
+            Message last = messageRepository.findTopByConversationIdAndDeletedFalseOrderByIdDesc(conversationId);
+            lastId = last == null ? 0L : last.getId();
+        }
+        long floor = lastId;
+
+        List<ConversationMember> targets = forEveryone ? members : List.of(me);
+        for (ConversationMember m : targets) {
+            m.setHiddenUpToMessageId(floor);
+            m.setClearedUpToMessageId(floor);
+            if (m.getLastReadMessageId() == null || floor > m.getLastReadMessageId()) {
+                m.setLastReadMessageId(floor);
+            }
+            m.setUnreadCount(0);
+        }
+        memberRepository.saveAll(targets);
+    }
+
     @Transactional(readOnly = true)
     public ConversationSummaryDto toSummary(Conversation c, Long viewerId) {
         List<ConversationMember> members = memberRepository.findByConversationId(c.getId());
