@@ -26,7 +26,9 @@ import { useImageViewer } from '@/store/imageViewerStore';
 import { useMediaRevealStore } from '@/store/mediaRevealStore';
 import { MediaDownloadTile } from './MediaDownloadTile';
 import { socketService } from '@/services/socket';
-import { markMessageDeleted } from '@/services/messageCache';
+import { markMessageDeleted, removeMessageLocally } from '@/services/messageCache';
+import { hideMessage } from '@/api/conversations';
+import { DeleteMessageDialog } from '@/components/ui/DeleteMessageDialog';
 import { toast } from '@/store/toastStore';
 import { downloadFile } from '@/utils/download';
 import { copyText } from '@/utils/clipboard';
@@ -107,6 +109,7 @@ function MessageBubbleInner({
   const mediaRevealed = useMediaRevealStore((s) => Boolean(s.revealed[message.id]));
   const gateMedia = !mine && message.id > 0 && !mediaRevealed;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   // Full emoji picker for reactions (opened from the "+" on the quick reaction bar).
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -159,7 +162,7 @@ function MessageBubbleInner({
     (canEdit ? 1 : 0) +
     (hasAttachment ? 1 : 0) +
     (canShowInfo ? 1 : 0) +
-    (mine ? 1 : 0);
+    1; // Delete — available on every message (for-everyone if mine, else for-me)
 
   // Position the menu next to the trigger, clamped to stay fully on screen.
   const openMenu = () => {
@@ -248,9 +251,24 @@ function MessageBubbleInner({
   };
 
   const handleDelete = () => {
-    markMessageDeleted(message.conversationId, message.id); // optimistic
-    socketService.deleteMessage(message.conversationId, message.id);
     setMenuOpen(false);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteForEveryone = () => {
+    markMessageDeleted(message.conversationId, message.id); // optimistic tombstone
+    socketService.deleteMessage(message.conversationId, message.id);
+  };
+
+  const handleDeleteForMe = () => {
+    removeMessageLocally(message.conversationId, message.id); // optimistic remove
+    // An unsent optimistic message has no server row to hide — the local remove
+    // is the whole job.
+    if (sent) {
+      void hideMessage(message.conversationId, message.id).catch(() =>
+        toast({ title: 'Could not delete message', variant: 'error' }),
+      );
+    }
   };
 
   const handleReact = (emoji: string) => {
@@ -776,20 +794,26 @@ function MessageBubbleInner({
                 <Info className="h-4 w-4" /> Message info
               </button>
             )}
-            {mine && (
-              <button
-                onClick={handleDelete}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-error transition hover:bg-error/10"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
+            <button
+              onClick={handleDelete}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-error transition hover:bg-error/10"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
                 </div>
               </>
             )}
           </div>,
           document.body,
         )}
+
+      <DeleteMessageDialog
+        open={deleteOpen}
+        canDeleteForEveryone={mine && sent && !message.deleted}
+        onDeleteForEveryone={handleDeleteForEveryone}
+        onDeleteForMe={handleDeleteForMe}
+        onClose={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

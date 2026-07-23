@@ -97,6 +97,14 @@ export async function deleteConversation(
   await api.delete(`/conversations/${conversationId}`, { params: { forEveryone } });
 }
 
+/**
+ * "Delete for me" a single message — hides it from my view only (the other
+ * person keeps it). "Delete for everyone" goes over the socket instead.
+ */
+export async function hideMessage(conversationId: number, messageId: number): Promise<void> {
+  await api.delete(`/conversations/${conversationId}/messages/${messageId}`);
+}
+
 /** Set (ttlSeconds) or clear (null) the disappearing-messages timer. */
 export async function setDisappearing(
   conversationId: number,

@@ -42,6 +42,7 @@ public class ChatService {
     private final PresenceService presenceService;
     private final BlockService blockService;
     private final MessageReactionRepository reactionRepository;
+    private final com.chatsphere.chat.repo.HiddenMessageRepository hiddenMessageRepository;
     private final com.chatsphere.common.cache.HotPathCache cache;
     private final PostSendWork postSend;
     private final com.chatsphere.media.MediaService mediaService;
@@ -56,6 +57,7 @@ public class ChatService {
                        PresenceService presenceService,
                        BlockService blockService,
                        MessageReactionRepository reactionRepository,
+                       com.chatsphere.chat.repo.HiddenMessageRepository hiddenMessageRepository,
                        com.chatsphere.common.cache.HotPathCache cache,
                        PostSendWork postSend,
                        com.chatsphere.media.MediaService mediaService,
@@ -76,6 +78,7 @@ public class ChatService {
         this.presenceService = presenceService;
         this.blockService = blockService;
         this.reactionRepository = reactionRepository;
+        this.hiddenMessageRepository = hiddenMessageRepository;
     }
 
     /**
@@ -219,6 +222,12 @@ public class ChatService {
         List<BlockService.BlockWindow> windows = blockService.blockWindows(userId);
         Set<Long> blockedIds = windows.isEmpty() ? Set.of() : blockService.blockedUserIds(userId);
 
+        // Last messages the viewer has "deleted for me" — never preview those.
+        // One batched lookup over the per-conversation last ids.
+        Set<Long> hiddenLast = latestByConv.isEmpty() ? Set.of()
+                : new HashSet<>(hiddenMessageRepository.hiddenIdsAmong(userId,
+                        latestByConv.values().stream().map(Message::getId).toList()));
+
         // Visible last message per conversation (respect this viewer's clear floor).
         List<Message> visibleLast = new ArrayList<>();
         for (Conversation c : conversations) {
@@ -226,6 +235,7 @@ public class ChatService {
             long clearedFloor = vm == null || vm.getClearedUpToMessageId() == null
                     ? 0L : vm.getClearedUpToMessageId();
             Message last = latestByConv.get(c.getId());
+            if (last != null && hiddenLast.contains(last.getId())) last = null;
             if (last != null && !windows.isEmpty()
                     && BlockService.isHidden(windows, last.getSenderId(), last.getCreatedAt())) {
                 // Only this conversation's preview is affected — find the newest
@@ -465,6 +475,15 @@ public class ChatService {
                     .filter(m -> !BlockService.isHidden(windows, m.getSenderId(), m.getCreatedAt()))
                     .toList();
         }
+        // Drop messages this user "deleted for me". One indexed lookup over just the
+        // page's ids, and only when the page isn't empty.
+        if (!page.isEmpty()) {
+            Set<Long> hidden = new HashSet<>(hiddenMessageRepository.hiddenIdsAmong(
+                    userId, page.stream().map(Message::getId).toList()));
+            if (!hidden.isEmpty()) {
+                page = page.stream().filter(m -> !hidden.contains(m.getId())).toList();
+            }
+        }
         Map<Long, User> senders = loadSenders(page);
 
         // Highest message id that some OTHER member has read, subject to reciprocal
@@ -624,6 +643,24 @@ public class ChatService {
         });
         memberRepository.incrementUnread(conversationId, senderId);
         return saved;
+    }
+
+    /**
+     * "Delete for me" a single message: hide it from this user's view only. Works
+     * on anyone's message (unlike delete-for-everyone, which is sender-only) and
+     * leaves it untouched for every other member. Idempotent.
+     */
+    @Transactional
+    public void hideMessageForUser(Long userId, Long messageId) {
+        Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        assertMember(m.getConversationId(), userId);
+        if (!hiddenMessageRepository.existsByUserIdAndMessageId(userId, messageId)) {
+            com.chatsphere.chat.domain.HiddenMessage h = new com.chatsphere.chat.domain.HiddenMessage();
+            h.setUserId(userId);
+            h.setMessageId(messageId);
+            hiddenMessageRepository.save(h);
+        }
     }
 
     /** Soft-deletes a message. Only the original sender may delete it. */

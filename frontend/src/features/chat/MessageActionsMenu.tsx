@@ -5,7 +5,10 @@ import { cn } from '@/utils/cn';
 import { fileNameFromUrl } from '@/utils/format';
 import { useChatStore } from '@/store/chatStore';
 import { socketService } from '@/services/socket';
-import { markMessageDeleted } from '@/services/messageCache';
+import { markMessageDeleted, removeMessageLocally } from '@/services/messageCache';
+import { hideMessage } from '@/api/conversations';
+import { DeleteMessageDialog } from '@/components/ui/DeleteMessageDialog';
+import { toast } from '@/store/toastStore';
 import { downloadFile } from '@/utils/download';
 import type { Message, ReplyPreview } from '@/types';
 
@@ -40,6 +43,8 @@ export function MessageActionsMenu({
 }) {
   const setReplyTo = useChatStore((s) => s.setReplyTo);
   const [open, setOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const sent = message.id > 0;
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -123,9 +128,22 @@ export function MessageActionsMenu({
   };
 
   const handleDelete = () => {
+    setOpen(false);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteForEveryone = () => {
     markMessageDeleted(message.conversationId, message.id);
     socketService.deleteMessage(message.conversationId, message.id);
-    setOpen(false);
+  };
+
+  const handleDeleteForMe = () => {
+    removeMessageLocally(message.conversationId, message.id);
+    if (sent) {
+      void hideMessage(message.conversationId, message.id).catch(() =>
+        toast({ title: 'Could not delete message', variant: 'error' }),
+      );
+    }
   };
 
   const handleReact = (emoji: string) => {
@@ -196,18 +214,24 @@ export function MessageActionsMenu({
               >
                 <Download className="h-4 w-4" /> Download
               </button>
-              {mine && (
-                <button
-                  onClick={handleDelete}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-error transition hover:bg-error/10"
-                >
-                  <Trash2 className="h-4 w-4" /> Delete
-                </button>
-              )}
+              <button
+                onClick={handleDelete}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-error transition hover:bg-error/10"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
             </div>
           </div>,
           document.body,
         )}
+
+      <DeleteMessageDialog
+        open={deleteOpen}
+        canDeleteForEveryone={mine && sent && !message.deleted}
+        onDeleteForEveryone={handleDeleteForEveryone}
+        onDeleteForMe={handleDeleteForMe}
+        onClose={() => setDeleteOpen(false)}
+      />
     </>
   );
 }

@@ -79,6 +79,17 @@ public class ChatController {
         return chatService.messageInfo(SecurityUtils.currentUserId(), id, messageId);
     }
 
+    /**
+     * "Delete for me" a single message — hide it from the caller's view only. The
+     * counterpart's copy is untouched, so there's nothing to broadcast (unlike the
+     * sender-only "delete for everyone", which runs over STOMP as chat.delete).
+     */
+    @DeleteMapping("/{id}/messages/{messageId}")
+    public ResponseEntity<Void> hideMessage(@PathVariable Long id, @PathVariable Long messageId) {
+        chatService.hideMessageForUser(SecurityUtils.currentUserId(), messageId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}/messages")
     public ResponseEntity<Void> clear(@PathVariable Long id) {
         chatService.clearConversationForUser(SecurityUtils.currentUserId(), id);

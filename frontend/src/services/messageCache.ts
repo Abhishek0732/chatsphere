@@ -72,6 +72,25 @@ export function markMessageDeleted(conversationId: number, messageId: number): v
   );
 }
 
+/**
+ * "Delete for me": remove a message from the thread entirely (not a tombstone —
+ * it just vanishes for this user). If it was the conversation's list preview,
+ * fall back to the newest remaining cached message so the sidebar stays in sync.
+ */
+export function removeMessageLocally(conversationId: number, messageId: number): void {
+  queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) =>
+    (prev ?? []).filter((m) => m.id !== messageId),
+  );
+  const remaining = queryClient.getQueryData<Message[]>(queryKeys.messages(conversationId));
+  queryClient.setQueryData<ConversationSummary[]>(queryKeys.conversations, (prev) =>
+    (prev ?? []).map((c) => {
+      if (c.id !== conversationId || c.lastMessage?.id !== messageId) return c;
+      const newest = remaining && remaining.length ? remaining[remaining.length - 1] : null;
+      return { ...c, lastMessage: newest };
+    }),
+  );
+}
+
 /** Update statuses of messages up to and including `messageId` for a conversation. */
 export function applyReadReceipt(conversationId: number, messageId: number): void {
   queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) => {
